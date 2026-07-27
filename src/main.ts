@@ -1,6 +1,29 @@
 import { createCity } from './scene/city'
-import { makeBuilding } from './scene/builders'
+import type { Scenario } from './scenarios/types'
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
-city.scene.add(makeBuilding(4, 8, 4, 0x3fb950, 'MainActivity'))
-city.start(() => {})
+const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
+const panelEl = document.querySelector<HTMLDivElement>('#panel')!
+
+const scenarios: Scenario[] = [] // populated in later tasks
+let active: Scenario | null = null
+
+function activate(s: Scenario): void {
+  if (active) {
+    city.scene.remove(active.group)
+    active.reset()
+  }
+  active = s
+  city.scene.add(s.group)
+  panelEl.replaceChildren(s.panel)
+}
+
+for (const s of scenarios) {
+  const b = document.createElement('button')
+  b.textContent = s.name
+  b.addEventListener('click', () => activate(s))
+  switcherEl.appendChild(b)
+}
+if (scenarios.length > 0) activate(scenarios[0])
+
+city.start((dtMs) => active?.update(dtMs))
