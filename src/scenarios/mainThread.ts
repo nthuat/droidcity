@@ -6,6 +6,7 @@ import type { Scenario } from './types'
 
 const CAR_SPACING = 1.6
 const ROAD_START_Z = 3
+const DEFAULT_NARRATION = 'Every touch, draw and callback is a car on this single road. Post work and watch it flow.'
 
 export function makeMainThreadScenario(): Scenario {
   const group = new THREE.Group()
@@ -43,7 +44,7 @@ export function makeMainThreadScenario(): Scenario {
     for (let i = 0; i < 10; i++) state = post(state, 'tap', 4)
   })
   panel.addButton('Block main thread (8s)', () => { state = post(state, 'diskReadOnMain', 8000) })
-  panel.setNarration('Every touch, draw and callback is a car on this single road. Post work and watch it flow.')
+  panel.setNarration(DEFAULT_NARRATION)
 
   function syncCars(): void {
     const wanted = new Set<number>()
@@ -65,6 +66,8 @@ export function makeMainThreadScenario(): Scenario {
     })
     for (const [id, car] of carPool) {
       if (!wanted.has(id)) {
+        car.geometry.dispose()
+        ;(car.material as THREE.Material).dispose()
         cars.remove(car)
         carPool.delete(id)
       }
@@ -86,6 +89,8 @@ export function makeMainThreadScenario(): Scenario {
         panel.setNarration('ANR! One message has held the road for 5+ seconds. The system offers the user "Wait or Close". Fix: move this work off the main thread.')
       } else if (state.queue.length > 3) {
         panel.setNarration(`Traffic jam: ${state.queue.length} messages waiting. Frames rendered late = jank.`)
+      } else {
+        panel.setNarration(DEFAULT_NARRATION)
       }
     },
     reset() {
