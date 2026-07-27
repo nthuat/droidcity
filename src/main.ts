@@ -1,11 +1,29 @@
 import * as THREE from 'three'
 import { createCity } from './scene/city'
+import { createPacketSystem } from './scene/packet'
+import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
 import { makeMainThreadScenario } from './scenarios/mainThread'
 import { makeLifecycleScenario } from './scenarios/lifecycle'
 import { makeTouchPipelineScenario } from './scenarios/touchPipeline'
 import { makeZygoteScenario } from './scenarios/zygote'
 import { makeGcScenario } from './scenarios/gc'
+
+export const ANCHORS: Record<string, THREE.Vector3> = {
+  boot: new THREE.Vector3(-90, 0, 20),
+  zygote: new THREE.Vector3(-55, 0, -45),
+  cityhall: new THREE.Vector3(0, 0, -60),
+  surfaceflinger: new THREE.Vector3(55, 0, -45),
+  network: new THREE.Vector3(90, 0, 20),
+  launcher: new THREE.Vector3(0, 0, 85),
+}
+
+export const PLOT_ANCHORS: THREE.Vector3[] = [
+  new THREE.Vector3(-22, 0, -5),
+  new THREE.Vector3(22, 0, -5),
+  new THREE.Vector3(-22, 0, 35),
+  new THREE.Vector3(22, 0, 35),
+]
 
 const DISTRICT_OFFSETS: THREE.Vector3[] = [
   new THREE.Vector3(-60, 0, 0), // mainThread
@@ -15,13 +33,16 @@ const DISTRICT_OFFSETS: THREE.Vector3[] = [
   new THREE.Vector3(30, 0, 60), // gc
 ]
 
-const OVERVIEW_POS = new THREE.Vector3(0, 85, 110)
-const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 30)
+const OVERVIEW_POS = new THREE.Vector3(0, 115, 155)
+const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 10)
 const TWEEN_MS = 600
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
 const panelEl = document.querySelector<HTMLDivElement>('#panel')!
+
+const bus = createBus()
+const packets = createPacketSystem(city.scene)
 
 const scenarios: Scenario[] = [
   makeMainThreadScenario(),
@@ -128,6 +149,7 @@ city.start((dtMs) => {
       OVERVIEW_TARGET.z + driftRadius * Math.cos(driftAngle),
     )
   }
+  packets.update(dtMs)
   for (const s of scenarios) s.update(dtMs)
 })
 
