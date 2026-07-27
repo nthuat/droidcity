@@ -1,11 +1,12 @@
 import { createCity } from './scene/city'
 import type { Scenario } from './scenarios/types'
+import { makeMainThreadScenario } from './scenarios/mainThread'
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
 const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
-const scenarios: Scenario[] = [] // populated in later tasks
+const scenarios: Scenario[] = [makeMainThreadScenario()]
 let active: Scenario | null = null
 
 function activate(s: Scenario): void {
