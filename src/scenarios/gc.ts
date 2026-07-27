@@ -38,6 +38,7 @@ export function makeGcScenario(): Scenario {
   group.add(meter)
 
   const crates = new Map<number, THREE.Mesh>()
+  const slots = new Map<number, number>() // objectId -> stable slot index
 
   function disposeCrate(crate: THREE.Mesh): void {
     crate.geometry.dispose()
@@ -48,18 +49,24 @@ export function makeGcScenario(): Scenario {
     return new THREE.Vector3((i % GRID) * 2 - 5, 0.8, Math.floor(i / GRID) * 2 - 5)
   }
 
+  function claimSlot(id: number): number {
+    const used = new Set(slots.values())
+    let i = 0
+    while (used.has(i)) i++
+    slots.set(id, i)
+    return i
+  }
+
   const panel = makePanel('GC = cleanup crew sweeping the heap floor')
 
   function tryAllocate(sizeKb: number, times = 1): void {
     try {
       for (let t = 0; t < times; t++) {
-        const before = state.gcCount
         const result = allocate(state, sizeKb)
         state = result.state
         if (result.gcRan) {
           sweepX = -7
           panel.setNarration(`Allocation didn't fit — GC #${state.gcCount} ran first, freed ${state.lastFreedKb}KB. On old Android this paused ALL threads; ART keeps pauses sub-ms.`)
-          void before
         }
       }
     } catch {
@@ -84,7 +91,7 @@ export function makeGcScenario(): Scenario {
     update(dtMs) {
       // sync crates
       const ids = new Set(state.objects.map(o => o.id))
-      state.objects.forEach((o, i) => {
+      state.objects.forEach((o) => {
         let crate = crates.get(o.id)
         if (!crate) {
           crate = new THREE.Mesh(
@@ -93,8 +100,9 @@ export function makeGcScenario(): Scenario {
           )
           crates.set(o.id, crate)
           group.add(crate)
+          claimSlot(o.id)
         }
-        crate.position.copy(slot(i))
+        crate.position.copy(slot(slots.get(o.id)!))
         const mat = crate.material as THREE.MeshStandardMaterial
         mat.color.setHex(o.reachable ? 0x3fb950 : 0x6e7681)
         mat.opacity = o.reachable ? 1 : 0.4
@@ -106,6 +114,7 @@ export function makeGcScenario(): Scenario {
             group.remove(crate)
             disposeCrate(crate)
             crates.delete(id)
+            slots.delete(id)
           }
         }
       }
@@ -130,6 +139,7 @@ export function makeGcScenario(): Scenario {
         disposeCrate(c)
       }
       crates.clear()
+      slots.clear()
       state = createHeap(CAPACITY_KB)
       sweepX = null
       sweep.visible = false
