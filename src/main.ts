@@ -233,6 +233,7 @@ const storyCtx: StoryCtx = {
   launcher: { clickKiosk: launcherPlaza.clickKiosk, resetApps: launcherPlaza.resetApps },
   wards: wardManager,
   setCityDim,
+  killApp: foundry.killApp,
 }
 
 interface StoryMenuItem {
@@ -287,6 +288,10 @@ function mkStoryButton(label: string, onClick: () => void): HTMLButtonElement {
 let playAllMode = false
 let playAllQueue: Chapter[] = []
 let playAllIdx = 0
+// Tracks "a story is on screen" independent of player.playing — the player goes
+// idle (playing=false) as soon as the last step's wait resolves, but the card
+// stays up showing "Chapter done"; ✕ and Esc must both be able to dismiss it.
+let storyActive = false
 
 const restartBtn = mkStoryButton('⏮', () => player.restartChapter())
 const playPauseBtn = mkStoryButton('⏸', () => {
@@ -311,6 +316,7 @@ storyCardEl.append(storyTitleEl, storyNarrationEl, storyProgressEl, storyControl
 function stopStory(): void {
   player.stop()
   playAllMode = false
+  storyActive = false
   launcherPlaza.setIdle(true)
   storyCardEl.classList.remove('open')
   panelEl.style.display = ''
@@ -318,6 +324,7 @@ function stopStory(): void {
 }
 
 function startStory(chapter: Chapter): void {
+  storyActive = true
   launcherPlaza.setIdle(false)
   panelEl.style.display = 'none'
   storyCardEl.classList.add('open')
@@ -345,7 +352,7 @@ const player = createPlayer(bus, {
 })
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && player.playing) stopStory()
+  if (e.key === 'Escape' && storyActive) stopStory()
 })
 
 const storyBarEl = document.querySelector<HTMLDivElement>('#story-bar')!

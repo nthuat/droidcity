@@ -7,4 +7,5 @@ export interface StoryCtx {
   launcher: { clickKiosk(app: string): void; resetApps(): void }
   wards: WardManager
   setCityDim(dim: boolean): void
+  killApp(app: string): void
 }

@@ -10,9 +10,10 @@ const IDLE_DEMOTE_MS = 10000
 const STAMP_MS = 400
 const DEFAULT_NARRATION = 'Zygote forks every app process from a pre-warmed template — this is why app launch is fast. (Wards are the per-app buildings; this district is the factory only.)'
 
-export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void } {
+export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void; killApp(app: string): void } {
   const group = new THREE.Group()
   let state: SystemState = createSystem(CAPACITY_MB)
+  let pendingLaunches: string[] = []
 
   const factory = makeBuilding(8, 5, 6, 0x484f58, 'Zygote Foundry')
   group.add(factory)
@@ -55,7 +56,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void } 
   })
   panel.setNarration(DEFAULT_NARRATION)
 
-  bus.on('app:launchRequested', ({ app }) => {
+  // Forking one hop per frame (instead of synchronously in the event handler) keeps
+  // the launchRequested→forked→resumed chain from resolving inside a single call
+  // stack — the story player needs a frame between each event to arm its next wait.
+  function processFork(app: string): void {
     const preForkProcs = state.procs // for pid→name lookup of anything LMK kills below
     const prevKilled = state.killedPids
     state = fork(state, app, 'foreground', 300)
@@ -72,7 +76,17 @@ export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void } 
       if (proc) bus.emit('process:killed', { app: proc.name, pid })
     }
     panel.setNarration(procTable())
-  })
+  }
+
+  bus.on('app:launchRequested', ({ app }) => { pendingLaunches.push(app) })
+
+  function killApp(app: string): void {
+    const proc = state.procs.find(p => p.name === app)
+    if (!proc) return
+    state = { ...state, procs: state.procs.filter(p => p.pid !== proc.pid) }
+    bus.emit('process:killed', { app, pid: proc.pid })
+    panel.setNarration(procTable())
+  }
 
   let idleEnabled = true
   let idleT = 0
@@ -84,6 +98,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void } 
     cameraPos: new THREE.Vector3(10, 9, 14),
     cameraTarget: new THREE.Vector3(0, 2, 0),
     update(dtMs) {
+      if (pendingLaunches.length > 0) {
+        const app = pendingLaunches.shift()!
+        processFork(app)
+      }
       if (idleEnabled) {
         idleT += dtMs
         if (idleT >= IDLE_DEMOTE_MS) {
@@ -107,6 +125,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void } 
     },
     reset() {
       state = createSystem(CAPACITY_MB)
+      pendingLaunches = []
       idleT = 0
       stampT = 0
       panel.setNarration(DEFAULT_NARRATION)
@@ -116,5 +135,6 @@ export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void } 
       idleT = 0
     },
     demoteAll,
+    killApp,
   }
 }

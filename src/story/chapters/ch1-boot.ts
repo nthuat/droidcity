@@ -10,7 +10,7 @@ export function makeCh1(ctx: StoryCtx): Chapter {
         narration: 'This is Android as a city. Every running app will be a walled ward with its own streets. Right now the power is off.',
         focus: 'overview',
         fire: () => { ctx.setCityDim(true); ctx.bootRow.replayBoot() },
-        waitFor: { ms: 1500 },
+        waitFor: { ms: 700 },
       },
       {
         narration: 'The bootloader wakes first — a tiny program with one job: load the kernel.',

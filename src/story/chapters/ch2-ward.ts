@@ -5,8 +5,13 @@ export function makeCh2(ctx: StoryCtx): Chapter {
   return {
     id: 'ch2',
     title: 'A Ward Is Born',
-    setup: () => { ctx.setCityDim(false); ctx.launcher.resetApps() },
+    setup: () => { ctx.setCityDim(false); ctx.launcher.resetApps(); ctx.killApp('chat') },
     steps: [
+      {
+        narration: "First the system clears a plot — if chat was already running, its ward is torn down. Processes are disposable; that's the design.",
+        focus: 'launcher',
+        waitFor: { ms: 2000 },
+      },
       {
         narration: "You tap chat. The launcher doesn't start apps — it files a request with the system.",
         focus: 'launcher',

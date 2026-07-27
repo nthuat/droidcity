@@ -68,6 +68,7 @@ interface WardEntry {
   db: DbState
   frame: FrameRun | null
   dying: boolean
+  resumed: boolean
   riseMs: number
   demolishMs: number
   demolishStartScale: number
@@ -148,6 +149,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       db: createDb(),
       frame: null,
       dying: false,
+      resumed: false,
       riseMs: 0,
       demolishMs: 0,
       demolishStartScale: 1,
@@ -170,10 +172,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       panel: null,
     }
     wards.set(app, entry)
-
-    entry.activity = launch(entry.activity)
-    bus.emit('activity:resumed', { app })
-    packets.fly([plotAnchors[result.plot], anchors.cityhall, anchors.launcher], { color: 0xbc8cff })
+    // activity:resumed (+ Binder packet) fires later, when the rise animation
+    // completes (see updateWard) — not synchronously here. Firing it immediately
+    // let a whole story chapter's event chain (launchRequested→forked→resumed→…)
+    // resolve inside one call stack, outrunning the story player's wait-arming.
   }
 
   function onKilled({ app }: { app: string; pid: number }): void {
@@ -287,7 +289,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       return
     }
 
-    if (!entry.dataRequested) {
+    if (entry.resumed && !entry.dataRequested) {
       entry.resumedMs += dtMs
       if (entry.resumedMs >= DATA_REQUEST_MS) {
         entry.dataRequested = true
@@ -347,6 +349,16 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.sweepMs = Math.max(0, entry.sweepMs - dtMs)
     entry.anrFlashT += dtMs
     updateGroupScale(entry, dtMs)
+
+    // Activity resumes (onCreate/onStart/onResume + Binder packet) once the rise
+    // animation finishes — not synchronously on fork — so floors light while the
+    // narration reads, and the data-request timer above only starts from here.
+    if (!entry.resumed && entry.riseMs >= RISE_MS) {
+      entry.resumed = true
+      entry.activity = launch(entry.activity)
+      bus.emit('activity:resumed', { app })
+      packets.fly([plotAnchors[entry.plot], anchors.cityhall, anchors.launcher], { color: 0xbc8cff })
+    }
 
     if (entry.panel) entry.panel.setNarration(narrationFor(entry))
 
