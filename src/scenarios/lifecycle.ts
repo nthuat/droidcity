@@ -82,6 +82,7 @@ export function makeLifecycleScenario(): Scenario {
           idleStep = (idleStep + 1) % IDLE_STEPS.length
         }
       }
+      if (state.log.length > 20) state = { ...state, log: state.log.slice(-20) }
       if (rebuildAnim > 0) {
         rebuildAnim = Math.max(0, rebuildAnim - dtMs)
         // 1200→600ms: collapse to 0; 600→0ms: rebuild to 1

@@ -83,6 +83,7 @@ overviewBtn.textContent = 'Overview'
 overviewBtn.addEventListener('click', () => {
   setActiveButton(overviewBtn)
   inOverview = true
+  driftAngle = Math.atan2(OVERVIEW_POS.x - OVERVIEW_TARGET.x, OVERVIEW_POS.z - OVERVIEW_TARGET.z)
   for (const sc of scenarios) sc.setIdle(true)
   panelEl.replaceChildren(overviewPanel())
   flyTo(OVERVIEW_POS, OVERVIEW_TARGET)
@@ -109,7 +110,9 @@ city.controls.target.copy(OVERVIEW_TARGET)
 const driftRadius = Math.hypot(OVERVIEW_POS.x - OVERVIEW_TARGET.x, OVERVIEW_POS.z - OVERVIEW_TARGET.z)
 let driftAngle = Math.atan2(OVERVIEW_POS.x - OVERVIEW_TARGET.x, OVERVIEW_POS.z - OVERVIEW_TARGET.z)
 let driftStopped = false
-city.renderer.domElement.addEventListener('pointerdown', () => { driftStopped = true }, { once: true })
+const stopDrift = (): void => { driftStopped = true }
+city.renderer.domElement.addEventListener('pointerdown', stopDrift, { once: true })
+city.renderer.domElement.addEventListener('wheel', stopDrift, { once: true })
 
 city.start((dtMs) => {
   if (tweenT < TWEEN_MS) {

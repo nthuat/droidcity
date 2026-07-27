@@ -62,11 +62,15 @@ export function makeTouchPipelineScenario(): Scenario {
     cameraTarget: new THREE.Vector3(2, 3, 0),
     update(dtMs) {
       if (idleEnabled) {
-        idleT += dtMs
-        if (idleT >= 2500 && (!run || run.done)) {
+        if (!run || run.done) {
+          idleT += dtMs
+          if (idleT >= 4000) {
+            idleT = 0
+            idleFrameCount++
+            run = idleFrameCount % 4 === 0 ? startFrame(withHeavyDraw(DEFAULT_STAGES, 20)) : startFrame()
+          }
+        } else {
           idleT = 0
-          idleFrameCount++
-          run = idleFrameCount % 4 === 0 ? startFrame(withHeavyDraw(DEFAULT_STAGES, 20)) : startFrame()
         }
       }
       const screenMat = screen.material as THREE.MeshStandardMaterial

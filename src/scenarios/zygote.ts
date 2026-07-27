@@ -90,6 +90,7 @@ export function makeZygoteScenario(): Scenario {
           idleAlternate = idleAlternate === 0 ? 1 : 0
         }
       }
+      if (state.killedPids.length > 20) state = { ...state, killedPids: state.killedPids.slice(-20) }
       // spawn/update buildings from state
       state.procs.forEach((p, i) => {
         let b = buildings.get(p.pid)

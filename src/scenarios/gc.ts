@@ -103,7 +103,7 @@ export function makeGcScenario(): Scenario {
           tryAllocate(100, 1, true)
         }
         idleReleaseT += dtMs
-        if (idleReleaseT >= 5000) {
+        if (idleReleaseT >= 3500) {
           idleReleaseT = 0
           state = releaseOldest(state, 3)
         }

@@ -98,6 +98,7 @@ export function makeMainThreadScenario(): Scenario {
         }
       }
       state = advance(state, dtMs)
+      if (state.processedIds.length > 50) state = { ...state, processedIds: state.processedIds.slice(-50) }
       syncCars()
       flashT += dtMs
       const mat = anrOverlay.material as THREE.MeshBasicMaterial
