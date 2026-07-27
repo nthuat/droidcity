@@ -1,0 +1,142 @@
+import * as THREE from 'three'
+import type { WardMeshes } from '../scene/ward'
+import type { LooperState } from '../sim/looper'
+import type { Phase } from '../sim/lifecycle'
+import type { HeapState } from '../sim/heap'
+import { makeCar } from '../scene/builders'
+
+// Ported at mini scale from the retired v1 scenarios (mainThread/lifecycle/gc).
+export const SHED_FLASH_MS = 400
+export const SCREEN_FLASH_MS = 400
+
+const LIT = 0x3fb950
+const DIM = 0x21262d
+const CAR_SCALE = 0.3
+const CAR_SPACING = 0.9
+const GRID = 4
+const CRATE_SPACING = 1.4
+
+function litCount(phase: Phase): number {
+  switch (phase) {
+    case 'resumed': return 3
+    case 'started': case 'paused': return 2
+    case 'created': case 'stopped': return 1
+    default: return 0
+  }
+}
+
+export function syncCars(meshes: WardMeshes, looper: LooperState, carPool: Map<number, THREE.Mesh>): void {
+  const items = looper.current ? [looper.current.msg, ...looper.queue] : [...looper.queue]
+  const wanted = new Set<number>()
+  items.forEach((msg, i) => {
+    wanted.add(msg.id)
+    let car = carPool.get(msg.id)
+    if (!car) {
+      car = makeCar(msg.costMs >= 1000 ? 0xf85149 : 0xd29922)
+      car.scale.setScalar(CAR_SCALE)
+      carPool.set(msg.id, car)
+      meshes.carsParent.add(car)
+    }
+    const isCurrent = looper.current?.msg.id === msg.id
+    const progress = isCurrent ? looper.current!.elapsedMs / msg.costMs : 0
+    car.position.z = 4 - i * CAR_SPACING - (isCurrent ? progress * 0.6 : 0)
+    car.position.y = 0.1
+  })
+  for (const [id, car] of carPool) {
+    if (!wanted.has(id)) {
+      car.geometry.dispose()
+      ;(car.material as THREE.Material).dispose()
+      meshes.carsParent.remove(car)
+      carPool.delete(id)
+    }
+  }
+}
+
+export function syncFloors(meshes: WardMeshes, phase: Phase): void {
+  const lit = litCount(phase)
+  meshes.floors.forEach((floor, i) => {
+    const mat = floor.material as THREE.MeshStandardMaterial
+    const on = i < lit
+    mat.color.setHex(on ? LIT : DIM)
+    mat.emissive.setHex(on ? LIT : 0x000000)
+    mat.emissiveIntensity = on ? 0.35 : 0
+  })
+}
+
+function crateSlotPosition(i: number): THREE.Vector3 {
+  return new THREE.Vector3((i % GRID) * CRATE_SPACING - 2.1, 0.4, Math.floor(i / GRID) * CRATE_SPACING - 2.1)
+}
+
+function claimSlot(slots: Map<number, number>, id: number): number {
+  const used = new Set(slots.values())
+  let i = 0
+  while (used.has(i)) i++
+  slots.set(id, i)
+  return i
+}
+
+export function syncCrates(
+  meshes: WardMeshes,
+  heap: HeapState,
+  cratePool: Map<number, THREE.Mesh>,
+  slots: Map<number, number>,
+): void {
+  const ids = new Set(heap.objects.map(o => o.id))
+  for (const obj of heap.objects) {
+    let crate = cratePool.get(obj.id)
+    if (!crate) {
+      const geo = new THREE.BoxGeometry(0.9, 0.9, 0.9)
+      const mat = new THREE.MeshStandardMaterial({ color: 0x3fb950, transparent: true })
+      crate = new THREE.Mesh(geo, mat)
+      cratePool.set(obj.id, crate)
+      meshes.cratesParent.add(crate)
+      claimSlot(slots, obj.id)
+    }
+    crate.position.copy(crateSlotPosition(slots.get(obj.id)!))
+    const mat = crate.material as THREE.MeshStandardMaterial
+    mat.color.setHex(obj.reachable ? 0x3fb950 : 0x6e7681)
+    mat.opacity = obj.reachable ? 1 : 0.4
+  }
+  for (const [id, crate] of cratePool) {
+    if (!ids.has(id)) {
+      crate.geometry.dispose()
+      ;(crate.material as THREE.Material).dispose()
+      meshes.cratesParent.remove(crate)
+      cratePool.delete(id)
+      slots.delete(id)
+    }
+  }
+}
+
+export interface FlashState {
+  meshes: WardMeshes
+  shedFlashMs: number
+  screenFlashMs: number
+  sweepMs: number
+  sweepMesh: THREE.Mesh | null
+}
+
+export function syncFlashes(state: FlashState, anrOn: boolean, anrFlashT: number): void {
+  const shedMat = state.meshes.shedGlow.material as THREE.MeshStandardMaterial
+  shedMat.emissiveIntensity = state.shedFlashMs > 0 ? state.shedFlashMs / SHED_FLASH_MS : 0
+
+  const screenMat = state.meshes.screenPanel.material as THREE.MeshStandardMaterial
+  screenMat.emissiveIntensity = state.screenFlashMs > 0 ? state.screenFlashMs / SCREEN_FLASH_MS : 0
+
+  const anrMat = state.meshes.anrOverlay.material as THREE.MeshBasicMaterial
+  anrMat.opacity = anrOn ? 0.25 + 0.2 * Math.sin(anrFlashT / 120) : 0
+
+  if (state.sweepMs > 0) {
+    if (!state.sweepMesh) {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15, 1.2, 3),
+        new THREE.MeshBasicMaterial({ color: 0xdb6d28, transparent: true, opacity: 0.6 }),
+      )
+      state.meshes.cratesParent.add(mesh)
+      state.sweepMesh = mesh
+    }
+    state.sweepMesh.visible = true
+  } else if (state.sweepMesh) {
+    state.sweepMesh.visible = false
+  }
+}
