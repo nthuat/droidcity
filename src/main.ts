@@ -3,12 +3,18 @@ import type { Scenario } from './scenarios/types'
 import { makeMainThreadScenario } from './scenarios/mainThread'
 import { makeLifecycleScenario } from './scenarios/lifecycle'
 import { makeTouchPipelineScenario } from './scenarios/touchPipeline'
+import { makeZygoteScenario } from './scenarios/zygote'
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
 const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
-const scenarios: Scenario[] = [makeMainThreadScenario(), makeLifecycleScenario(), makeTouchPipelineScenario()]
+const scenarios: Scenario[] = [
+  makeMainThreadScenario(),
+  makeLifecycleScenario(),
+  makeTouchPipelineScenario(),
+  makeZygoteScenario(),
+]
 let active: Scenario | null = null
 
 function activate(s: Scenario): void {
