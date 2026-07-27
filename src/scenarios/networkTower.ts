@@ -8,7 +8,11 @@ import type { Scenario } from './types'
 const MAX_QUEUE = 3
 const DEFAULT_NARRATION = 'Every network call walks dns → connect → tls → ttfb → download. A failure triggers a retry with backoff.'
 
-interface QueueEntry { readonly req: NetRequest; readonly app: string }
+// lastPhaseIndex seeds at -2 ("not started") so the very first tick's currentIndex (0, dns)
+// reads as a change — NetRequest itself starts at currentIndex 0, so diffing against the raw
+// req would miss dns's own emission. -1 is already taken (retrying's "no phase" index).
+const NOT_STARTED = -2
+interface QueueEntry { readonly req: NetRequest; readonly app: string; readonly lastPhaseIndex: number }
 
 // Small dynamic-text sprite — the shared makeLabel() bakes text once, but the tower-top
 // readout needs to change every phase transition, so this keeps its own canvas/texture.
@@ -66,7 +70,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario {
     counter += 1
     const failAt = forceFailNext || counter % 3 === 0 ? 'ttfb' : undefined
     forceFailNext = false
-    queue = [...queue, { req: startRequest(failAt ? { failAt } : undefined), app }]
+    queue = [...queue, { req: startRequest(failAt ? { failAt } : undefined), app, lastPhaseIndex: NOT_STARTED }]
   }
 
   bus.on('data:requested', ({ app, source }) => {
@@ -93,11 +97,10 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario {
       if (queue.length > 0) {
         const head = queue[0]
         const next = advanceRequest(head.req, dtMs)
-        const phaseChanged =
-          next.currentIndex !== head.req.currentIndex ||
-          next.attempt !== head.req.attempt ||
-          next.retrying !== head.req.retrying
-        queue = [{ ...head, req: next }, ...queue.slice(1)]
+        // next.currentIndex is -1 both while retrying and once done — comparing against the
+        // sentinel-seeded lastPhaseIndex (not the raw previous req) is what catches dns's entry.
+        const phaseChanged = next.currentIndex !== head.lastPhaseIndex
+        queue = [{ req: next, app: head.app, lastPhaseIndex: next.currentIndex }, ...queue.slice(1)]
         if (phaseChanged) {
           const phase = next.retrying ? 'retry' : next.currentIndex >= 0 ? NET_PHASES[next.currentIndex].name : null
           if (phase) {
