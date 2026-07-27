@@ -8,6 +8,7 @@ import { makeLifecycleScenario } from './scenarios/lifecycle'
 import { makeTouchPipelineScenario } from './scenarios/touchPipeline'
 import { makeZygoteScenario } from './scenarios/zygote'
 import { makeGcScenario } from './scenarios/gc'
+import { buildWardMeshes } from './scene/ward'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(-90, 0, 20),
@@ -56,6 +57,13 @@ scenarios.forEach((s, i) => {
   s.group.position.copy(DISTRICT_OFFSETS[i])
   city.scene.add(s.group)
 })
+
+// Ward mesh smoke check, gated behind a debug hash. Left in for Task 13 cleanup.
+if (location.hash === '#wardtest') {
+  const w = buildWardMeshes('chat')
+  w.group.position.copy(PLOT_ANCHORS[0])
+  city.scene.add(w.group)
+}
 
 // Camera fly-to tween state (position + orbit target, eased over TWEEN_MS).
 let tweenFromPos = city.camera.position.clone()
