@@ -8,6 +8,9 @@ import { makeLifecycleScenario } from './scenarios/lifecycle'
 import { makeTouchPipelineScenario } from './scenarios/touchPipeline'
 import { makeZygoteScenario } from './scenarios/zygote'
 import { makeGcScenario } from './scenarios/gc'
+import { makeBootRowScenario } from './scenarios/bootRow'
+import { makeFoundryScenario } from './scenarios/foundry'
+import { makeCityHallScenario } from './scenarios/cityHall'
 import { buildWardMeshes } from './scene/ward'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
@@ -32,6 +35,9 @@ const DISTRICT_OFFSETS: THREE.Vector3[] = [
   new THREE.Vector3(60, 0, 0), // touchPipeline
   new THREE.Vector3(-30, 0, 60), // zygote
   new THREE.Vector3(30, 0, 60), // gc
+  ANCHORS.boot, // bootRow
+  ANCHORS.zygote, // foundry
+  ANCHORS.cityhall, // cityHall
 ]
 
 const OVERVIEW_POS = new THREE.Vector3(0, 115, 155)
@@ -45,12 +51,30 @@ const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 const bus = createBus()
 const packets = createPacketSystem(city.scene)
 
+// Hides every district except Boot Row while a boot replay is in progress, then restores
+// them on boot:complete. Ward groups aren't in `scenarios` yet — wards added in cutover
+// (WardManager isn't wired into main.ts until Task 11).
+function setCityDim(dim: boolean): void {
+  for (const s of scenarios) {
+    if (s === bootRow) continue
+    s.group.visible = !dim
+  }
+}
+
+const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
+const foundry = makeFoundryScenario(bus)
+const cityHall = makeCityHallScenario(bus)
+bus.on('boot:complete', () => setCityDim(false))
+
 const scenarios: Scenario[] = [
   makeMainThreadScenario(),
   makeLifecycleScenario(),
   makeTouchPipelineScenario(),
   makeZygoteScenario(),
   makeGcScenario(),
+  bootRow,
+  foundry,
+  cityHall,
 ]
 
 scenarios.forEach((s, i) => {
