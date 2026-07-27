@@ -30,6 +30,15 @@ describe('lifecycle', () => {
     expect(s.viewModelValue).toBeNull()
   })
 
+  it('finish from stopped fires only onDestroy', () => {
+    let s = launch(createActivity())
+    s = background(s)
+    s = finish(s)
+    expect(s.phase).toBe('destroyed')
+    expect(s.log.slice(3)).toEqual(['onPause', 'onStop', 'onDestroy'])
+    expect(s.viewModelValue).toBeNull()
+  })
+
   it('background/foreground stop and restart without recreation', () => {
     let s = launch(createActivity())
     s = background(s)

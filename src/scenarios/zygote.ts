@@ -9,6 +9,7 @@ const PRIORITY_COLOR: Record<Priority, number> = {
 }
 const APP_NAMES = ['chat', 'maps', 'camera', 'music', 'mail', 'bank', 'browser']
 const CAPACITY_MB = 1500
+const DEFAULT_NARRATION = 'Zygote is a pre-warmed process factory: every app is forked from it, sharing framework memory.'
 
 export function makeZygoteScenario(): Scenario {
   const group = new THREE.Group()
@@ -60,7 +61,7 @@ export function makeZygoteScenario(): Scenario {
     )
   })
   panel.addButton('Launch big game (600MB)', () => { state = fork(state, 'game', 'foreground', 600) })
-  panel.setNarration('Zygote is a pre-warmed process factory: every app is forked from it, sharing framework memory.')
+  panel.setNarration(DEFAULT_NARRATION)
 
   return {
     name: 'Zygote & LMK',
@@ -112,6 +113,7 @@ export function makeZygoteScenario(): Scenario {
       dying.clear()
       state = createSystem(CAPACITY_MB)
       appIndex = 0
+      panel.setNarration(DEFAULT_NARRATION)
     },
   }
 }

@@ -7,6 +7,7 @@ import type { Scenario } from './types'
 
 const SLOWDOWN = 200 // 1 sim-ms rendered over 200 real-ms
 const STATION_GAP = 4
+const DEFAULT_NARRATION = 'Tap. The touch packet must pass every station before the deadline, or the frame drops.'
 
 export function makeTouchPipelineScenario(): Scenario {
   const group = new THREE.Group()
@@ -47,7 +48,7 @@ export function makeTouchPipelineScenario(): Scenario {
   const panel = makePanel('One frame = an assembly line with a 16.67ms deadline')
   panel.addButton('Tap (normal frame)', () => { run = startFrame() })
   panel.addButton('Tap (heavy draw 20ms)', () => { run = startFrame(withHeavyDraw(DEFAULT_STAGES, 20)) })
-  panel.setNarration('Tap. The touch packet must pass every station before the deadline, or the frame drops.')
+  panel.setNarration(DEFAULT_NARRATION)
 
   let resultFlash = 0
   return {
@@ -102,6 +103,7 @@ export function makeTouchPipelineScenario(): Scenario {
       packet.visible = false
       budgetBar.visible = false
       resultFlash = 0
+      panel.setNarration(DEFAULT_NARRATION)
     },
   }
 }

@@ -6,6 +6,7 @@ import type { Scenario } from './types'
 
 const CAPACITY_KB = 2000
 const GRID = 6 // 6x6 crate slots
+const DEFAULT_NARRATION = 'Crates = objects. Green = reachable. Grey = garbage (unreachable) — still occupying memory until GC sweeps.'
 
 export function makeGcScenario(): Scenario {
   const group = new THREE.Group()
@@ -82,7 +83,7 @@ export function makeGcScenario(): Scenario {
     sweepX = -7
     panel.setNarration(`GC #${state.gcCount} freed ${state.lastFreedKb}KB.`)
   })
-  panel.setNarration('Crates = objects. Green = reachable. Grey = garbage (unreachable) — still occupying memory until GC sweeps.')
+  panel.setNarration(DEFAULT_NARRATION)
 
   return {
     name: 'Garbage Collector',
@@ -145,6 +146,7 @@ export function makeGcScenario(): Scenario {
       state = createHeap(CAPACITY_KB)
       sweepX = null
       sweep.visible = false
+      panel.setNarration(DEFAULT_NARRATION)
     },
   }
 }

@@ -31,9 +31,16 @@ export function rotate(s: ActivityState): ActivityState {
   return launch(down) // viewModelValue non-null → preserved
 }
 
+const FINISH_CALLBACKS: Partial<Record<Phase, string[]>> = {
+  resumed: ['onPause', 'onStop', 'onDestroy'],
+  paused: ['onStop', 'onDestroy'],
+  stopped: ['onDestroy'],
+}
+
 export function finish(s: ActivityState): ActivityState {
-  if (s.phase === 'destroyed') return s
-  const down = fire(s, ['onPause', 'onStop', 'onDestroy'], 'destroyed')
+  const callbacks = FINISH_CALLBACKS[s.phase]
+  if (!callbacks) return s
+  const down = fire(s, callbacks, 'destroyed')
   return { ...down, viewModelValue: null }
 }
 

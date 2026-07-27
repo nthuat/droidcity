@@ -7,6 +7,7 @@ import type { Scenario } from './types'
 const FLOOR_NAMES = ['onCreate', 'onStart', 'onResume'] as const
 const LIT = 0x3fb950
 const DIM = 0x21262d
+const DEFAULT_NARRATION = 'Launch the activity. Each lifecycle callback lights a floor.'
 
 export function makeLifecycleScenario(): Scenario {
   const group = new THREE.Group()
@@ -49,7 +50,7 @@ export function makeLifecycleScenario(): Scenario {
   panel.addButton('Home', () => { state = background(state) })
   panel.addButton('Return', () => { state = foreground(state) })
   panel.addButton('Finish', () => { state = finish(state) })
-  panel.setNarration('Launch the activity. Each lifecycle callback lights a floor.')
+  panel.setNarration(DEFAULT_NARRATION)
 
   function litCount(): number {
     switch (state.phase) {
@@ -91,6 +92,7 @@ export function makeLifecycleScenario(): Scenario {
     reset() {
       state = createActivity()
       rebuildAnim = 0
+      panel.setNarration(DEFAULT_NARRATION)
     },
   }
 }
