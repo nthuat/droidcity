@@ -16,6 +16,19 @@ const CAR_SPACING = 0.9
 const GRID = 4
 const CRATE_SPACING = 1.4
 
+export function disposeMesh(mesh: THREE.Mesh): void {
+  mesh.geometry.dispose()
+  ;(mesh.material as THREE.Material).dispose()
+}
+
+export function clearPool(parent: { remove(o: THREE.Object3D): void }, pool: Map<number, THREE.Mesh>): void {
+  for (const mesh of pool.values()) {
+    parent.remove(mesh)
+    disposeMesh(mesh)
+  }
+  pool.clear()
+}
+
 function litCount(phase: Phase): number {
   switch (phase) {
     case 'resumed': return 3
@@ -44,8 +57,7 @@ export function syncCars(meshes: WardMeshes, looper: LooperState, carPool: Map<n
   })
   for (const [id, car] of carPool) {
     if (!wanted.has(id)) {
-      car.geometry.dispose()
-      ;(car.material as THREE.Material).dispose()
+      disposeMesh(car)
       meshes.carsParent.remove(car)
       carPool.delete(id)
     }
@@ -99,8 +111,7 @@ export function syncCrates(
   }
   for (const [id, crate] of cratePool) {
     if (!ids.has(id)) {
-      crate.geometry.dispose()
-      ;(crate.material as THREE.Material).dispose()
+      disposeMesh(crate)
       meshes.cratesParent.remove(crate)
       cratePool.delete(id)
       slots.delete(id)

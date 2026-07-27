@@ -9,7 +9,7 @@ import { createDb, query, insert, DB_QUERY_MS, type DbState } from '../sim/roomD
 import { createPlots, allocatePlot, releasePlot } from '../sim/wardPlots'
 import { DEFAULT_STAGES, startFrame, advanceFrame, type FrameRun } from '../sim/framePipeline'
 import { makePanel, type Panel } from '../ui/panel'
-import { syncCars, syncFloors, syncCrates, syncFlashes, SHED_FLASH_MS, SCREEN_FLASH_MS } from './visualSync'
+import { syncCars, syncFloors, syncCrates, syncFlashes, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS } from './visualSync'
 
 export interface WardHandles {
   readonly app: string
@@ -70,6 +70,7 @@ interface WardEntry {
   dying: boolean
   riseMs: number
   demolishMs: number
+  demolishStartScale: number
   resumedMs: number
   dataRequested: boolean
   dbQueryMs: number
@@ -128,7 +129,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   function onForked({ app, pid }: { app: string; pid: number }): void {
     const result = allocatePlot(plots, app)
-    if (result.plot === -1) return // duplicate app, or no free plot (LMK race) — skip
+    // duplicate app (incl. a re-fork landing while the old instance is still
+    // demolishing — its plot isn't released until demolition completes), or no
+    // free plot (LMK race) — dropped by design, no queueing/retry.
+    if (result.plot === -1) return
     plots = result.state
 
     const meshes = buildMeshes(app)
@@ -146,6 +150,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       dying: false,
       riseMs: 0,
       demolishMs: 0,
+      demolishStartScale: 1,
       resumedMs: 0,
       dataRequested: false,
       dbQueryMs: 0,
@@ -176,6 +181,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (!entry || entry.dying) return
     entry.dying = true
     entry.demolishMs = 0
+    entry.demolishStartScale = entry.meshes.group.scale.y
   }
 
   function onDataArrived(app: string, isFetched: boolean): void {
@@ -259,8 +265,20 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   function updateWard(app: string, entry: WardEntry, dtMs: number): void {
     if (entry.dying) {
       entry.demolishMs += dtMs
-      entry.meshes.group.scale.y = Math.max(0, 1 - entry.demolishMs / DEMOLISH_MS)
+      entry.meshes.group.scale.y = entry.demolishStartScale * Math.max(0, 1 - entry.demolishMs / DEMOLISH_MS)
       if (entry.demolishMs >= DEMOLISH_MS) {
+        // buildWardMeshes' dispose() only frees its own static disposables —
+        // cars/crates/sweep-plane are created dynamically by this manager and
+        // are almost always still alive at kill time (this branch returns
+        // above before syncCars/syncCrates can drain them), so dispose them here.
+        clearPool(entry.meshes.carsParent, entry.carPool)
+        clearPool(entry.meshes.cratesParent, entry.cratePool)
+        entry.crateSlots.clear()
+        if (entry.sweepMesh) {
+          entry.meshes.cratesParent.remove(entry.sweepMesh)
+          disposeMesh(entry.sweepMesh)
+          entry.sweepMesh = null
+        }
         entry.meshes.dispose()
         scene.remove(entry.meshes.group)
         plots = releasePlot(plots, app)

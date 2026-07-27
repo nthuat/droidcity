@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import * as THREE from 'three'
 import { createBus } from '../../src/core/bus'
 import { createWardManager } from '../../src/wards/manager'
 import type { WardMeshes } from '../../src/scene/ward'
@@ -76,5 +77,32 @@ describe('WardManager', () => {
 
     expect(posted).toHaveLength(1)
     expect(posted[0].app).toBe('chat')
+  })
+
+  it('disposes dynamically created car/crate/sweep meshes on demolition (no GPU leak)', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+
+    // 1 in-flight message → 1 car; 3 allocated heap objects → 3 crates.
+    deps.bus.emit('data:fetched', { app: 'chat', ms: 10 })
+    manager.update(1)
+    // Force a GC sweep so the sweep-plane mesh gets created too.
+    manager.forceGc('chat')
+    manager.update(1)
+
+    const geoDispose = vi.spyOn(THREE.BufferGeometry.prototype, 'dispose')
+    const matDispose = vi.spyOn(THREE.Material.prototype, 'dispose')
+
+    deps.bus.emit('process:killed', { app: 'chat', pid: 1 })
+    manager.update(700)
+
+    expect(manager.wards()).toHaveLength(0)
+    // 1 car + 3 crates + 1 sweep plane = 5 dynamically created meshes.
+    expect(geoDispose).toHaveBeenCalledTimes(5)
+    expect(matDispose).toHaveBeenCalledTimes(5)
+
+    geoDispose.mockRestore()
+    matDispose.mockRestore()
   })
 })
