@@ -3,18 +3,13 @@ import { createCity } from './scene/city'
 import { createPacketSystem } from './scene/packet'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
-import { makeMainThreadScenario } from './scenarios/mainThread'
-import { makeLifecycleScenario } from './scenarios/lifecycle'
-import { makeTouchPipelineScenario } from './scenarios/touchPipeline'
-import { makeZygoteScenario } from './scenarios/zygote'
-import { makeGcScenario } from './scenarios/gc'
 import { makeBootRowScenario } from './scenarios/bootRow'
 import { makeFoundryScenario } from './scenarios/foundry'
 import { makeCityHallScenario } from './scenarios/cityHall'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
 import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
-import { buildWardMeshes } from './scene/ward'
+import { createWardManager } from './wards/manager'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(-90, 0, 20),
@@ -32,12 +27,8 @@ export const PLOT_ANCHORS: THREE.Vector3[] = [
   new THREE.Vector3(22, 0, 35),
 ]
 
-const DISTRICT_OFFSETS: THREE.Vector3[] = [
-  new THREE.Vector3(-60, 0, 0), // mainThread
-  new THREE.Vector3(0, 0, 0), // lifecycle
-  new THREE.Vector3(60, 0, 0), // touchPipeline
-  new THREE.Vector3(-30, 0, 60), // zygote
-  new THREE.Vector3(30, 0, 60), // gc
+// One offset per entry in `scenarios` below, same order.
+const SCENARIO_OFFSETS: THREE.Vector3[] = [
   ANCHORS.boot, // bootRow
   ANCHORS.zygote, // foundry
   ANCHORS.cityhall, // cityHall
@@ -49,6 +40,8 @@ const DISTRICT_OFFSETS: THREE.Vector3[] = [
 const OVERVIEW_POS = new THREE.Vector3(0, 115, 155)
 const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 10)
 const TWEEN_MS = 600
+const WARD_CAMERA_OFFSET = new THREE.Vector3(10, 9, 12)
+const WARD_TARGET_OFFSET = new THREE.Vector3(0, 2, 0)
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
@@ -56,14 +49,20 @@ const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
 const bus = createBus()
 const packets = createPacketSystem(city.scene)
+// Constructed before any bus.on() below, so its process:forked handler (which spawns
+// the ward group synchronously) always runs before main.ts's own handlers.
+const wardManager = createWardManager({ bus, scene: city.scene, packets, anchors: ANCHORS, plotAnchors: PLOT_ANCHORS })
 
-// Hides every district except Boot Row while a boot replay is in progress, then restores
-// them on boot:complete. Ward groups aren't in `scenarios` yet — wards added in cutover
-// (WardManager isn't wired into main.ts until Task 11).
+// Hides every district (and every live ward) except Boot Row while a boot replay is in
+// progress, then restores them on boot:complete.
 function setCityDim(dim: boolean): void {
   for (const s of scenarios) {
     if (s === bootRow) continue
     s.group.visible = !dim
+  }
+  for (const w of wardManager.wards()) {
+    const g = wardManager.wardGroupFor(w.app)
+    if (g) g.visible = !dim
   }
 }
 
@@ -76,11 +75,6 @@ const surfaceFlinger = makeSurfaceFlingerScenario(bus)
 bus.on('boot:complete', () => setCityDim(false))
 
 const scenarios: Scenario[] = [
-  makeMainThreadScenario(),
-  makeLifecycleScenario(),
-  makeTouchPipelineScenario(),
-  makeZygoteScenario(),
-  makeGcScenario(),
   bootRow,
   foundry,
   cityHall,
@@ -90,16 +84,29 @@ const scenarios: Scenario[] = [
 ]
 
 scenarios.forEach((s, i) => {
-  s.group.position.copy(DISTRICT_OFFSETS[i])
+  s.group.position.copy(SCENARIO_OFFSETS[i])
   city.scene.add(s.group)
 })
 
-// Ward mesh smoke check, gated behind a debug hash. Left in for Task 13 cleanup.
-if (location.hash === '#wardtest') {
-  const w = buildWardMeshes('chat')
-  w.group.position.copy(PLOT_ANCHORS[0])
-  city.scene.add(w.group)
-}
+// Story-independent packet routing: activity:resumed (ward→cityhall→launcher) and
+// frame:submitted (ward→surfaceflinger) are already flown by WardManager itself —
+// not duplicated here.
+bus.on('app:launchRequested', () => {
+  packets.fly([ANCHORS.launcher, ANCHORS.zygote], { color: 0x3fb950 })
+})
+bus.on('process:forked', ({ app }) => {
+  const g = wardManager.wardGroupFor(app)
+  if (g) packets.fly([ANCHORS.zygote, g.position], { color: 0x3fb950 })
+})
+bus.on('data:requested', ({ app, source }) => {
+  if (source !== 'network') return
+  const g = wardManager.wardGroupFor(app)
+  if (g) packets.fly([g.position, ANCHORS.network], { color: 0xd29922 })
+})
+bus.on('data:fetched', ({ app }) => {
+  const g = wardManager.wardGroupFor(app)
+  if (g) packets.fly([ANCHORS.network, g.position], { color: 0xd29922 })
+})
 
 // Camera fly-to tween state (position + orbit target, eased over TWEEN_MS).
 let tweenFromPos = city.camera.position.clone()
@@ -140,7 +147,7 @@ function activate(s: Scenario, i: number): void {
   for (const sc of scenarios) sc.setIdle(true)
   s.setIdle(false)
   panelEl.replaceChildren(s.panel)
-  flyTo(DISTRICT_OFFSETS[i].clone().add(s.cameraPos), DISTRICT_OFFSETS[i].clone().add(s.cameraTarget))
+  flyTo(SCENARIO_OFFSETS[i].clone().add(s.cameraPos), SCENARIO_OFFSETS[i].clone().add(s.cameraTarget))
 }
 
 const overviewBtn = document.createElement('button')
@@ -179,7 +186,8 @@ const stopDrift = (): void => { driftStopped = true }
 city.renderer.domElement.addEventListener('pointerdown', stopDrift, { once: true })
 city.renderer.domElement.addEventListener('wheel', stopDrift, { once: true })
 
-// Kiosk picking: click a Launcher Plaza kiosk to launch its app. Coexists with stopDrift above.
+// Click picking: Launcher Plaza kiosks launch their app; ward buildings fly the
+// camera to their plot and show the ward's panel. Coexists with stopDrift above.
 const raycaster = new THREE.Raycaster()
 city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   const rect = city.renderer.domElement.getBoundingClientRect()
@@ -188,10 +196,23 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     -((ev.clientY - rect.top) / rect.height) * 2 + 1,
   )
   raycaster.setFromCamera(ndc, city.camera)
-  const hits = raycaster.intersectObjects(launcherPlaza.kioskMeshes(), false)
-  if (hits.length > 0) {
-    const app = hits[0].object.userData.app as string | undefined
+  const kioskHits = raycaster.intersectObjects(launcherPlaza.kioskMeshes(), false)
+  if (kioskHits.length > 0) {
+    const app = kioskHits[0].object.userData.app as string | undefined
     if (app) launcherPlaza.clickKiosk(app)
+    return
+  }
+  const hits = raycaster.intersectObjects(city.scene.children, true)
+  for (const hit of hits) {
+    const app = wardManager.wardAppFromObject(hit.object)
+    if (!app) continue
+    const g = wardManager.wardGroupFor(app)
+    if (g) {
+      flyTo(g.position.clone().add(WARD_CAMERA_OFFSET), g.position.clone().add(WARD_TARGET_OFFSET))
+      const panel = wardManager.panelFor(app)
+      if (panel) panelEl.replaceChildren(panel)
+    }
+    break
   }
 })
 
@@ -211,6 +232,7 @@ city.start((dtMs) => {
   }
   packets.update(dtMs)
   for (const s of scenarios) s.update(dtMs)
+  wardManager.update(dtMs)
 })
 
 document.querySelector('#intro-close')!.addEventListener('click', () => {
