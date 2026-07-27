@@ -4,6 +4,7 @@ import { makeMainThreadScenario } from './scenarios/mainThread'
 import { makeLifecycleScenario } from './scenarios/lifecycle'
 import { makeTouchPipelineScenario } from './scenarios/touchPipeline'
 import { makeZygoteScenario } from './scenarios/zygote'
+import { makeGcScenario } from './scenarios/gc'
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
@@ -14,6 +15,7 @@ const scenarios: Scenario[] = [
   makeLifecycleScenario(),
   makeTouchPipelineScenario(),
   makeZygoteScenario(),
+  makeGcScenario(),
 ]
 let active: Scenario | null = null
 
