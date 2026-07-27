@@ -27,6 +27,8 @@ function activate(s: Scenario): void {
   active = s
   city.scene.add(s.group)
   panelEl.replaceChildren(s.panel)
+  city.camera.position.copy(s.cameraPos)
+  city.controls.target.copy(s.cameraTarget)
 }
 
 for (const s of scenarios) {
@@ -38,3 +40,7 @@ for (const s of scenarios) {
 if (scenarios.length > 0) activate(scenarios[0])
 
 city.start((dtMs) => active?.update(dtMs))
+
+document.querySelector('#intro-close')!.addEventListener('click', () => {
+  document.querySelector<HTMLDivElement>('#intro')!.style.display = 'none'
+})

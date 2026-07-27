@@ -66,6 +66,8 @@ export function makeZygoteScenario(): Scenario {
     name: 'Zygote & LMK',
     group,
     panel: panel.root,
+    cameraPos: new THREE.Vector3(2, 18, 24),
+    cameraTarget: new THREE.Vector3(0, 2, 0),
     update(dtMs) {
       // spawn/update buildings from state
       state.procs.forEach((p, i) => {

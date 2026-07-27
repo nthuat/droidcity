@@ -88,6 +88,8 @@ export function makeGcScenario(): Scenario {
     name: 'Garbage Collector',
     group,
     panel: panel.root,
+    cameraPos: new THREE.Vector3(10, 12, 14),
+    cameraTarget: new THREE.Vector3(0, 1, 0),
     update(dtMs) {
       // sync crates
       const ids = new Set(state.objects.map(o => o.id))

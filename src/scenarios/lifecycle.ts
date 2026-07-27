@@ -64,6 +64,8 @@ export function makeLifecycleScenario(): Scenario {
     name: 'Lifecycle',
     group,
     panel: panel.root,
+    cameraPos: new THREE.Vector3(12, 8, 14),
+    cameraTarget: new THREE.Vector3(0, 4, 0),
     update(dtMs) {
       if (rebuildAnim > 0) {
         rebuildAnim = Math.max(0, rebuildAnim - dtMs)

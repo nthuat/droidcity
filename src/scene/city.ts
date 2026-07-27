@@ -5,6 +5,7 @@ export interface City {
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
   renderer: THREE.WebGLRenderer
+  controls: OrbitControls
   start(onFrame: (dtMs: number) => void): void
 }
 
@@ -55,5 +56,5 @@ export function createCity(container: HTMLElement): City {
     })
   }
 
-  return { scene, camera, renderer, start }
+  return { scene, camera, renderer, controls, start }
 }

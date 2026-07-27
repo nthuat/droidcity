@@ -79,6 +79,8 @@ export function makeMainThreadScenario(): Scenario {
     name: 'Main Thread',
     group,
     panel: panel.root,
+    cameraPos: new THREE.Vector3(14, 12, 26),
+    cameraTarget: new THREE.Vector3(0, 3, 8),
     update(dtMs) {
       state = advance(state, dtMs)
       syncCars()

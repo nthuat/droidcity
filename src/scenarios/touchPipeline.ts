@@ -54,6 +54,8 @@ export function makeTouchPipelineScenario(): Scenario {
     name: 'Touch → Pixel',
     group,
     panel: panel.root,
+    cameraPos: new THREE.Vector3(0, 14, 30),
+    cameraTarget: new THREE.Vector3(2, 3, 0),
     update(dtMs) {
       const screenMat = screen.material as THREE.MeshStandardMaterial
       if (run && !run.done) {
