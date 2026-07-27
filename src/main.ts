@@ -14,6 +14,8 @@ import { createPlayer, type Chapter } from './story/player'
 import type { StoryCtx } from './story/chapters/ctx'
 import { makeCh1 } from './story/chapters/ch1-boot'
 import { makeCh2 } from './story/chapters/ch2-ward'
+import { makeCh3 } from './story/chapters/ch3-data'
+import { makeCh4 } from './story/chapters/ch4-frame'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(-90, 0, 20),
@@ -244,8 +246,8 @@ interface StoryMenuItem {
 const storyMenuItems: StoryMenuItem[] = [
   { label: '1 · Power On', chapter: makeCh1(storyCtx) },
   { label: '2 · A Ward Is Born', chapter: makeCh2(storyCtx) },
-  { label: '3 · Getting Data', chapter: null }, // Task 14
-  { label: '4 · The 16ms Race', chapter: null }, // Task 14
+  { label: '3 · Getting Data', chapter: makeCh3(storyCtx) },
+  { label: '4 · The 16ms Race', chapter: makeCh4(storyCtx) },
 ]
 
 function focusCamera(focus: string): void {

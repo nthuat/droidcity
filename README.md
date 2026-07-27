@@ -2,13 +2,17 @@
 
 How an Android app runs, as an explorable 3D city. Inspired by [PGSimCity](https://nikolays.github.io/PGSimCity/).
 
-**Districts:** Main Thread (Looper traffic + ANR) · Activity Lifecycle (rotation rebuild, ViewModel roof) · Touch→Pixel (frame pipeline, 16.67ms deadline) · Zygote & LMK (process fork + eviction) · Garbage Collector (heap sweep).
+**Districts:** Boot Row (bootloader → kernel → init → system_server) · Zygote (foundry that forks new processes) · City Hall (ActivityManager/WindowManager/PackageManager) · Launcher Plaza (tap-to-launch kiosks) · Network Tower (DNS→connect→TLS→TTFB→download, retries with backoff) · SurfaceFlinger (compositor, one frame at a time).
+
+**Wards:** every running app is its own walled ward — a process with a main road (Looper + ANR watchdog), an Activity tower (lifecycle floors, rotation rebuild, ViewModel roof), a heap yard (allocations, GC sweeps), and a Room DB shed (cache hits). Wards rise when launched and are demolished on kill or eviction; the Zygote foundry stamps out the next one.
+
+**Story mode:** a guided tour through four chapters — Power On (boot sequence), A Ward Is Born (launch → fork → first frame), Getting Data (cache-then-network, stale-while-revalidate), The 16ms Race (frame pipeline + ANR). Play them individually from the Story menu or hit **Play all** to chain all four with narration.
 
 Early prototype — the model simplifies aggressively and surely contains inaccuracies. Issues/PRs welcome.
 
 ## Dev
 
     npm install
-    npm run dev    # local
-    npm test       # sim unit tests
-    npm run build  # static build in dist/
+    npm run dev     # local
+    npm test        # sim + story-player unit tests
+    npm run build   # typecheck + static build in dist/
