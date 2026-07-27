@@ -42,7 +42,7 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
     unsub: null as (() => void) | null,
   }
 
-  function isEventWait(w: any): w is { event: CityEventName } {
+  function isEventWait(w: Step['waitFor']): w is { event: CityEventName } {
     return 'event' in w
   }
 
@@ -51,6 +51,9 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
 
     const step = state.chapter.steps[state.index]
     cbs.onStep(step, state.index, state.chapter.steps.length, state.chapter.title)
+
+    // Clear pending flag at step entry to avoid stale events from before
+    state.pendingEventArrived = false
 
     // Arm wait subscription BEFORE firing
     if (isEventWait(step.waitFor)) {
@@ -88,69 +91,77 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
     }
   }
 
-  return {
-    play(ch: Chapter) {
-      state.chapter = ch
-      state.index = 0
-      state.waitElapsed = 0
-      state.paused = false
+  function play(ch: Chapter) {
+    state.chapter = ch
+    state.index = 0
+    state.waitElapsed = 0
+    state.paused = false
+    state.pendingEventArrived = false
+
+    ch.setup?.()
+    enterStep()
+  }
+
+  function pause() {
+    state.paused = true
+  }
+
+  function resume() {
+    if (!state.paused) return
+    state.paused = false
+
+    if (state.pendingEventArrived) {
       state.pendingEventArrived = false
-
-      ch.setup?.()
-      enterStep()
-    },
-
-    pause() {
-      state.paused = true
-    },
-
-    resume() {
-      if (!state.paused) return
-      state.paused = false
-
-      if (state.pendingEventArrived) {
-        state.pendingEventArrived = false
-        advance()
-      }
-    },
-
-    next() {
       advance()
-    },
+    }
+  }
 
-    restartChapter() {
-      if (state.chapter) {
-        const ch = state.chapter
-        this.stop()
-        this.play(ch)
-      }
-    },
+  function next() {
+    advance()
+  }
 
-    stop() {
-      if (state.unsub) {
-        state.unsub()
-        state.unsub = null
-      }
-      state.chapter = null
-    },
+  function restartChapter() {
+    if (state.chapter) {
+      const ch = state.chapter
+      stop()
+      play(ch)
+    }
+  }
 
-    setSpeed(x: 1 | 2) {
-      state.speed = x
-    },
+  function stop() {
+    if (state.unsub) {
+      state.unsub()
+      state.unsub = null
+    }
+    state.chapter = null
+  }
 
-    update(dtMs: number) {
-      if (!state.chapter || state.paused) return
+  function setSpeed(x: 1 | 2) {
+    state.speed = x
+  }
 
-      const step = state.chapter.steps[state.index]
-      if (isEventWait(step.waitFor)) return
+  function update(dtMs: number) {
+    if (!state.chapter || state.paused) return
 
-      state.waitElapsed += dtMs * state.speed
+    const step = state.chapter.steps[state.index]
+    if (isEventWait(step.waitFor)) return
 
-      if (state.waitElapsed >= step.waitFor.ms) {
-        advance()
-      }
-    },
+    state.waitElapsed += dtMs * state.speed
 
+    if (state.waitElapsed >= step.waitFor.ms) {
+      advance()
+    }
+  }
+
+  return {
+    play,
+    pause,
+    resume,
+    next,
+    restartChapter,
+    stop,
+    setSpeed,
+    update,
     get playing(): boolean {
       return state.chapter !== null
     },

@@ -80,4 +80,39 @@ describe('storyPlayer', () => {
     p.update(10000)
     expect(done).not.toHaveBeenCalled()
   })
+  it('restartChapter works when destructured (no this binding)', () => {
+    const bus = createBus()
+    const onStep = vi.fn()
+    const done = vi.fn()
+    const p = createPlayer(bus, { onStep, onChapterDone: done })
+    const ch = chapter([
+      { narration: 'a', focus: 'boot', waitFor: { event: 'boot:complete' } },
+    ])
+    p.play(ch)
+    const { restartChapter } = p
+    expect(() => restartChapter()).not.toThrow()
+    expect(onStep).toHaveBeenCalledTimes(2) // once in initial play, once in restart
+  })
+  it('pause → emit → next → resume: stale flag cleared, no phantom advance', () => {
+    const bus = createBus()
+    const onStep = vi.fn()
+    const done = vi.fn()
+    const p = createPlayer(bus, { onStep, onChapterDone: done })
+    p.play(chapter([
+      { narration: 'a', focus: 'boot', waitFor: { event: 'boot:stageDone' } },
+      { narration: 'b', focus: 'boot', waitFor: { event: 'boot:complete' } },
+      { narration: 'c', focus: 'boot', waitFor: { event: 'boot:done' } },
+    ]))
+    // Step 0 entered, subscribed to boot:stageDone
+    expect(onStep).toHaveBeenCalledTimes(1)
+    p.pause()
+    bus.emit('boot:stageDone', {}) // deferred due to pause
+    expect(onStep).toHaveBeenCalledTimes(1) // not advanced
+    p.next() // force advance to step 1
+    expect(onStep).toHaveBeenCalledTimes(2) // step 1 entered
+    p.resume() // should not advance past step 1 due to stale flag being cleared
+    expect(onStep).toHaveBeenCalledTimes(2) // still at step 1
+    bus.emit('boot:complete', {}) // now emit event for step 1
+    expect(onStep).toHaveBeenCalledTimes(3) // step 2 entered
+  })
 })
