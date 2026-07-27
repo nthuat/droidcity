@@ -60,18 +60,18 @@ export function makeGcScenario(): Scenario {
 
   const panel = makePanel('GC = cleanup crew sweeping the heap floor')
 
-  function tryAllocate(sizeKb: number, times = 1): void {
+  function tryAllocate(sizeKb: number, times = 1, silent = false): void {
     try {
       for (let t = 0; t < times; t++) {
         const result = allocate(state, sizeKb)
         state = result.state
         if (result.gcRan) {
           sweepX = -7
-          panel.setNarration(`Allocation didn't fit — GC #${state.gcCount} ran first, freed ${state.lastFreedKb}KB. On old Android this paused ALL threads; ART keeps pauses sub-ms.`)
+          if (!silent) panel.setNarration(`Allocation didn't fit — GC #${state.gcCount} ran first, freed ${state.lastFreedKb}KB. On old Android this paused ALL threads; ART keeps pauses sub-ms.`)
         }
       }
     } catch {
-      panel.setNarration('OutOfMemoryError! GC ran but everything is still reachable — nothing to free. This is a leak: references held to objects you no longer need.')
+      if (!silent) panel.setNarration('OutOfMemoryError! GC ran but everything is still reachable — nothing to free. This is a leak: references held to objects you no longer need.')
     }
   }
 
@@ -85,6 +85,10 @@ export function makeGcScenario(): Scenario {
   })
   panel.setNarration(DEFAULT_NARRATION)
 
+  let idleEnabled = true
+  let idleAllocT = 0
+  let idleReleaseT = 0
+
   return {
     name: 'Garbage Collector',
     group,
@@ -92,6 +96,18 @@ export function makeGcScenario(): Scenario {
     cameraPos: new THREE.Vector3(10, 12, 14),
     cameraTarget: new THREE.Vector3(0, 1, 0),
     update(dtMs) {
+      if (idleEnabled) {
+        idleAllocT += dtMs
+        if (idleAllocT >= 1200) {
+          idleAllocT = 0
+          tryAllocate(100, 1, true)
+        }
+        idleReleaseT += dtMs
+        if (idleReleaseT >= 5000) {
+          idleReleaseT = 0
+          state = releaseOldest(state, 3)
+        }
+      }
       // sync crates
       const ids = new Set(state.objects.map(o => o.id))
       state.objects.forEach((o) => {
@@ -146,7 +162,14 @@ export function makeGcScenario(): Scenario {
       state = createHeap(CAPACITY_KB)
       sweepX = null
       sweep.visible = false
+      idleAllocT = 0
+      idleReleaseT = 0
       panel.setNarration(DEFAULT_NARRATION)
+    },
+    setIdle(enabled) {
+      idleEnabled = enabled
+      idleAllocT = 0
+      idleReleaseT = 0
     },
   }
 }

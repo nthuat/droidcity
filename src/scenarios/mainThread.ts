@@ -75,6 +75,9 @@ export function makeMainThreadScenario(): Scenario {
   }
 
   let flashT = 0
+  let idleEnabled = true
+  let idleTapT = 0
+  let idleDecodeT = 0
   return {
     name: 'Main Thread',
     group,
@@ -82,11 +85,24 @@ export function makeMainThreadScenario(): Scenario {
     cameraPos: new THREE.Vector3(14, 12, 26),
     cameraTarget: new THREE.Vector3(0, 3, 8),
     update(dtMs) {
+      if (idleEnabled) {
+        idleTapT += dtMs
+        if (idleTapT >= 900) {
+          idleTapT = 0
+          state = post(state, 'tap', 4)
+        }
+        idleDecodeT += dtMs
+        if (idleDecodeT >= 6000) {
+          idleDecodeT = 0
+          state = post(state, 'imageDecode', 300)
+        }
+      }
       state = advance(state, dtMs)
       syncCars()
       flashT += dtMs
       const mat = anrOverlay.material as THREE.MeshBasicMaterial
       mat.opacity = state.anr ? 0.25 + 0.2 * Math.sin(flashT / 120) : 0
+      if (idleEnabled) return
       if (state.anr) {
         panel.setNarration('ANR! One message has held the road for 5+ seconds. The system offers the user "Wait or Close". Fix: move this work off the main thread.')
       } else if (state.queue.length > 3) {
@@ -98,6 +114,11 @@ export function makeMainThreadScenario(): Scenario {
     reset() {
       state = createLooper()
       syncCars()
+    },
+    setIdle(enabled) {
+      idleEnabled = enabled
+      idleTapT = 0
+      idleDecodeT = 0
     },
   }
 }

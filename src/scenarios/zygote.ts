@@ -63,6 +63,10 @@ export function makeZygoteScenario(): Scenario {
   panel.addButton('Launch big game (600MB)', () => { state = fork(state, 'game', 'foreground', 600) })
   panel.setNarration(DEFAULT_NARRATION)
 
+  let idleEnabled = true
+  let idleT = 0
+  let idleAlternate = 0 // 0: fork, 1: demote
+
   return {
     name: 'Zygote & LMK',
     group,
@@ -70,6 +74,22 @@ export function makeZygoteScenario(): Scenario {
     cameraPos: new THREE.Vector3(2, 18, 24),
     cameraTarget: new THREE.Vector3(0, 2, 0),
     update(dtMs) {
+      if (idleEnabled) {
+        idleT += dtMs
+        if (idleT >= 3000) {
+          idleT = 0
+          if (idleAlternate === 0) {
+            const name = APP_NAMES[appIndex++ % APP_NAMES.length]
+            state = fork(state, name, 'foreground', 300)
+          } else {
+            state = state.procs.reduce(
+              (acc, p) => (p.priority === 'foreground' ? setPriority(acc, p.pid, 'cached') : acc),
+              state,
+            )
+          }
+          idleAlternate = idleAlternate === 0 ? 1 : 0
+        }
+      }
       // spawn/update buildings from state
       state.procs.forEach((p, i) => {
         let b = buildings.get(p.pid)
@@ -96,7 +116,7 @@ export function makeZygoteScenario(): Scenario {
           disposeBuilding(b)
           group.remove(b)
           dying.delete(pid)
-          panel.setNarration('LMK killed a cached process to free memory. Its saved state lets it restore later — this is why onSaveInstanceState matters.')
+          if (!idleEnabled) panel.setNarration('LMK killed a cached process to free memory. Its saved state lets it restore later — this is why onSaveInstanceState matters.')
         }
       }
       const frac = usedMb(state) / CAPACITY_MB
@@ -113,7 +133,13 @@ export function makeZygoteScenario(): Scenario {
       dying.clear()
       state = createSystem(CAPACITY_MB)
       appIndex = 0
+      idleT = 0
+      idleAlternate = 0
       panel.setNarration(DEFAULT_NARRATION)
+    },
+    setIdle(enabled) {
+      idleEnabled = enabled
+      idleT = 0
     },
   }
 }

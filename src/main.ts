@@ -68,7 +68,12 @@ function setActiveButton(b: HTMLButtonElement): void {
   activeButton = b
 }
 
+let inOverview = true
+
 function activate(s: Scenario, i: number): void {
+  inOverview = false
+  for (const sc of scenarios) sc.setIdle(true)
+  s.setIdle(false)
   panelEl.replaceChildren(s.panel)
   flyTo(DISTRICT_OFFSETS[i].clone().add(s.cameraPos), DISTRICT_OFFSETS[i].clone().add(s.cameraTarget))
 }
@@ -77,6 +82,8 @@ const overviewBtn = document.createElement('button')
 overviewBtn.textContent = 'Overview'
 overviewBtn.addEventListener('click', () => {
   setActiveButton(overviewBtn)
+  inOverview = true
+  for (const sc of scenarios) sc.setIdle(true)
   panelEl.replaceChildren(overviewPanel())
   flyTo(OVERVIEW_POS, OVERVIEW_TARGET)
 })
@@ -98,12 +105,25 @@ panelEl.replaceChildren(overviewPanel())
 city.camera.position.copy(OVERVIEW_POS)
 city.controls.target.copy(OVERVIEW_TARGET)
 
+// Overview camera drift: slow orbit around OVERVIEW_TARGET, stopped for good on first click/drag.
+const driftRadius = Math.hypot(OVERVIEW_POS.x - OVERVIEW_TARGET.x, OVERVIEW_POS.z - OVERVIEW_TARGET.z)
+let driftAngle = Math.atan2(OVERVIEW_POS.x - OVERVIEW_TARGET.x, OVERVIEW_POS.z - OVERVIEW_TARGET.z)
+let driftStopped = false
+city.renderer.domElement.addEventListener('pointerdown', () => { driftStopped = true }, { once: true })
+
 city.start((dtMs) => {
   if (tweenT < TWEEN_MS) {
     tweenT = Math.min(tweenT + dtMs, TWEEN_MS)
     const t = smoothstep(tweenT / TWEEN_MS)
     city.camera.position.lerpVectors(tweenFromPos, tweenToPos, t)
     city.controls.target.lerpVectors(tweenFromTarget, tweenToTarget, t)
+  } else if (inOverview && !driftStopped) {
+    driftAngle += dtMs * 0.00005
+    city.camera.position.set(
+      OVERVIEW_TARGET.x + driftRadius * Math.sin(driftAngle),
+      OVERVIEW_POS.y,
+      OVERVIEW_TARGET.z + driftRadius * Math.cos(driftAngle),
+    )
   }
   for (const s of scenarios) s.update(dtMs)
 })

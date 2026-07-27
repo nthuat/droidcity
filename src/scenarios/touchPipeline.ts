@@ -51,6 +51,9 @@ export function makeTouchPipelineScenario(): Scenario {
   panel.setNarration(DEFAULT_NARRATION)
 
   let resultFlash = 0
+  let idleEnabled = true
+  let idleT = 0
+  let idleFrameCount = 0
   return {
     name: 'Touch → Pixel',
     group,
@@ -58,6 +61,14 @@ export function makeTouchPipelineScenario(): Scenario {
     cameraPos: new THREE.Vector3(0, 14, 30),
     cameraTarget: new THREE.Vector3(2, 3, 0),
     update(dtMs) {
+      if (idleEnabled) {
+        idleT += dtMs
+        if (idleT >= 2500 && (!run || run.done)) {
+          idleT = 0
+          idleFrameCount++
+          run = idleFrameCount % 4 === 0 ? startFrame(withHeavyDraw(DEFAULT_STAGES, 20)) : startFrame()
+        }
+      }
       const screenMat = screen.material as THREE.MeshStandardMaterial
       if (run && !run.done) {
         run = advanceFrame(run, dtMs / SLOWDOWN)
@@ -66,7 +77,7 @@ export function makeTouchPipelineScenario(): Scenario {
         if (i >= 0) {
           const x0 = (i - 3) * STATION_GAP
           packet.position.set(x0 + run.stageProgress * STATION_GAP * 0.8, 4, 0)
-          panel.setNarration(`${run.stages[i].name} · ${run.elapsedMs.toFixed(1)} / ${FRAME_BUDGET_MS} ms${run.dropped ? ' · WILL MISS DEADLINE' : ''}`)
+          if (!idleEnabled) panel.setNarration(`${run.stages[i].name} · ${run.elapsedMs.toFixed(1)} / ${FRAME_BUDGET_MS} ms${run.dropped ? ' · WILL MISS DEADLINE' : ''}`)
         }
         budgetBar.visible = true
         const frac = Math.min(run.elapsedMs / FRAME_BUDGET_MS, 1)
@@ -76,7 +87,7 @@ export function makeTouchPipelineScenario(): Scenario {
         )
         if (run.done) {
           resultFlash = 800
-          panel.setNarration(run.dropped
+          if (!idleEnabled) panel.setNarration(run.dropped
             ? `Frame took ${run.totalMs.toFixed(1)}ms — deadline missed, frame dropped. User sees jank.`
             : `Frame delivered in ${run.totalMs.toFixed(1)}ms — under budget. Smooth.`)
         }
@@ -103,7 +114,13 @@ export function makeTouchPipelineScenario(): Scenario {
       packet.visible = false
       budgetBar.visible = false
       resultFlash = 0
+      idleT = 0
+      idleFrameCount = 0
       panel.setNarration(DEFAULT_NARRATION)
+    },
+    setIdle(enabled) {
+      idleEnabled = enabled
+      idleT = 0
     },
   }
 }

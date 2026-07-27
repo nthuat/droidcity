@@ -61,6 +61,11 @@ export function makeLifecycleScenario(): Scenario {
     }
   }
 
+  let idleEnabled = true
+  let idleT = 0
+  let idleStep = 0
+  const IDLE_STEPS = [launch, rotate, background, foreground, finish]
+
   return {
     name: 'Lifecycle',
     group,
@@ -68,6 +73,15 @@ export function makeLifecycleScenario(): Scenario {
     cameraPos: new THREE.Vector3(12, 8, 14),
     cameraTarget: new THREE.Vector3(0, 4, 0),
     update(dtMs) {
+      if (idleEnabled) {
+        idleT += dtMs
+        if (idleT >= 3500) {
+          idleT = 0
+          if (IDLE_STEPS[idleStep] === rotate && state.phase === 'resumed') rebuildAnim = 1200
+          state = IDLE_STEPS[idleStep](state)
+          idleStep = (idleStep + 1) % IDLE_STEPS.length
+        }
+      }
       if (rebuildAnim > 0) {
         rebuildAnim = Math.max(0, rebuildAnim - dtMs)
         // 1200→600ms: collapse to 0; 600→0ms: rebuild to 1
@@ -86,13 +100,20 @@ export function makeLifecycleScenario(): Scenario {
       })
       viewModel.visible = state.viewModelValue !== null
       vmLabel.visible = viewModel.visible
+      if (idleEnabled) return
       const tail = state.log.slice(-6).join(' → ')
       if (tail) panel.setNarration(`instance #${state.instanceNumber} · ${tail}${state.viewModelValue ? ' · ViewModel survives on the roof' : ''}`)
     },
     reset() {
       state = createActivity()
       rebuildAnim = 0
+      idleT = 0
+      idleStep = 0
       panel.setNarration(DEFAULT_NARRATION)
+    },
+    setIdle(enabled) {
+      idleEnabled = enabled
+      idleT = 0
     },
   }
 }
