@@ -11,6 +11,9 @@ import { makeGcScenario } from './scenarios/gc'
 import { makeBootRowScenario } from './scenarios/bootRow'
 import { makeFoundryScenario } from './scenarios/foundry'
 import { makeCityHallScenario } from './scenarios/cityHall'
+import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
+import { makeNetworkTowerScenario } from './scenarios/networkTower'
+import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
 import { buildWardMeshes } from './scene/ward'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
@@ -38,6 +41,9 @@ const DISTRICT_OFFSETS: THREE.Vector3[] = [
   ANCHORS.boot, // bootRow
   ANCHORS.zygote, // foundry
   ANCHORS.cityhall, // cityHall
+  ANCHORS.launcher, // launcherPlaza
+  ANCHORS.network, // networkTower
+  ANCHORS.surfaceflinger, // surfaceFlinger
 ]
 
 const OVERVIEW_POS = new THREE.Vector3(0, 115, 155)
@@ -64,6 +70,9 @@ function setCityDim(dim: boolean): void {
 const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
 const foundry = makeFoundryScenario(bus)
 const cityHall = makeCityHallScenario(bus)
+const launcherPlaza = makeLauncherPlazaScenario(bus)
+const networkTower = makeNetworkTowerScenario(bus)
+const surfaceFlinger = makeSurfaceFlingerScenario(bus)
 bus.on('boot:complete', () => setCityDim(false))
 
 const scenarios: Scenario[] = [
@@ -75,6 +84,9 @@ const scenarios: Scenario[] = [
   bootRow,
   foundry,
   cityHall,
+  launcherPlaza,
+  networkTower,
+  surfaceFlinger,
 ]
 
 scenarios.forEach((s, i) => {
@@ -166,6 +178,22 @@ let driftStopped = false
 const stopDrift = (): void => { driftStopped = true }
 city.renderer.domElement.addEventListener('pointerdown', stopDrift, { once: true })
 city.renderer.domElement.addEventListener('wheel', stopDrift, { once: true })
+
+// Kiosk picking: click a Launcher Plaza kiosk to launch its app. Coexists with stopDrift above.
+const raycaster = new THREE.Raycaster()
+city.renderer.domElement.addEventListener('pointerdown', (ev) => {
+  const rect = city.renderer.domElement.getBoundingClientRect()
+  const ndc = new THREE.Vector2(
+    ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+    -((ev.clientY - rect.top) / rect.height) * 2 + 1,
+  )
+  raycaster.setFromCamera(ndc, city.camera)
+  const hits = raycaster.intersectObjects(launcherPlaza.kioskMeshes(), false)
+  if (hits.length > 0) {
+    const app = hits[0].object.userData.app as string | undefined
+    if (app) launcherPlaza.clickKiosk(app)
+  }
+})
 
 city.start((dtMs) => {
   if (tweenT < TWEEN_MS) {
