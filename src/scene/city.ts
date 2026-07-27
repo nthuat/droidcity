@@ -12,7 +12,7 @@ export interface City {
 export function createCity(container: HTMLElement): City {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x0d1117)
-  scene.fog = new THREE.Fog(0x0d1117, 60, 140)
+  scene.fog = new THREE.Fog(0x0d1117, 120, 320)
 
   const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500)
   camera.position.set(18, 16, 18)
