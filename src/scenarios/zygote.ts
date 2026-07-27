@@ -32,6 +32,18 @@ export function makeZygoteScenario(): Scenario {
   const buildings = new Map<number, THREE.Group>() // pid → mesh group
   const dying = new Map<number, THREE.Group>()     // pid → shrinking
 
+  function disposeBuilding(b: THREE.Group): void {
+    b.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry.dispose()
+        ;(obj.material as THREE.Material).dispose()
+      } else if (obj instanceof THREE.Sprite) {
+        obj.material.map?.dispose()
+        obj.material.dispose()
+      }
+    })
+  }
+
   function slotPosition(i: number): THREE.Vector3 {
     return new THREE.Vector3((i % 3) * 6 - 4, 0, Math.floor(i / 3) * 6 - 4)
   }
@@ -78,6 +90,7 @@ export function makeZygoteScenario(): Scenario {
       for (const [pid, b] of dying) {
         b.scale.y = Math.max(b.scale.y - dtMs / 400, 0)
         if (b.scale.y === 0) {
+          disposeBuilding(b)
           group.remove(b)
           dying.delete(pid)
           panel.setNarration('LMK killed a cached process to free memory. Its saved state lets it restore later — this is why onSaveInstanceState matters.')
@@ -89,7 +102,10 @@ export function makeZygoteScenario(): Scenario {
       ;(meter.material as THREE.MeshStandardMaterial).color.setHex(frac > 0.8 ? 0xf85149 : 0x3fb950)
     },
     reset() {
-      for (const b of [...buildings.values(), ...dying.values()]) group.remove(b)
+      for (const b of [...buildings.values(), ...dying.values()]) {
+        disposeBuilding(b)
+        group.remove(b)
+      }
       buildings.clear()
       dying.clear()
       state = createSystem(CAPACITY_MB)
