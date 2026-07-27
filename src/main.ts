@@ -199,6 +199,7 @@ city.renderer.domElement.addEventListener('wheel', stopDrift, { once: true })
 // camera to their plot and show the ward's panel. Coexists with stopDrift above.
 const raycaster = new THREE.Raycaster()
 city.renderer.domElement.addEventListener('pointerdown', (ev) => {
+  if (storyActive) return
   const rect = city.renderer.domElement.getBoundingClientRect()
   const ndc = new THREE.Vector2(
     ((ev.clientX - rect.left) / rect.width) * 2 - 1,
@@ -294,14 +295,20 @@ let playAllIdx = 0
 // idle (playing=false) as soon as the last step's wait resolves, but the card
 // stays up showing "Chapter done"; ✕ and Esc must both be able to dismiss it.
 let storyActive = false
+// True while the story card's ⏸ is showing — freezes the city sim (scenarios,
+// wards, packets) so paused time can't outrun the player, which only arms one
+// event wait at a time; events firing while paused would be lost forever.
+let storyPaused = false
 
 const restartBtn = mkStoryButton('⏮', () => player.restartChapter())
 const playPauseBtn = mkStoryButton('⏸', () => {
   if (playPauseBtn.textContent === '⏸') {
     player.pause()
+    storyPaused = true
     playPauseBtn.textContent = '▶'
   } else {
     player.resume()
+    storyPaused = false
     playPauseBtn.textContent = '⏸'
   }
 })
@@ -319,6 +326,7 @@ function stopStory(): void {
   player.stop()
   playAllMode = false
   storyActive = false
+  storyPaused = false
   launcherPlaza.setIdle(true)
   storyCardEl.classList.remove('open')
   panelEl.style.display = ''
@@ -327,6 +335,7 @@ function stopStory(): void {
 
 function startStory(chapter: Chapter): void {
   storyActive = true
+  storyPaused = false
   launcherPlaza.setIdle(false)
   panelEl.style.display = 'none'
   storyCardEl.classList.add('open')
@@ -407,9 +416,11 @@ city.start((dtMs) => {
       OVERVIEW_TARGET.z + driftRadius * Math.cos(driftAngle),
     )
   }
-  packets.update(dtMs)
-  for (const s of scenarios) s.update(dtMs)
-  wardManager.update(dtMs)
+  if (!storyPaused) {
+    packets.update(dtMs)
+    for (const s of scenarios) s.update(dtMs)
+    wardManager.update(dtMs)
+  }
   player.update(dtMs)
 })
 

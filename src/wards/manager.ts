@@ -2,13 +2,14 @@ import * as THREE from 'three'
 import type { Bus } from '../core/bus'
 import type { PacketSystem } from '../scene/packet'
 import { buildWardMeshes, type WardMeshes } from '../scene/ward'
-import { createLooper, post, advance, type LooperState } from '../sim/looper'
-import { createActivity, launch, rotate as rotateActivity, type ActivityState } from '../sim/lifecycle'
-import { createHeap, allocate, releaseOldest, gc as gcHeap, usedKb, type HeapState } from '../sim/heap'
-import { createDb, query, insert, DB_QUERY_MS, type DbState } from '../sim/roomDb'
+import { createLooper, post, advance } from '../sim/looper'
+import { createActivity, launch, rotate as rotateActivity } from '../sim/lifecycle'
+import { createHeap, allocate, releaseOldest, gc as gcHeap } from '../sim/heap'
+import { createDb, query, insert, DB_QUERY_MS } from '../sim/roomDb'
 import { createPlots, allocatePlot, releasePlot } from '../sim/wardPlots'
-import { DEFAULT_STAGES, startFrame, advanceFrame, type FrameRun } from '../sim/framePipeline'
-import { makePanel, type Panel } from '../ui/panel'
+import { DEFAULT_STAGES, startFrame, advanceFrame, withHeavyDraw } from '../sim/framePipeline'
+import { buildWardPanel } from './panel'
+import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import { syncCars, syncFloors, syncCrates, syncFlashes, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS } from './visualSync'
 
 export interface WardHandles {
@@ -28,6 +29,7 @@ export interface WardManager {
   forceGc(app: string): void
   rotate(app: string): void
   refreshData(app: string): void
+  runHeavyFrame(app: string): void
 }
 
 export interface WardManagerDeps {
@@ -45,66 +47,18 @@ const DATA_REQUEST_MS = 600
 const IDLE_TAP_MS = 2000
 const IDLE_ROTATE_MS = 18000
 const IDLE_RELEASE_MS = 6000
+const IDLE_ALLOC_MS = 5000
 const REBUILD_MS = 1200
 const REBUILD_HALF_MS = REBUILD_MS / 2
 const SWEEP_MS = 600
-const BLOCK_MAIN_THREAD_MS = 8000
 const ALLOC_KB = 80
 const ALLOC_COUNT = 3
-const PROCESSED_ID_LIMIT = 50
-const LOG_LIMIT = 20
+const IDLE_ALLOC_KB = 60
+const IDLE_ALLOC_COUNT = 2
 const HEAP_CAPACITY_KB = 2000
+const HEAVY_DRAW_MS = 20
 
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
-
-interface WardEntry {
-  app: string
-  pid: number
-  plot: number
-  meshes: WardMeshes
-  looper: LooperState
-  activity: ActivityState
-  heap: HeapState
-  db: DbState
-  frame: FrameRun | null
-  dying: boolean
-  resumed: boolean
-  riseMs: number
-  demolishMs: number
-  demolishStartScale: number
-  resumedMs: number
-  dataRequested: boolean
-  dbQueryMs: number
-  dbPending: boolean
-  anrFlashT: number
-  shedFlashMs: number
-  screenFlashMs: number
-  sweepMs: number
-  sweepMesh: THREE.Mesh | null
-  rebuildMs: number
-  idleTapMs: number
-  idleRotateMs: number
-  idleReleaseMs: number
-  carPool: Map<number, THREE.Mesh>
-  cratePool: Map<number, THREE.Mesh>
-  crateSlots: Map<number, number>
-  panel: Panel | null
-}
-
-function trimProcessed(s: LooperState): LooperState {
-  return s.processedIds.length > PROCESSED_ID_LIMIT
-    ? { ...s, processedIds: s.processedIds.slice(-PROCESSED_ID_LIMIT) }
-    : s
-}
-
-function trimLog(s: ActivityState): ActivityState {
-  return s.log.length > LOG_LIMIT ? { ...s, log: s.log.slice(-LOG_LIMIT) } : s
-}
-
-function narrationFor(entry: WardEntry): string {
-  const base = `${entry.activity.phase} · queue ${entry.looper.queue.length} · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB`
-  return entry.looper.anr ? `${base} · ANR! main thread blocked 5s+` : base
-}
 
 export function createWardManager(deps: WardManagerDeps): WardManager {
   const { bus, scene, packets, anchors, plotAnchors } = deps
@@ -113,10 +67,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   let plots = createPlots(plotAnchors.length)
   let idleEnabled = true
 
-  function allocate3x80kb(entry: WardEntry, app: string): void {
-    for (let i = 0; i < ALLOC_COUNT; i++) {
+  function allocateN(entry: WardEntry, app: string, count: number, sizeKb: number): void {
+    for (let i = 0; i < count; i++) {
       try {
-        const result = allocate(entry.heap, ALLOC_KB)
+        const result = allocate(entry.heap, sizeKb)
         entry.heap = result.state
         if (result.gcRan) {
           bus.emit('gc:swept', { app, freedKb: entry.heap.lastFreedKb })
@@ -166,6 +120,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       idleTapMs: 0,
       idleRotateMs: 0,
       idleReleaseMs: 0,
+      idleAllocMs: 0,
       carPool: new Map(),
       cratePool: new Map(),
       crateSlots: new Map(),
@@ -195,7 +150,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     bus.emit('ui:messagePosted', { app, label })
     if (isFetched) {
       entry.db = insert(entry.db, 'feed')
-      allocate3x80kb(entry, app)
+      allocateN(entry, app, ALLOC_COUNT, ALLOC_KB)
     }
   }
 
@@ -246,6 +201,12 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     bus.emit('data:requested', { app, source: 'network' })
     entry.dbQueryMs = 0
     entry.dbPending = true
+  }
+
+  function runHeavyFrame(app: string): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying || entry.frame) return
+    entry.frame = startFrame(withHeavyDraw(APP_STAGES, HEAVY_DRAW_MS))
   }
 
   function updateGroupScale(entry: WardEntry, dtMs: number): void {
@@ -332,6 +293,13 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
         entry.idleReleaseMs -= IDLE_RELEASE_MS
         entry.heap = releaseOldest(entry.heap, 2)
       }
+      // Heap pressure to counterbalance releaseOldest above — without it, free-mode
+      // wards never approach capacity and gc:swept never fires on its own.
+      entry.idleAllocMs += dtMs
+      if (entry.idleAllocMs >= IDLE_ALLOC_MS) {
+        entry.idleAllocMs -= IDLE_ALLOC_MS
+        allocateN(entry, app, IDLE_ALLOC_COUNT, IDLE_ALLOC_KB)
+      }
     }
 
     if (entry.frame) {
@@ -393,13 +361,11 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       const entry = wards.get(app)
       if (!entry) return null
       if (!entry.panel) {
-        const panel = makePanel(`${app} — app process`)
-        panel.addButton('Block main thread (8s)', () => blockMainThread(app, BLOCK_MAIN_THREAD_MS))
-        panel.addButton('Rotate', () => rotateWard(app))
-        panel.addButton('Force GC', () => forceGc(app))
-        panel.addButton('Refresh data', () => refreshData(app))
-        panel.setNarration(narrationFor(entry))
-        entry.panel = panel
+        entry.panel = buildWardPanel(
+          app,
+          { blockMainThread, rotate: rotateWard, forceGc, refreshData },
+          narrationFor(entry),
+        )
       }
       return entry.panel.root
     },
@@ -407,5 +373,6 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     forceGc,
     rotate: rotateWard,
     refreshData,
+    runHeavyFrame,
   }
 }

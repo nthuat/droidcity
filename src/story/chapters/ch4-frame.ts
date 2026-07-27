@@ -22,14 +22,21 @@ export function makeCh4(ctx: StoryCtx): Chapter {
         waitFor: { event: 'frame:composited' },
       },
       {
+        narration: 'Now a heavy frame — overdraw, deep layouts, a bitmap decode on the UI thread. It misses the train. That\'s jank.',
+        focus: 'surfaceflinger',
+        fire: () => ctx.wards.runHeavyFrame('chat'),
+        waitFor: { event: 'frame:composited' },
+      },
+      {
         narration: 'Now block the ward\'s main road with one heavy delivery. Messages pile up. After five seconds the system loses patience: ANR.',
         focus: 'ward:chat',
         fire: () => ctx.wards.blockMainThread('chat', 8000),
         waitFor: { event: 'anr' },
       },
       {
-        narration: 'That\'s the whole machine: boot, fork, ward, data, frames — and when memory runs out, a ward is demolished and the foundry stamps a new one. The city breathes.',
+        narration: 'That\'s the whole machine: boot, fork, ward, data, frames — and when memory runs out, a ward is demolished and the foundry stands ready to stamp a new one. The city breathes.',
         focus: 'overview',
+        fire: () => ctx.killApp('chat'),
         waitFor: { ms: 4000 },
       },
     ],
