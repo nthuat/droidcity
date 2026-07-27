@@ -10,6 +10,10 @@ import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
 import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
 import { createWardManager } from './wards/manager'
+import { createPlayer, type Chapter } from './story/player'
+import type { StoryCtx } from './story/chapters/ctx'
+import { makeCh1 } from './story/chapters/ch1-boot'
+import { makeCh2 } from './story/chapters/ch2-ward'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(-90, 0, 20),
@@ -219,6 +223,167 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   }
 })
 
+// --- Story mode -------------------------------------------------------
+const DISTRICT_FOCUS_OFFSET = new THREE.Vector3(10, 9, 14)
+const DISTRICT_FOCUS_TARGET_OFFSET = new THREE.Vector3(0, 2, 0)
+
+const storyCtx: StoryCtx = {
+  bus,
+  bootRow: { replayBoot: bootRow.replayBoot },
+  launcher: { clickKiosk: launcherPlaza.clickKiosk, resetApps: launcherPlaza.resetApps },
+  wards: wardManager,
+  setCityDim,
+}
+
+interface StoryMenuItem {
+  readonly label: string
+  readonly chapter: Chapter | null
+}
+
+const storyMenuItems: StoryMenuItem[] = [
+  { label: '1 · Power On', chapter: makeCh1(storyCtx) },
+  { label: '2 · A Ward Is Born', chapter: makeCh2(storyCtx) },
+  { label: '3 · Getting Data', chapter: null }, // Task 14
+  { label: '4 · The 16ms Race', chapter: null }, // Task 14
+]
+
+function focusCamera(focus: string): void {
+  if (focus === 'overview') {
+    flyTo(OVERVIEW_POS, OVERVIEW_TARGET)
+    return
+  }
+  if (focus.startsWith('ward:')) {
+    const g = wardManager.wardGroupFor(focus.slice('ward:'.length))
+    const anchor = g ? g.position : ANCHORS.zygote
+    const offset = g ? WARD_CAMERA_OFFSET : DISTRICT_FOCUS_OFFSET
+    const targetOffset = g ? WARD_TARGET_OFFSET : DISTRICT_FOCUS_TARGET_OFFSET
+    flyTo(anchor.clone().add(offset), anchor.clone().add(targetOffset))
+    return
+  }
+  const anchor = ANCHORS[focus]
+  if (anchor) flyTo(anchor.clone().add(DISTRICT_FOCUS_OFFSET), anchor.clone().add(DISTRICT_FOCUS_TARGET_OFFSET))
+}
+
+function setSwitcherLocked(locked: boolean): void {
+  for (const el of switcherEl.children) el.classList.toggle('disabled', locked)
+}
+
+const storyCardEl = document.querySelector<HTMLDivElement>('#story-card')!
+const storyTitleEl = document.createElement('h2')
+const storyNarrationEl = document.createElement('p')
+storyNarrationEl.className = 'story-narration'
+const storyProgressEl = document.createElement('div')
+storyProgressEl.className = 'story-progress'
+const storyControlsEl = document.createElement('div')
+storyControlsEl.className = 'story-controls'
+
+function mkStoryButton(label: string, onClick: () => void): HTMLButtonElement {
+  const b = document.createElement('button')
+  b.textContent = label
+  b.addEventListener('click', onClick)
+  return b
+}
+
+let playAllMode = false
+let playAllQueue: Chapter[] = []
+let playAllIdx = 0
+
+const restartBtn = mkStoryButton('⏮', () => player.restartChapter())
+const playPauseBtn = mkStoryButton('⏸', () => {
+  if (playPauseBtn.textContent === '⏸') {
+    player.pause()
+    playPauseBtn.textContent = '▶'
+  } else {
+    player.resume()
+    playPauseBtn.textContent = '⏸'
+  }
+})
+const nextBtn = mkStoryButton('⏭', () => player.next())
+const speedBtn = mkStoryButton('1x', () => {
+  const next: 1 | 2 = speedBtn.textContent === '1x' ? 2 : 1
+  player.setSpeed(next)
+  speedBtn.textContent = `${next}x`
+})
+const closeBtn = mkStoryButton('✕', () => stopStory())
+storyControlsEl.append(restartBtn, playPauseBtn, nextBtn, speedBtn, closeBtn)
+storyCardEl.append(storyTitleEl, storyNarrationEl, storyProgressEl, storyControlsEl)
+
+function stopStory(): void {
+  player.stop()
+  playAllMode = false
+  launcherPlaza.setIdle(true)
+  storyCardEl.classList.remove('open')
+  panelEl.style.display = ''
+  setSwitcherLocked(false)
+}
+
+function startStory(chapter: Chapter): void {
+  launcherPlaza.setIdle(false)
+  panelEl.style.display = 'none'
+  storyCardEl.classList.add('open')
+  setSwitcherLocked(true)
+  playPauseBtn.textContent = '⏸'
+  player.play(chapter)
+}
+
+const player = createPlayer(bus, {
+  onStep(step, index, total, title) {
+    storyTitleEl.textContent = title
+    storyNarrationEl.textContent = step.narration
+    storyProgressEl.textContent = `${index + 1}/${total}`
+    focusCamera(step.focus)
+  },
+  onChapterDone() {
+    if (playAllMode && playAllIdx < playAllQueue.length - 1) {
+      playAllIdx++
+      startStory(playAllQueue[playAllIdx])
+    } else {
+      playAllMode = false
+      storyNarrationEl.textContent = 'Chapter done — ✕ to exit'
+    }
+  },
+})
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && player.playing) stopStory()
+})
+
+const storyBarEl = document.querySelector<HTMLDivElement>('#story-bar')!
+const storyToggleBtn = document.createElement('button')
+storyToggleBtn.textContent = '▶ Story'
+const storyMenuEl = document.createElement('div')
+storyMenuEl.className = 'story-menu'
+storyToggleBtn.addEventListener('click', () => storyMenuEl.classList.toggle('open'))
+
+const playAllBtn = document.createElement('button')
+playAllBtn.textContent = 'Play all'
+playAllBtn.addEventListener('click', () => {
+  storyMenuEl.classList.remove('open')
+  playAllQueue = storyMenuItems.map(i => i.chapter).filter((c): c is Chapter => c !== null)
+  playAllMode = true
+  playAllIdx = 0
+  startStory(playAllQueue[0])
+})
+storyMenuEl.appendChild(playAllBtn)
+
+for (const item of storyMenuItems) {
+  const b = document.createElement('button')
+  b.textContent = item.label
+  if (!item.chapter) {
+    b.classList.add('disabled')
+  } else {
+    const chapter = item.chapter
+    b.addEventListener('click', () => {
+      storyMenuEl.classList.remove('open')
+      playAllMode = false
+      startStory(chapter)
+    })
+  }
+  storyMenuEl.appendChild(b)
+}
+
+storyBarEl.append(storyToggleBtn, storyMenuEl)
+
 city.start((dtMs) => {
   if (tweenT < TWEEN_MS) {
     tweenT = Math.min(tweenT + dtMs, TWEEN_MS)
@@ -236,6 +401,7 @@ city.start((dtMs) => {
   packets.update(dtMs)
   for (const s of scenarios) s.update(dtMs)
   wardManager.update(dtMs)
+  player.update(dtMs)
 })
 
 document.querySelector('#intro-close')!.addEventListener('click', () => {

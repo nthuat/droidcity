@@ -16,6 +16,17 @@
       button.active { background: #388bfd; }
       #intro { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: rgba(1,4,9,.8); color: #e6edf3; z-index: 20; padding: 24px; }
       #intro p { max-width: 480px; color: #8b949e; }
+      #story-bar { position: fixed; top: 12px; right: 12px; z-index: 10; }
+      #story-bar .story-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: rgba(13,17,23,.95); border: 1px solid #30363d; border-radius: 8px; padding: 6px; display: none; flex-direction: column; gap: 4px; min-width: 190px; }
+      #story-bar .story-menu.open { display: flex; }
+      #story-bar .story-menu button { text-align: left; }
+      #story-card { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); max-width: 560px; width: calc(100% - 24px); background: rgba(13,17,23,.85); color: #e6edf3; padding: 12px 16px; border-radius: 8px; border: 1px solid #30363d; z-index: 10; display: none; }
+      #story-card.open { display: block; }
+      #story-card h2 { margin: 0 0 8px; font-size: 16px; }
+      .story-narration { font-size: 13px; color: #8b949e; min-height: 3em; margin: 0 0 8px; }
+      .story-progress { font-size: 12px; color: #8b949e; margin-bottom: 8px; }
+      .story-controls { display: flex; gap: 8px; }
+      button.disabled { opacity: .4; pointer-events: none; cursor: not-allowed; }
     </style>
   </head>
   <body>
@@ -27,6 +38,8 @@
     <div id="app"></div>
     <div id="switcher"></div>
     <div id="panel"></div>
+    <div id="story-bar"></div>
+    <div id="story-card"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
