@@ -1,130 +1,122 @@
-# DroidCity v2 — Connected City Design
+# DroidCity v2 — Ward City Design (supersedes flat-district design)
 
-**Goal:** Turn the 5 isolated districts into one connected Android system: phone boot → system init → app launch → data loading (network + local DB) → frame on screen. Causality is real (event bus wiring at the scenario layer), stories are guided tours over the live simulation. Architecture matches PGSimCity's proven shape: pure sim + event bus + world layout + tour layer.
+**Goal:** One city = the Android OS. System infrastructure = fixed districts. Every running app = a **ward** cloned from Zygote — a live mini-neighborhood containing that app's own internals (main-thread road, Activity tower, heap yard, Room shed). Network and DB flows run per-app, inside/from the ward. Guided story chapters play over the live simulation.
 
-**Approved decisions:**
-- Format: guided story chapters + free mode (both; free mode is fully causal)
-- New districts: Boot chain, Launcher/Home, Network, Database (9 districts total)
-- Story: 4 chapters, playable in order ("Play all") or solo
-- Existing district button panels preserved in free mode
-- Pacing: auto-play + pause/back/next + 1x/2x speed
-- Architecture: hybrid — pure sims untouched/extended, typed event bus connects scenarios, StoryPlayer observes bus (never fakes causality)
+**Approved decisions (carried from earlier rounds):**
+- Guided story chapters (4) + fully causal free mode; auto-play + pause/back/next + 1x/2x
+- Architecture: pure sims + typed event bus + tour observes bus (PGSimCity shape)
+- NEW this revision: hierarchical world model — system districts + dynamic app wards (user's model, validated against real Android: app = process = own heap/looper/sandbox/Room)
+
+## World model
+
+### System districts (fixed)
+| District | Represents | Notes |
+|---|---|---|
+| Boot Row (west edge) | bootloader → kernel → init → system_server power-up | 4 stations; kernel lives here as a station (city's ground rules), no separate kernel district |
+| Zygote Foundry (northwest) | Zygote process | stamps ward kits; pre-warmed framework |
+| City Hall (north center) | system_server: AMS/WMS/PMS | all ward↔system traffic routes through it = **Binder**; lights up when boot completes |
+| Launcher Plaza (south center) | home screen | 4 app kiosks (chat, maps, camera, bank); kiosk click = launch request |
+| Network Tower (east edge) | radio/ISP edge | shared infra; each request tagged with owning app |
+| SurfaceFlinger + Display (northeast) | compositor + screen | wards ship finished frames here; Display billboard shows lit tile per visible app |
+
+### Ward plots (center, 2×2 grid = max 4 wards)
+A ward spawns when Zygote forks an app and is demolished when LMK kills it (RAM capacity 1200MB, 300MB/app → LMK keeps at most 4, naturally matching plots). Ward contents (miniature versions of v1 districts):
+
+- **Main-thread road** — own looper sim; message cars queue at the ward's door; per-ward ANR overlay
+- **Activity tower** — lifecycle floors (onCreate/onStart/onResume), ViewModel orb on roof, screen panel on top that lights when the app's frame is composited
+- **Heap yard** — crate grid + per-ward GC sweep
+- **Room shed** — the app's private DB; cache crates; stale/fresh state
+- **Render bench** — app-side frame stages (input→…→renderThread); finished frame packet flies to SurfaceFlinger district
+
+Semantics: heap, looper, lifecycle, Room, render stages are per-process — one sim instance per ward. This is real Android (process isolation); the ward walls ARE the sandbox.
 
 ## Architecture
 
 ```
 src/
-├── sim/            # pure, immutable, no three.js, TDD (unchanged rule)
-│   ├── (existing: constants, looper, lifecycle, framePipeline, processes, heap)
-│   ├── boot.ts     # NEW: boot stage sequence
-│   ├── launcher.ts # NEW: app registry + launch cooldown
-│   ├── netFetch.ts # NEW: HTTP request lifecycle (dns→connect→tls→ttfb→download), timeout+retry
-│   └── roomDb.ts   # NEW: local DB query + cache table
-├── core/
-│   └── bus.ts      # NEW: typed event bus (~40 lines): on/once/emit/off/clear
+├── sim/            # pure, immutable, no three.js, TDD — UNCHANGED modules, now instantiated per ward
+│   ├── existing: constants, looper, lifecycle, framePipeline, processes, heap
+│   ├── boot.ts     # NEW (as before)
+│   ├── launcher.ts # NEW (as before)
+│   ├── netFetch.ts # NEW (as before; requests carry app tag at scenario layer)
+│   ├── roomDb.ts   # NEW (as before; one DbState per ward)
+│   └── wardPlots.ts# NEW: pure plot allocation (assign/free lowest plot index, capacity 4)
+├── core/bus.ts     # NEW typed event bus; app-scoped events carry { app }
 ├── scene/
-│   ├── (existing: city.ts, builders.ts)
-│   └── packet.ts   # NEW: glowing courier mesh that flies district→district along a path
-├── scenarios/      # existing 5 minimally refactored to subscribe/emit bus events
-│   ├── (existing: mainThread, lifecycle, touchPipeline, zygote, gc)
-│   ├── boot.ts     # NEW district
-│   ├── launcher.ts # NEW district
-│   ├── network.ts  # NEW district
-│   └── database.ts # NEW district
+│   ├── city.ts, builders.ts (existing)
+│   ├── packet.ts   # NEW courier meshes (straight or via-City-Hall two-hop routes)
+│   └── ward.ts     # NEW: buildWardMeshes(app) → ward group (road, tower, yard, shed, bench)
+├── wards/
+│   └── manager.ts  # NEW WardManager: spawn/demolish wards, own sim instances per ward,
+│                   # routes app-scoped bus events to the right ward, per-ward idle + panel
+├── scenarios/      # system districts only: boot, zygote (refactor of existing), launcher,
+│                   # network, surfaceflinger (new), cityhall (visual, thin)
 ├── story/
-│   ├── player.ts   # chapter runner (pure logic + thin DOM narration card)
-│   └── chapters/   # ch1-boot.ts, ch2-launch.ts, ch3-data.ts, ch4-frame.ts
-└── main.ts         # 9-district layout, story UI bar, free-mode switcher (existing)
+│   ├── player.ts   # chapter runner (unchanged design from prior revision)
+│   └── chapters/   # ch1-boot, ch2-launch, ch3-data, ch4-frame — retold in ward terms
+└── main.ts         # layout, picking (kiosks + wards), story UI, packet routing table
 ```
 
-### Event bus
-
-`src/core/bus.ts` — typed pub/sub. Event map (single source of truth):
-
+### Event bus (`core/bus.ts`)
 ```ts
 export interface CityEvents {
-  'boot:stageDone': { stage: string }          // bootloader | kernel | init | system_server
-  'boot:complete': {}
+  'boot:stageDone': { stage: string }
+  'boot:complete': Record<string, never>
   'app:launchRequested': { app: string }
   'process:forked': { app: string; pid: number }
+  'process:killed': { app: string; pid: number }        // LMK → ward demolition
   'activity:resumed': { app: string }
   'data:requested': { app: string; source: 'db' | 'network' }
   'data:cacheHit': { app: string; stale: boolean }
   'data:fetched': { app: string; ms: number }
-  'net:phase': { phase: string }               // dns | connect | tls | ttfb | download | retry
-  'ui:messagePosted': { label: string }
-  'frame:rendered': { dropped: boolean }
-  'gc:swept': { freedKb: number }
+  'net:phase': { app: string; phase: string }
+  'ui:messagePosted': { app: string; label: string }
+  'frame:submitted': { app: string; dropped: boolean }  // ward render bench → SurfaceFlinger
+  'frame:composited': { app: string }                   // SurfaceFlinger → Display tile + ward screen light
+  'gc:swept': { app: string; freedKb: number }
+  'anr': { app: string }
 }
 ```
-
-API: `on(event, handler): unsubscribe`, `once(event): Promise<payload>`, `emit(event, payload)`, `clear()`. Constructor-injected into scenarios and StoryPlayer (no singleton import — testability).
+API: `on/emit/clear`, constructor-injected. App-scoped events routed by WardManager to the owning ward's sim instances.
 
 ### Causal chain (free mode)
+Kiosk click → `app:launchRequested` → Zygote Foundry forks (processes sim, city-level) → `process:forked` → **WardManager spawns ward** (plot from wardPlots sim, fresh looper/lifecycle/heap/roomDb/framePipeline instances) → ward's lifecycle launches → `activity:resumed` (packet: ward → City Hall → launcher, Binder route) → ward requests data → own Room shed answers stale (`data:cacheHit`), Network Tower fetch per phases (`net:phase`… `data:fetched`, packet ward→tower→ward) → results become messages on the ward's road (`ui:messagePosted`) → render bench runs app-side stages → `frame:submitted` (packet ward→SurfaceFlinger) → compositor → `frame:composited` → Display tile + ward's screen panel light. Fresh data re-render repeats the tail. GC sweeps ward heap (`gc:swept`). RAM pressure → LMK kills oldest cached app → `process:killed` → ward demolition animation (building shrink, plot freed).
 
-Click app kiosk in Launcher → `app:launchRequested` → Zygote scenario forks proc (existing sim), emits `process:forked` → Lifecycle scenario launches activity, emits `activity:resumed` → app auto-emits `data:requested` twice (db + network) → Database district answers ~30ms (`data:cacheHit`, stale) → Network district runs full request lifecycle ~1200ms (`net:phase` per stage, then `data:fetched`) → each data arrival posts a message to Main Thread road (`ui:messagePosted`) → frame pipeline runs a frame → `frame:rendered` → app building's screen lights up; later GC sweeps stale objects (`gc:swept`).
+Packets are decorative; sims never wait on packet arrival. Binder two-hop (via City Hall) applied to: launch chain and lifecycle signals only (teaching beat, not every message).
 
-Every cross-district hop spawns a packet mesh (scene/packet.ts) flying between district anchors. Packet travel time is visual only; sim timings come from sims.
+### WardManager (`wards/manager.ts`)
+- `spawnWard(app, pid)`: allocate plot (wardPlots sim), build meshes (scene/ward.ts), create sim instances, subscribe app-filtered bus events, start per-ward idle (light taps every ~2s, periodic allocs, occasional rotate)
+- `demolishWard(app)`: shrink animation, dispose ALL ward GPU resources (established disposal precedent), free plot, drop subscriptions
+- `wardPanel(app)`: panel for free mode — Block main thread (8s), Rotate, Force GC, Refresh data (re-fires data:requested), per-app narration incl. ANR
+- Pure logic split for TDD: plot allocation (`sim/wardPlots.ts`) and ward event-routing bookkeeping tested without three.js; mesh building browser-verified
+- Existing scenario files for mainThread/lifecycle/touchPipeline/gc are RETIRED (deleted) — their sim modules live on per-ward; their visual code is adapted into `scene/ward.ts` at miniature scale. Zygote scenario refactors into the Foundry system district (keeps processes sim + LMK, now emits process:killed).
 
-## New districts + sims
+### Interaction model (free mode)
+- Click kiosk → launch app (ward spawns)
+- Click a ward (raycast on ward group) → camera to ward + ward panel
+- Click system district button/mesh → its panel (Boot: replay boot; Zygote: RAM meter, LMK log; Network: test request; SurfaceFlinger: show per-app tiles; Launcher: kiosks)
+- Overview default; idle: launcher auto-opens apps up to capacity, LMK cycles them — city self-plays
 
-### Boot chain (west edge)
-- Sim `boot.ts`: ordered stages `[bootloader 800ms, kernel 1200ms, init 900ms, system_server 1500ms]`; `createBoot()`, `advanceBoot(s, dt)`; stage completion data drives `boot:stageDone`, final → `boot:complete`. State: `{ stages, elapsedMs, currentIndex, done }`.
-- Visual: 4 station buildings light up in order; before `boot:complete`, ALL other districts render dimmed/dark ("cold city"). Idle default: already booted (city lit). Chapter 1 resets to dark and replays.
+## Story chapters (retold in ward terms)
+1. **Power On (~40s):** dark city → Boot Row stations light → City Hall opens → Zygote Foundry warms → Launcher Plaza lights.
+2. **A Ward Is Born (~50s):** kiosk tap → Foundry stamps ward kit → ward rises on plot (construction animation) → Activity tower floors light → first frame: bench → SurfaceFlinger → Display tile on. Narration: fork, process isolation, why ward walls exist.
+3. **Getting Data (~60s):** ward asks own Room shed (stale, instant, renders) → Network Tower round-trip with phase narration + one timeout/retry → fresh data re-render → ward GC sweeps stale crates. Cache-then-network spatially: short in-ward trip vs long tower trip.
+4. **The 16ms Race (~45s):** ward render bench normal vs heavy frame → dropped frame at SurfaceFlinger → block ward's main road → ANR over the ward → finale overview: several wards alive, LMK demolishes one, Zygote stamps another — "the city breathes".
 
-### Launcher/Home (center-south)
-- Sim `launcher.ts`: app registry `[chat, maps, camera, bank]`, `requestLaunch(s, app)` → no-op while that app is already launching/running (cooldown until `activity:resumed` for it); tracks running set.
-- Visual: plaza with 4 icon kiosks; click kiosk (raycast picking on kiosk meshes — new, small: THREE.Raycaster on pointerdown) emits `app:launchRequested`. Kiosk pulses while launch in flight.
+Solo chapters fast-forward prerequisites silently (ch3/ch4 auto-launch an app if no ward alive). Play-all chains 1→4.
 
-### Network (east edge)
-- Sim `netFetch.ts`: request = phases `[dns 100, connect 150, tls 250, ttfb 400, download 300]` (ms), `startRequest()`, `advanceRequest(s, dt)` → current phase, done; deterministic failure injection: `startRequest({ failAt: 'ttfb' })` → timeout → `retry` phase → second attempt succeeds (teaches backoff). Emits `net:phase` transitions, terminal `data:fetched`.
-- Visual: radio tower + gateway arch; request packet drives district→tower, hops per phase (phase name labels), returns with payload cube.
-
-### Database (adjacent to app cluster)
-- Sim `roomDb.ts`: `query(s, key)` → `{ hit: boolean, ms: 30 }`; cache table seeded so first story query hits (stale=true), post-network `insert(s, key)` freshens. State: `{ tables: Record<string, { fresh: boolean }> }`.
-- Visual: warehouse; short packet round-trip; teaches cache-then-network — stale data renders instantly, fresh re-render arrives ~1.2s later.
-
-All 4 sims: pure, immutable, TDD, ~5 tests each. Bus: full unit tests.
-
-## Story system
-
-### StoryPlayer (`story/player.ts`)
-Chapter = `{ id, title, steps: Step[] }`.
-`Step = { narration: string, focus: DistrictId | 'follow-packet' | 'overview', fire?: (ctx) => void, waitFor: { event: keyof CityEvents } | { ms: number } }`.
-
-Player: fires step's action, tweens camera to focus (existing tween machinery), shows narration card, waits for the bus event (proof the sim actually did it) or timer, auto-advances. Desync impossible: waits are bus-driven.
-
-Controls: ⏮ back = restart current chapter from its first step (chapter reset re-initializes involved districts; per-step rewind is NOT supported — sims don't run backwards), ⏸ pause, ⏭ next (force-complete current wait), speed 1x/2x (scales sim dt multiplier during story). Esc exits to free mode, city continues live.
-
-Player core logic is pure/tested: inject fake bus + fake clock, assert step advancement, waitFor resolution, pause/next semantics. DOM card + camera calls live in a thin adapter.
-
-### Chapters
-1. **Power On (~40s):** city dark → boot stations light in sequence → Zygote warms (preload framework) → Launcher plaza lights → "city is awake".
-2. **App Launch (~50s):** tap chat kiosk → `app:launchRequested` → Zygote fork → building rises → lifecycle floors light → first frame through pipeline → screen on.
-3. **Getting Data (~60s):** `data:requested` → DB packet returns stale data (renders immediately) → network request with phase narration + one timeout/retry beat → fresh data → main-thread message → re-render → GC sweeps old objects.
-4. **The 16ms Race (~40s):** touch→pixel pipeline, normal vs heavy-draw frame, jank + ANR framing (existing content, story treatment).
-
-"Play all" chains 1→4. Each solo-playable; solo chapters fast-forward prerequisites silently (e.g. ch3 auto-launches app first, no narration).
-
-## UI changes
-
-- Top bar: existing district buttons + new "▶ Story" dropdown (Play all, Ch 1-4).
-- During story: district panels hidden, narration card bottom-center (title, text, step i/N, controls), switcher disabled except Esc.
-- Free mode unchanged: district click = fly + panel; idle behaviors continue; launcher kiosks clickable.
-- Boot state: on load city is lit (booted); dark-city state only during Chapter 1.
+## UI
+- Top bar: Overview + system district buttons + "▶ Story" dropdown. Ward access by clicking wards (no fixed buttons — wards are dynamic).
+- Story: narration card bottom-center (title, text, i/N, ⏮ ⏸ ⏭ 1x/2x ✕/Esc), switcher disabled during story.
+- During Chapter 1 the city starts dark (setCityDim); free-mode default is booted/lit.
 
 ## Testing
-
-- New sims + bus + StoryPlayer core: vitest TDD (target ~30 new tests; 28 existing untouched must stay green).
-- Scenario/visual layer: browser-verified (user or Chrome extension when available).
-- Existing sim modules unchanged; existing scenarios get bus wiring only (subscribe/emit), behavior behind buttons unchanged.
+- Unchanged sims keep their 28 tests. New TDD: bus, boot, launcher, netFetch, roomDb, wardPlots, StoryPlayer core, WardManager routing bookkeeping (~40 new tests target).
+- Visual/scene layer browser-verified (human or Chrome extension).
 
 ## Out of scope (v2)
+- Visual polish pass (bloom/textures/props), sound, mobile touch UX
+- Multi-window/split-screen, Binder deep-dive district, WorkManager/Doze (v3)
 
-- Visual polish pass (bloom, window textures, props, skybox) — separate round after v2
-- Mobile/touch UX, sound, i18n
-- Binder/WorkManager/Doze districts (v3 candidates)
-
-## Layout (9 districts)
-
-Existing 5 keep offsets; new 4 placed: Boot (-90, 0, 30), Launcher (0, 0, 110) south-center, Network (90, 0, 30) east, Database (60, 0, 110) near app cluster. Overview camera pulls back to (0, 110, 150), fog far extended to ~450. Exact values tunable at implementation.
+## Layout sketch
+Boot Row (-90, 0, 20) west · Zygote Foundry (-55, 0, -45) NW · City Hall (0, 0, -60) N · SurfaceFlinger+Display (55, 0, -45) NE · Network Tower (90, 0, 20) east · Launcher Plaza (0, 0, 85) south · Ward plots 2×2 grid centered origin: (-22,0,-5), (22,0,-5), (-22,0,35), (22,0,35). Overview camera (0, 115, 155), fog 150→450, ground 300×300. Values tunable at implementation.
