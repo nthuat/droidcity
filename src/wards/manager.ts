@@ -173,7 +173,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
     entry.activity = launch(entry.activity)
     bus.emit('activity:resumed', { app })
-    packets.fly([plotAnchors[result.plot], anchors.cityhall, anchors.launcher])
+    packets.fly([plotAnchors[result.plot], anchors.cityhall, anchors.launcher], { color: 0xbc8cff })
   }
 
   function onKilled({ app }: { app: string; pid: number }): void {

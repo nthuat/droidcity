@@ -55,7 +55,9 @@ const wardManager = createWardManager({ bus, scene: city.scene, packets, anchors
 
 // Hides every district (and every live ward) except Boot Row while a boot replay is in
 // progress, then restores them on boot:complete.
+let dimmed = false
 function setCityDim(dim: boolean): void {
+  dimmed = dim
   for (const s of scenarios) {
     if (s === bootRow) continue
     s.group.visible = !dim
@@ -96,6 +98,7 @@ bus.on('app:launchRequested', () => {
 })
 bus.on('process:forked', ({ app }) => {
   const g = wardManager.wardGroupFor(app)
+  if (dimmed && g) g.visible = false
   if (g) packets.fly([ANCHORS.zygote, g.position], { color: 0x3fb950 })
 })
 bus.on('data:requested', ({ app, source }) => {
