@@ -11,8 +11,13 @@ const PLATE_TOP = -0.5
 const HOUSING_COLOR = 0x161b22
 const CORE_IDLE = 0x1c2128
 const CORE_STUCK = 0xf85149
-const RAM_IDLE = 0x2a2f36
+const RAM_SHELL_COLOR = 0x2a2f36
 const RAM_SHARED_COLOR = 0x9aa7b8
+const RAM_FILL_MARGIN = 0.2 // top/bottom inset so the fill visibly sits inside the shell
+const RAM_FILL_MAX_H = 3 - RAM_FILL_MARGIN * 2
+const RAM_MIN_FILL = 0.05
+const RAM_FILL_EMISSIVE = 0.4
+const RAM_PULSE_MS = 300
 const DISK_IDLE = 0x30363d
 const DISK_READ = 0x76e3ea
 const DISK_WRITE = 0xd29922
@@ -41,11 +46,20 @@ interface CoreState {
 interface RamSegment {
   color: number
   app: string
+  fill: number
+  note: string
 }
 
 interface Slot {
   mesh: THREE.Mesh
   mat: THREE.MeshStandardMaterial
+}
+
+interface RamSlot {
+  group: THREE.Group
+  fillMesh: THREE.Mesh
+  fillMat: THREE.MeshStandardMaterial
+  pulseT: number
 }
 
 function buildCpu(group: THREE.Group): Slot[] {
@@ -91,17 +105,35 @@ function buildRamShared(group: THREE.Group): void {
   }
 }
 
-function buildRam(group: THREE.Group): Slot[] {
+// Each app slab is a tank: a dark static shell (the physical page reservation,
+// always the same dim color whether occupied or not) plus an inset fill box
+// whose height tracks live heap usage — scale.y = fill fraction, min 0.05 so
+// an occupied-but-near-empty heap still reads as "there". Fill grows from the
+// shell's base like the Zygote/PSI meters (scale.y + position.y compensation),
+// not from its vertical center.
+function buildRam(group: THREE.Group): RamSlot[] {
   buildRamShared(group)
   const slabXOffsets = [-6, -3.6, -1.2, 1.2, 3.6, 6, 8.4, 10.8]
+  const fillBaseY = PLATE_TOP + RAM_FILL_MARGIN
   return slabXOffsets.map((dx) => {
-    const mat = new THREE.MeshStandardMaterial({
-      color: RAM_IDLE, emissive: RAM_IDLE, emissiveIntensity: 0, roughness: 0.5,
+    const slotGroup = new THREE.Group()
+
+    const shellMat = new THREE.MeshStandardMaterial({ color: RAM_SHELL_COLOR, roughness: 0.6 })
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 0.8), shellMat)
+    shell.position.set(RAM_X + dx, PLATE_TOP + 1.5, 0)
+    slotGroup.add(shell)
+
+    const fillMat = new THREE.MeshStandardMaterial({
+      color: RAM_SHELL_COLOR, emissive: RAM_SHELL_COLOR, emissiveIntensity: RAM_FILL_EMISSIVE, roughness: 0.5,
     })
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 0.8), mat)
-    slab.position.set(RAM_X + dx, PLATE_TOP + 1.5, 0)
-    group.add(slab)
-    return { mesh: slab, mat }
+    const fillMesh = new THREE.Mesh(new THREE.BoxGeometry(1.5, RAM_FILL_MAX_H, 0.5), fillMat)
+    fillMesh.position.set(RAM_X + dx, fillBaseY, 0)
+    fillMesh.scale.y = RAM_MIN_FILL
+    fillMesh.visible = false
+    slotGroup.add(fillMesh)
+
+    group.add(slotGroup)
+    return { group: slotGroup, fillMesh, fillMat, pulseT: 0 }
   })
 }
 
@@ -156,6 +188,7 @@ const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each ward’
 export function makeHardwareRowScenario(): Scenario & {
   setCoreStates(s: CoreState[]): void
   setRamSegments(s: (RamSegment | null)[]): void
+  pulseRam(app: string): void
   diskBlink(write: boolean): void
   setPressure(frac: number): void
 } {
@@ -167,6 +200,7 @@ export function makeHardwareRowScenario(): Scenario & {
   const { bar: psiBar, mat: psiMat } = buildPsi(group)
 
   let coreStates: CoreState[] = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
+  let ramApps: (string | null)[] = ramSlots.map(() => null)
   let elapsedMs = 0
   let diskLedT = 0
   let diskLedColor = DISK_READ
@@ -192,16 +226,20 @@ export function makeHardwareRowScenario(): Scenario & {
   }
 
   function paintRam(i: number, seg: RamSegment | null): void {
-    const { mesh, mat } = ramSlots[i]
-    const hex = seg?.color ?? RAM_IDLE
-    mat.color.setHex(hex)
-    mat.emissive.setHex(hex)
-    mat.emissiveIntensity = seg !== null ? 0.6 : 0
-    mesh.userData.info = seg
-      ? {
-          title: `RAM — ${seg.app}'s pages`,
-          note: '150MB of physical memory behind that ward\'s heap. Freed only when the process dies.',
-        }
+    const slot = ramSlots[i]
+    ramApps[i] = seg?.app ?? null
+    slot.fillMesh.visible = seg !== null
+    if (seg) {
+      const frac = Math.max(seg.fill, RAM_MIN_FILL)
+      slot.fillMesh.scale.y = frac
+      slot.fillMesh.position.y = PLATE_TOP + RAM_FILL_MARGIN + (RAM_FILL_MAX_H * frac) / 2
+      slot.fillMat.color.setHex(seg.color)
+      slot.fillMat.emissive.setHex(seg.color)
+      slot.fillMat.emissiveIntensity = RAM_FILL_EMISSIVE
+      slot.pulseT = 0
+    }
+    slot.group.userData.info = seg
+      ? { title: `RAM — ${seg.app}'s pages`, note: seg.note }
       : { title: 'RAM — free', note: 'Unclaimed physical pages.' }
   }
 
@@ -227,6 +265,11 @@ export function makeHardwareRowScenario(): Scenario & {
     },
     setRamSegments(s) {
       s.forEach((seg, i) => paintRam(i, seg))
+    },
+    pulseRam(app) {
+      ramSlots.forEach((slot, i) => {
+        if (ramApps[i] === app) slot.pulseT = RAM_PULSE_MS
+      })
     },
     diskBlink(write) {
       diskLedT = DISK_DECAY_MS
@@ -254,11 +297,18 @@ export function makeHardwareRowScenario(): Scenario & {
         diskLedT = Math.max(0, diskLedT - dtMs)
         paintDisk()
       }
+      ramSlots.forEach((slot) => {
+        if (slot.pulseT <= 0) return
+        slot.pulseT = Math.max(0, slot.pulseT - dtMs)
+        const t = slot.pulseT / RAM_PULSE_MS
+        slot.fillMat.emissiveIntensity = RAM_FILL_EMISSIVE + (1 - RAM_FILL_EMISSIVE) * t
+      })
     },
     reset() {
       coreStates = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
       coreStates.forEach((_, i) => paintCore(i))
       ramSlots.forEach((_, i) => paintRam(i, null))
+      ramSlots.forEach((slot) => { slot.pulseT = 0 })
       diskLedT = 0
       paintDisk()
       psiBar.scale.y = 1

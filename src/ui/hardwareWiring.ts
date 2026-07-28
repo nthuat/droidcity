@@ -4,6 +4,10 @@ import { APP_COLORS } from '../scene/ward'
 const CORE_COUNT = 4
 const RAM_SEGMENTS = 8
 const MB_PER_SEGMENT = 150
+// A ward that's still forked in foundry but whose WardManager entry has already
+// been torn down (a brief race during kill/demolish) reads as "barely there"
+// rather than snapping the tank back to full or vanishing outright.
+const RAM_FILL_MISSING_WARD = 0.05
 // Pressure = a smoothed usedMb/capacityMb reading (EMA, since raw fullness
 // jitters every fork/kill) plus a spike that bumps on every fork and decays
 // over 2s — modeling PSI's "stall" pain rather than exact fullness.
@@ -13,13 +17,14 @@ const PRESSURE_SPIKE_DECAY_MS = 2000
 
 interface HardwareRow {
   setCoreStates(s: { color: number | null; stuck: boolean; app: string }[]): void
-  setRamSegments(s: ({ color: number; app: string } | null)[]): void
+  setRamSegments(s: ({ color: number; app: string; fill: number; note: string } | null)[]): void
+  pulseRam(app: string): void
   diskBlink(write: boolean): void
   setPressure(frac: number): void
 }
 
 interface WardStatsSource {
-  wardStats(): { app: string; plot: number; busy: boolean; anr: boolean }[]
+  wardStats(): { app: string; plot: number; busy: boolean; anr: boolean; heapUsedKb: number; heapCapacityKb: number }[]
 }
 
 interface ProcListSource {
@@ -65,6 +70,9 @@ export function attachHardwareWiring(
   bus.on('data:cacheHit', () => { reads++; hardwareRow.diskBlink(false) })
   bus.on('data:fetched', () => { writes++; hardwareRow.diskBlink(true) })
   bus.on('process:forked', () => { spikeT = PRESSURE_SPIKE_DECAY_MS })
+  // GC↔RAM beat: a sweep visibly brightens the app's slabs for a moment before
+  // the drained fill level (read on the next syncRam) settles in.
+  bus.on('gc:swept', ({ app }) => { hardwareRow.pulseRam(app) })
 
   function syncCores(): void {
     const stats = wardManager.wardStats()
@@ -78,12 +86,18 @@ export function attachHardwareWiring(
   }
 
   function syncRam(): void {
-    const segments: ({ color: number; app: string } | null)[] = new Array(RAM_SEGMENTS).fill(null)
+    const heapByApp = new Map(wardManager.wardStats().map(w => [w.app, w]))
+    const segments: ({ color: number; app: string; fill: number; note: string } | null)[] = new Array(RAM_SEGMENTS).fill(null)
     let i = 0
     for (const proc of foundry.stats().procList) {
       const color = APP_COLORS[proc.name] ?? 0x6e7681
+      const heap = heapByApp.get(proc.name)
+      const fill = heap && heap.heapCapacityKb > 0 ? heap.heapUsedKb / heap.heapCapacityKb : RAM_FILL_MISSING_WARD
+      const note = heap
+        ? `heap ${heap.heapUsedKb}/${heap.heapCapacityKb}KB live — GC sweeps drain this; the 150MB reservation stays until the process dies.`
+        : 'heap data unavailable — GC sweeps drain this; the 150MB reservation stays until the process dies.'
       const count = Math.ceil(proc.memoryMb / MB_PER_SEGMENT)
-      for (let n = 0; n < count && i < RAM_SEGMENTS; n++, i++) segments[i] = { color, app: proc.name }
+      for (let n = 0; n < count && i < RAM_SEGMENTS; n++, i++) segments[i] = { color, app: proc.name, fill, note }
     }
     hardwareRow.setRamSegments(segments)
   }

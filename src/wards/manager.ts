@@ -4,7 +4,7 @@ import type { PacketSystem } from '../scene/packet'
 import { buildWardMeshes, type WardMeshes } from '../scene/ward'
 import { createLooper, post, advance } from '../sim/looper'
 import { createActivity, launch, rotate as rotateActivity, background, foreground, finish, type Phase } from '../sim/lifecycle'
-import { createHeap, allocate, releaseOldest, gc as gcHeap } from '../sim/heap'
+import { createHeap, allocate, releaseOldest, gc as gcHeap, usedKb } from '../sim/heap'
 import type { Priority } from '../sim/processes'
 import { createDb, query, insert, DB_QUERY_MS } from '../sim/roomDb'
 import { createPlots, allocatePlot, releasePlot } from '../sim/wardPlots'
@@ -27,7 +27,10 @@ export interface WardManager {
   update(dtMs: number): void
   setIdle(enabled: boolean): void
   wards(): readonly WardHandles[]
-  wardStats(): { app: string; plot: number; busy: boolean; anr: boolean; phase: Phase; backStack: number }[]
+  wardStats(): {
+    app: string; plot: number; busy: boolean; anr: boolean; phase: Phase; backStack: number
+    heapUsedKb: number; heapCapacityKb: number
+  }[]
   wardGroupFor(app: string): THREE.Group | null
   wardAppFromObject(obj: THREE.Object3D): string | null
   panelFor(app: string): HTMLElement | null
@@ -614,7 +617,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     wardStats() {
       return [...wards.values()].filter(e => !e.dying).map(e => ({
         app: e.app, plot: e.plot, busy: e.busyGlowMs > 0 || e.looper.current !== null, anr: e.looper.anr, phase: e.activity.phase,
-        backStack: e.backStack,
+        backStack: e.backStack, heapUsedKb: usedKb(e.heap), heapCapacityKb: e.heap.capacityKb,
       }))
     },
     wardGroupFor(app) {
