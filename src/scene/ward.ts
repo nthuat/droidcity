@@ -11,6 +11,7 @@ export interface WardMeshes {
   readonly screenPanel: THREE.Mesh
   readonly cratesParent: THREE.Group
   readonly shedGlow: THREE.Mesh
+  readonly shedLink: THREE.Mesh
   readonly benchStations: readonly THREE.Mesh[]
   readonly anrOverlay: THREE.Mesh
   readonly serviceAnnex: THREE.Mesh
@@ -292,7 +293,10 @@ export function buildWardMeshes(app: string): WardMeshes {
   const shed = new THREE.Mesh(shedGeo, shedMat)
   shed.name = 'roomShed'
   shed.position.set(6, 0.75, 4)
-  shed.userData.info = { title: 'Room DB', note: 'App-private database. Fast, local, survives process death.' }
+  shed.userData.info = {
+    title: 'Room DB',
+    note: 'App-private database. Fast, local, survives process death. The file itself is on the DISK — mmap\'d pages arrive over the storage bus.',
+  }
   group.add(shed)
 
   const shedGlowGeo = new THREE.PlaneGeometry(0.8, 1.2)
@@ -304,6 +308,23 @@ export function buildWardMeshes(app: string): WardMeshes {
   shedGlow.name = 'shedGlow'
   shedGlow.position.set(6, 0.75, 4 + 1.02)
   group.add(shedGlow)
+
+  // Storage link: thin strip from shed to ward edge on the north side where DISK
+  // traces land (traces.ts per-plot DISK family climbs from z -68 and approaches
+  // from negative-z/north). Strip runs from shed at z 4 to north edge at z -9.
+  const linkGeo = new THREE.BoxGeometry(0.4, 0.08, 13)
+  const linkMat = new THREE.MeshStandardMaterial({
+    color: 0x2a3038, roughness: 0.6, emissive: 0x000000, emissiveIntensity: 0,
+  })
+  disposables.push(linkGeo, linkMat)
+  const shedLink = new THREE.Mesh(linkGeo, linkMat)
+  shedLink.name = 'shedLink'
+  shedLink.position.set(6, 0.04, -2.5)
+  shedLink.userData.info = {
+    title: 'Storage link',
+    note: 'The shed\'s SQLite file lives on the DISK — its pages ride the storage bus below.',
+  }
+  group.add(shedLink)
 
   // Render bench: 5 mini stations in a row, each with a tiny label.
   const benchStations: THREE.Mesh[] = []
@@ -364,6 +385,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     screenPanel,
     cratesParent,
     shedGlow,
+    shedLink,
     benchStations,
     anrOverlay,
     serviceAnnex,

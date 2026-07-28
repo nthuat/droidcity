@@ -21,6 +21,7 @@ function fakeMeshes(): WardMeshes {
     screenPanel: { material: { emissiveIntensity: 0 } },
     cratesParent: { add() {}, remove() {} },
     shedGlow: { material: { emissiveIntensity: 0 } },
+    shedLink: { material: { emissive: { setHex() {} }, emissiveIntensity: 0 } },
     benchStations: [],
     anrOverlay: { material: { opacity: 0 } },
     serviceAnnex: { material: { emissiveIntensity: 0 } },
