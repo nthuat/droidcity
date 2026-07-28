@@ -204,8 +204,38 @@ describe('WardManager', () => {
     expect(resumed).toEqual([{ app: 'chat' }])
     expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('resumed')
     expect(onStartType).toHaveBeenCalledWith('chat', 'hot')
-    // Already foreground — hot path never touches priority.
-    expect(setAppPriority).not.toHaveBeenCalled()
+  })
+
+  it('bug (b): hot start restores foundry priority to foreground, not just warm start', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed via cold start; already foreground
+
+    // A hot start must still (re)set foreground priority — otherwise a stale
+    // foundry entry (e.g. from a previous idle demote) is never corrected.
+    deps.bus.emit('app:broughtToFront', { app: 'chat' })
+    expect(setAppPriority).toHaveBeenCalledWith('chat', 'foreground')
+  })
+
+  it('single-foreground invariant: resuming app B auto-backgrounds app A (phase, event, foundry priority)', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // chat resumed (foreground)
+    deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
+
+    const backgrounded: { app: string }[] = []
+    deps.bus.on('activity:backgrounded', p => backgrounded.push(p))
+
+    manager.update(800) // maps rise completes -> resumed, must auto-background chat
+
+    expect(backgrounded).toEqual([{ app: 'chat' }])
+    expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('stopped')
+    expect(manager.wardStats().find(s => s.app === 'maps')?.phase).toBe('resumed')
+    expect(setAppPriority).toHaveBeenCalledWith('chat', 'cached')
   })
 
   it('pushActivity stacks up to max 3, emitting activity:pushed with the new depth and updating wardStats().backStack', () => {

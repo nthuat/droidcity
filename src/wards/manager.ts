@@ -103,6 +103,23 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   // decide whether a fresh fork of a just-killed app counts as a "restore".
   let nowMs = 0
   const recentlyKilled = new Map<string, number>()
+  // Android allows exactly one resumed Activity system-wide. Every path that
+  // resumes an app routes through bringToForeground() so the previously
+  // foreground app is auto-backgrounded (onPause/onStop + foundry priority
+  // drop) instead of relying on each caller to remember to do it.
+  let foregroundApp: string | null = null
+
+  function bringToForeground(app: string): void {
+    if (foregroundApp === app) return
+    const previous = foregroundApp
+    foregroundApp = app
+    if (previous === null) return
+    const prevEntry = wards.get(previous)
+    if (!prevEntry || prevEntry.dying || prevEntry.activity.phase !== 'resumed') return
+    prevEntry.activity = background(prevEntry.activity)
+    bus.emit('activity:backgrounded', { app: previous })
+    setAppPriority?.(previous, (prevEntry.serviceRunning ?? false) ? 'service' : 'cached')
+  }
 
   function allocateN(entry: WardEntry, app: string, count: number, sizeKb: number): void {
     for (let i = 0; i < count; i++) {
@@ -181,6 +198,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   function onKilled({ app }: { app: string; pid: number }): void {
     recentlyKilled.set(app, nowMs)
+    if (foregroundApp === app) foregroundApp = null
     const entry = wards.get(app)
     if (!entry || entry.dying) return
     entry.dying = true
@@ -273,13 +291,16 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
     if (entry.activity.phase === 'stopped') {
+      bringToForeground(app)
       entry.activity = foreground(entry.activity) // floors relight 1→3 via syncFloors
       setAppPriority?.(app, 'foreground')
       bus.emit('activity:resumed', { app })
       onStartType?.(app, 'warm')
     } else if (entry.activity.phase === 'resumed') {
+      bringToForeground(app)
       entry.screenFlashMs = SCREEN_FLASH_MS
       entry.hotPulseMs = HOT_PULSE_MS
+      setAppPriority?.(app, 'foreground')
       bus.emit('activity:resumed', { app })
       onStartType?.(app, 'hot')
     } else if (entry.activity.phase === 'destroyed') {
@@ -288,6 +309,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       // markStopped()s on process:killed), so a kiosk tap reaches here instead of
       // process:forked. launch() recreates the Activity — a real warm start, not
       // just foreground()'s resume-in-place.
+      bringToForeground(app)
       entry.activity = launch(entry.activity)
       setAppPriority?.(app, 'foreground')
       bus.emit('activity:resumed', { app })
@@ -337,6 +359,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.activity = background(entry.activity)
     setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
     bus.emit('activity:backgrounded', { app })
+    if (foregroundApp === app) foregroundApp = null
   }
 
   // Panel 'Open screen' button: pushes a stacked Activity onto the task. Only
@@ -367,6 +390,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.activity = finish(entry.activity)
     setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
     bus.emit('activity:backgrounded', { app })
+    if (foregroundApp === app) foregroundApp = null
   }
 
   // Panel 'Start service'/'Stop service' button: flips entry.serviceRunning,
@@ -542,6 +566,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     // narration reads, and the data-request timer above only starts from here.
     if (!entry.resumed && entry.riseMs >= (entry.restored ? RISE_MS / 2 : RISE_MS)) {
       entry.resumed = true
+      bringToForeground(app)
       setAppFloorLit(entry.meshes, true)
       entry.activity = launch(entry.activity)
       bus.emit('activity:resumed', { app })

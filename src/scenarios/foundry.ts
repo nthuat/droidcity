@@ -6,7 +6,6 @@ import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
 
 const CAPACITY_MB = 1200
-const IDLE_DEMOTE_MS = 10000
 const IDLE_RECLAIM_MS = 25000
 const STAMP_MS = 400
 const DEFAULT_NARRATION = 'Zygote forks every app process from a pre-warmed template — this is why app launch is fast. (Wards are the per-app buildings; this district is the factory only.)'
@@ -166,7 +165,6 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   }
 
   let idleEnabled = true
-  let idleT = 0
   let idleReclaimT = 0
 
   return {
@@ -181,12 +179,6 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
         processFork(app)
       }
       if (idleEnabled) {
-        idleT += dtMs
-        if (idleT >= IDLE_DEMOTE_MS) {
-          idleT = 0
-          demoteAll()
-          panel.setNarration(procTable())
-        }
         idleReclaimT += dtMs
         if (idleReclaimT >= IDLE_RECLAIM_MS) {
           idleReclaimT = 0
@@ -209,14 +201,12 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     reset() {
       state = createSystem(CAPACITY_MB)
       pendingLaunches = []
-      idleT = 0
       idleReclaimT = 0
       stampT = 0
       panel.setNarration(DEFAULT_NARRATION)
     },
     setIdle(enabled) {
       idleEnabled = enabled
-      idleT = 0
       idleReclaimT = 0
     },
     demoteAll,
