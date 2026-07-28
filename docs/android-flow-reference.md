@@ -105,7 +105,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Bootloader → kernel → init | Boot Row stations 1-3 | ✅ |
 | Zygote preloading (warm template) | Foundry narration + fork behavior | ✅ |
 | **init forks Zygote; system_server forked FROM Zygote** | ch1: init "warms the foundry"; system_server "the foundry's first casting" | ✅ (fixed) |
-| servicemanager / Binder name service | — | ❌ (fold into City Hall note?) |
+| servicemanager / Binder name service | City Hall tooltip | ✅ (v4, note-level) |
 | SurfaceFlinger starts at init stage | SF district un-dims at init stage during boot replay | ✅ (fixed) |
 | PMS APK scan at boot | — | ❌ minor |
 | BOOT_COMPLETED broadcast | broadcast fan-out fires on boot:complete (v3) | ✅ |
@@ -133,11 +133,11 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Room query, app-private file | Room shed + DISK blink | ✅ |
 | Cache-then-network + Flow re-emission | ch3 stale-then-fresh | ✅ (mechanism ⚠️ — Room invalidation/Flow not named) |
 | OkHttp phases + retry/backoff | Network Tower phases | ✅ |
-| Connection pooling (warm skips dns/tls) | every request runs all phases | ⚠️ |
+| Connection pooling (warm skips dns/tls) | pooled requests skip to ttfb (30s window, cleared on process kill) | ✅ (v4) |
 | Choreographer + vsync scheduling | named in ch4 narration + input-stage tooltip (frame start still message-driven ⚠️) | ✅ (fixed) |
 | RenderThread off main | bench station | ✅ |
-| BufferQueue / triple buffering | — | ❌ minor (plan's known simplification) |
-| SF + HWC composition | SF district | ✅ (HWC ❌ minor) |
+| BufferQueue / triple buffering | compositor tooltip | ✅ (v4, tooltip-level) |
+| SF + HWC composition | SF district + HWC tooltip on display wall | ✅ (v4) |
 | Jank (missed vsync) vs ANR (blocked looper) | ch4 shows both distinctly | ✅ |
 
 ### Memory management
@@ -149,7 +149,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | OOM = leak (all reachable) | gc OOM narration says exactly this | ✅ |
 | **oom_adj score ladder** (0/100/200/500/600/700/900) | live oom_adj on ward labels (0/100/500/900 via priorities); HOME/PREVIOUS slots unmodeled | ✅ (fixed, partial ladder ⚠️) |
 | **lmkd as its own daemon; SIGKILL, no callback** | kill narration: "SIGKILL — no callback, onDestroy never ran" (foundry still plays both AMS and lmkd roles ⚠️) | ✅ (fixed) |
-| **PSI pressure signals driving kills** | PSI gauge on RAM bank + HUD %, fork-spike decay | ✅ (fixed; kill trigger itself still fullness-based ⚠️) |
+| **PSI pressure signals driving kills** | PSI gauge on RAM bank + HUD %, fork-spike decay | ✅ (v4: kills now PSI-edge-triggered at 85% + fork-reclaim fallback) |
 | zram/kswapd reclaim before killing | — | ❌ minor |
 | onTrimMemory cooperative shrink | memory:trim event — wards shed crates + sweep on pressure | ✅ (fixed) |
 | Silent kill → savedInstanceState restore | ch4 finale relaunches; restored wards rise 2x fast + panel badge | ✅ (fixed) |
@@ -164,15 +164,15 @@ BroadcastReceivers-as-components / bound services / ContentProviders · JobSched
 
 The flow above is one path through the system. These are the concepts an Android engineer is expected to hold that live OUTSIDE that path. Tagged: 🏙 = worth modeling in DroidCity eventually · 📖 = reference-only (doc/interview material, not city material).
 
-**🏙 Binder mechanics** (we use it as "roads via City Hall" but the machine itself): kernel `/dev/binder` driver; **one-copy** transfers via mmap'd receive buffers; each process owns a **binder thread pool** (default max ~16) — incoming calls run on those, not your main thread; `oneway` (async) vs synchronous calls; the **~1MB transaction buffer** shared per process — `TransactionTooLargeException` when a Parcel (e.g. a giant Bundle in `onSaveInstanceState`) blows it; **death recipients** (`linkToDeath`) — how system_server notices an app died; AIDL generates the Parcel marshalling.
+**🏙 Binder mechanics** (we use it as "roads via City Hall" but the machine itself): kernel `/dev/binder` driver; **one-copy** transfers via mmap'd receive buffers; each process owns a **binder thread pool** (default max ~16) — incoming calls run on those, not your main thread; `oneway` (async) vs synchronous calls; the **~1MB transaction buffer** shared per process — `TransactionTooLargeException` when a Parcel (e.g. a giant Bundle in `onSaveInstanceState`) blows it; **death recipients** (`linkToDeath`) — how system_server notices an app died; AIDL generates the Parcel marshalling. **v4:** thread pool/1MB buffer/TransactionTooLarge in City Hall tooltips; death-recipient pulse on process death.
 
 **🏙 The four components + Intents**: Activity, **Service** (started vs bound; foreground services with notification), **BroadcastReceiver** (system events; registered vs manifest), **ContentProvider** (data sharing across UIDs; initialized before `Application.onCreate` — startup cost). **Intents**: explicit vs implicit, resolution by PMS against manifest intent-filters. This is THE textbook Android abstraction set and DroidCity models only Activity. **v3:** started Services modeled (ward annex, oom_adj 500 keep-alive, LMK survival); broadcasts minimally (City Hall fan-out, BOOT_COMPLETED); Intents named in ch2 narration. BroadcastReceiver/ContentProvider still doc-only.
 
 **🏙 Cold / warm / hot start**: doc's Phase 2 is a **cold** start (fork everything). **Warm** = process alive, Activity recreated (no fork, no Application.onCreate). **Hot** = everything alive, just brought to front. Launcher tap on a cached ward should NOT rebuild the ward — instant hot start would teach why cached processes exist (ties directly into oom_adj 700/900 and LMK). **v3:** modeled — warm relight, hot pulse, Home button, Chapter 5 ladder.
 
-**🏙 ANR ladder** (we model input-ANR only): input dispatch **5s** · foreground service **20s** (background 200s) · broadcast receiver **10s** foreground / **60s** background · JobScheduler jobs. Different timers, same disease: a blocked main looper.
+**🏙 ANR ladder** (we model input-ANR only): input dispatch **5s** · foreground service **20s** (background 200s) · broadcast receiver **10s** foreground / **60s** background · JobScheduler jobs. Different timers, same disease: a blocked main looper. **v4:** full timer ladder in the ANR overlay tooltip.
 
-**🏙 Tasks & back stack**: tasks (Recents entries), back stack of activities, `launchMode` (standard / singleTop / singleTask / singleInstance), task affinity, predictive back. Explains what "back" actually does — a stack of floors/rooms metaphor fits the tower naturally.
+**🏙 Tasks & back stack**: tasks (Recents entries), back stack of activities, `launchMode` (standard / singleTop / singleTask / singleInstance), task affinity, predictive back. Explains what "back" actually does — a stack of floors/rooms metaphor fits the tower naturally. **v4:** modeled — push/pop stack cards, Back to finish-root leaves process alive (warm), launchMode still doc-only.
 
 **📖 Install & ART compilation pipeline**: APK (zip: dex, resources, native libs, manifest) → `installd` → **dex2oat**: install-time partial AOT, then **JIT** at runtime with **profile-guided AOT** re-compiles during idle-charge (baseline profiles ship those hot-path profiles with the app for fast first launches). Interpreter → JIT → AOT tiers.
 
@@ -208,4 +208,4 @@ Items 1-9 below were implemented and deployed; kept as a changelog of what each 
 8. ✅ onTrimMemory cooperative shed (memory:trim)
 9. ✅ Kill → restore arc (ch4 finale + fast-rise restore badge; expanded by ch5)
 
-**Open backlog (v4):** Binder mechanics beats (thread pool, 1MB buffer, death recipients as City Hall narration) · ANR ladder timers · tasks & back stack · servicemanager note · HWC/BufferQueue · connection pooling warm-skip · PSI-driven (not fullness-driven) kill trigger.
+**Open backlog (v5):** bound services · ContentProviders · JIT/AOT/baseline profiles · multi-window · predictive back · launchMode variants · Compose recomposition beat.
