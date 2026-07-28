@@ -9,6 +9,7 @@ const SF_VISUAL_MS = 200 // SF_MS=5 sim-ms scaled ×40
 const FLASH_MS = 350
 const DARK = 0x21262d
 const GREEN = 0x3fb950
+const FAINT_GREEN = 0x1b3524
 const RED = 0xf85149
 const DEFAULT_NARRATION = 'SurfaceFlinger composites every submitted frame onto the display, one at a time.'
 
@@ -18,8 +19,8 @@ interface QueueEntry { readonly app: string; readonly dropped: boolean }
 // 'faint' = alive but not on screen, 'dark' = killed or never started.
 type TileVisualState = 'bright' | 'faint' | 'dark'
 interface TileState { state: TileVisualState; flashT: number; flashRed: boolean }
-const BRIGHT_INTENSITY = 0.25
-const FAINT_INTENSITY = 0.08
+const BRIGHT_INTENSITY = 0.45
+const FAINT_INTENSITY = 0.04
 
 export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { composited: number; dropped: number } } {
   const group = new THREE.Group()
@@ -140,9 +141,13 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
         mat.emissiveIntensity = 0
         return
       }
-      mat.color.setHex(GREEN)
+      // Bright vs faint must differ in BASE color too — under scene lighting the
+      // diffuse green dominates, so an emissive-only delta made every running
+      // app's tile look identically lit ("3 apps on screen at once").
+      const bright = t.state === 'bright'
+      mat.color.setHex(bright ? GREEN : FAINT_GREEN)
       mat.emissive.setHex(GREEN)
-      mat.emissiveIntensity = t.state === 'bright' ? BRIGHT_INTENSITY : FAINT_INTENSITY
+      mat.emissiveIntensity = bright ? BRIGHT_INTENSITY : FAINT_INTENSITY
     })
   }
   paint()
