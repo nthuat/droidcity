@@ -37,7 +37,7 @@ export const ANCHORS: Record<string, THREE.Vector3> = {
   launcher: new THREE.Vector3(0, 3, 40),
 }
 
-const WARDS_ANCHOR = new THREE.Vector3(0, 0, -25)
+const WARDS_ANCHOR = new THREE.Vector3(0, 5, -25)
 const HUD_UPDATE_MS = 500
 const START_TYPE_FLASH_MS = 3000
 

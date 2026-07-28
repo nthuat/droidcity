@@ -101,7 +101,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   disposables.push(annexGeo, annexMat)
   const serviceAnnex = new THREE.Mesh(annexGeo, annexMat)
   serviceAnnex.name = 'serviceAnnex'
-  serviceAnnex.position.set(TOWER_X - 2.5, 0.9, TOWER_Z)
+  serviceAnnex.position.set(TOWER_X - 3.2, 0.9, TOWER_Z)
   serviceAnnex.userData.info = {
     title: 'Service',
     note: 'Runs with no UI. Keeps the process off the kill list — oom_adj 500 instead of 900.',
@@ -134,7 +134,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     disposables.push(geo, mat)
     const card = new THREE.Mesh(geo, mat)
     card.name = `stackCard${i}`
-    card.position.set(TOWER_X + 1.8, 0.15 + i * 0.3, TOWER_Z - 1.8)
+    card.position.set(TOWER_X + 2.6, 0.15 + i * 0.3, TOWER_Z - 1.8)
     card.visible = false
     card.userData.info = {
       title: 'Back stack',
@@ -171,7 +171,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   group.add(screenPanel)
 
   // Road toward the tower, with an empty parent for cars spawned later.
-  const roadGeo = new THREE.PlaneGeometry(1, 10)
+  const roadGeo = new THREE.PlaneGeometry(1, 4)
   const roadMat = new THREE.MeshStandardMaterial({ color: 0x21262d })
   disposables.push(roadGeo, roadMat)
   const road = new THREE.Mesh(roadGeo, roadMat)
@@ -191,7 +191,7 @@ export function buildWardMeshes(app: string): WardMeshes {
 
   // Worker pool: a second, narrower road parallel to the main road — real IO
   // (Room queries, network fetches) runs here, never on the main thread.
-  const workerRoadGeo = new THREE.PlaneGeometry(0.6, 10)
+  const workerRoadGeo = new THREE.PlaneGeometry(0.6, 4)
   const workerRoadMat = new THREE.MeshStandardMaterial({ color: 0x37474f })
   disposables.push(workerRoadGeo, workerRoadMat)
   const workerRoad = new THREE.Mesh(workerRoadGeo, workerRoadMat)
@@ -312,14 +312,14 @@ export function buildWardMeshes(app: string): WardMeshes {
   // Storage link: thin strip from shed to ward edge on the north side where DISK
   // traces land (traces.ts per-plot DISK family climbs from z -68 and approaches
   // from negative-z/north). Strip runs from shed at z 4 to north edge at z -9.
-  const linkGeo = new THREE.BoxGeometry(0.4, 0.08, 13)
+  const linkGeo = new THREE.BoxGeometry(0.4, 0.08, 12.8)
   const linkMat = new THREE.MeshStandardMaterial({
     color: 0x2a3038, roughness: 0.6, emissive: 0x000000, emissiveIntensity: 0,
   })
   disposables.push(linkGeo, linkMat)
   const shedLink = new THREE.Mesh(linkGeo, linkMat)
   shedLink.name = 'shedLink'
-  shedLink.position.set(6, 0.04, -2.5)
+  shedLink.position.set(6.4, 0.04, -2.5)
   shedLink.userData.info = {
     title: 'Storage link',
     note: 'The shed\'s SQLite file lives on the DISK — its pages ride the storage bus below.',
@@ -341,7 +341,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     group.add(box)
     benchStations.push(box)
 
-    const label = makeLabel(text, 0.4)
+    const label = makeLabel(text, 0.25)
     label.position.set(x, 1.6, -8)
     trackLabel(label)
     group.add(label)

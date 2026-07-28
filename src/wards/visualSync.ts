@@ -56,7 +56,7 @@ export function syncCars(meshes: WardMeshes, looper: LooperState, carPool: Map<n
     }
     const isCurrent = looper.current?.msg.id === msg.id
     const progress = isCurrent ? looper.current!.elapsedMs / msg.costMs : 0
-    car.position.z = 4 - i * CAR_SPACING - (isCurrent ? progress * 0.6 : 0)
+    car.position.z = 2 - i * CAR_SPACING - (isCurrent ? progress * 0.6 : 0)
     car.position.y = 0.1
   })
   for (const [id, car] of carPool) {
@@ -100,7 +100,7 @@ export function setServiceAnnexLit(meshes: WardMeshes, lit: boolean): void {
 export function syncWorkerCars(meshes: WardMeshes, cars: ReadonlyMap<string, THREE.Mesh>, tMs: number): void {
   let i = 0
   for (const car of cars.values()) {
-    car.position.z = Math.sin(tMs / 400 + i * 2) * 3
+    car.position.z = Math.sin(tMs / 400 + i * 2) * 2
     car.position.y = 0.1
     i++
   }
