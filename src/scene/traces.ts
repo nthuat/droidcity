@@ -16,6 +16,8 @@ const TRACE_W = 0.5
 const TRACE_H = 0.06
 const TRACE_COLOR = 0x2a3038
 const TRACE_RAISE = 0.02 // clears the plate top so the ribbon's visible face doesn't z-fight
+const BUS_W = 1.2 // CPU-RAM bus wider than per-plot traces
+const CPU_RAM_BUS_INFO = { title: 'Memory bus (CPU ↔ RAM)', note: 'Every instruction and object the CPU touches streams over this bus. Caches hide most trips — a miss stalls the core.' }
 
 const Y_HW = -0.5
 const Y_BOOT = -0.2
@@ -123,6 +125,7 @@ export interface Traces {
   setCpuTraceGlow(plot: number, color: number | null): void
   setRamTraceGlow(plot: number, color: number | null): void
   setDiskTraceGlow(plot: number, color: number | null): void
+  setCpuRamBusGlow(color: number | null): void
 }
 
 export function buildTraces(): Traces {
@@ -137,6 +140,18 @@ export function buildTraces(): Traces {
     const points = [...climbPoints(CPU_X + CORE_OFFSETS[n], HW_Z), v(plotX, Y_PLATE, PLOT_Z)]
     for (const m of ribbon(mat, points)) group.add(m)
   })
+
+  // CPU ↔ RAM bus: wide flat ribbon along the hardware strip surface.
+  const busMat = traceMaterial()
+  const a = v(CPU_X, Y_HW, HW_Z).addScaledVector(new THREE.Vector3(0, TRACE_RAISE, 0), 1)
+  const b = v(RAM_X, Y_HW, HW_Z).addScaledVector(new THREE.Vector3(0, TRACE_RAISE, 0), 1)
+  const len = a.distanceTo(b) || 0.001
+  const busMesh = new THREE.Mesh(new THREE.BoxGeometry(BUS_W, TRACE_H, len), busMat)
+  busMesh.position.copy(a).lerp(b, 0.5)
+  busMesh.position.y -= TRACE_H / 2
+  busMesh.lookAt(b)
+  busMesh.userData.info = CPU_RAM_BUS_INFO
+  group.add(busMesh)
 
   // RAM: one climb, forking into RAM -> zygote and RAM -> ward-strip trunk.
   const ramMat = traceMaterial()
@@ -164,10 +179,16 @@ export function buildTraces(): Traces {
     mat.emissiveIntensity = color !== null ? 0.5 : 0
   }
 
+  function setSingleGlow(mat: THREE.MeshStandardMaterial, color: number | null): void {
+    mat.emissive.setHex(color ?? 0x000000)
+    mat.emissiveIntensity = color !== null ? 0.5 : 0
+  }
+
   return {
     group,
     setCpuTraceGlow(plot, color) { setFamilyGlow(cpuMats, plot, color) },
     setRamTraceGlow(plot, color) { setFamilyGlow(ramFamily.mats, plot, color) },
     setDiskTraceGlow(plot, color) { setFamilyGlow(diskFamily.mats, plot, color) },
+    setCpuRamBusGlow(color) { setSingleGlow(busMat, color) },
   }
 }

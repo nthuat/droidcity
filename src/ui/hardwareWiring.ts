@@ -64,6 +64,7 @@ export function attachHardwareWiring(
   setCpuTraceGlow: (plot: number, color: number | null) => void,
   setRamTraceGlow: (plot: number, color: number | null) => void,
   setDiskTraceGlow: (plot: number, color: number | null) => void,
+  setCpuRamBusGlow: (color: number | null) => void,
 ): { syncCores(dtMs: number): void; syncRam(): void; syncPressure(dtMs: number): void; getPressure(): number; label(): string } {
   let reads = 0
   let writes = 0
@@ -119,6 +120,26 @@ export function attachHardwareWiring(
     })
     hardwareRow.setCoreStates(cores)
     cores.forEach((c, plot) => setCpuTraceGlow(plot, c.stuck ? CORE_STUCK_GLOW : c.color))
+
+    // Compute CPU-RAM bus state: collect busy non-ANR wards' colors, but ANR wins over all.
+    const busyNonAnrColors: number[] = []
+    let anyAnrBusy = false
+    for (const w of stats) {
+      if (w.anr && w.busy) {
+        anyAnrBusy = true
+      } else if (w.busy) {
+        busyNonAnrColors.push(APP_COLORS[w.app] ?? 0x6e7681)
+      }
+    }
+    let busColor: number | null = null
+    if (anyAnrBusy) {
+      busColor = CORE_STUCK_GLOW
+    } else if (busyNonAnrColors.length === 1) {
+      busColor = busyNonAnrColors[0]
+    } else if (busyNonAnrColors.length > 1) {
+      busColor = 0xffffff
+    }
+    setCpuRamBusGlow(busColor)
 
     for (let plot = 0; plot < CORE_COUNT; plot++) {
       ramPulse[plot] = Math.max(0, ramPulse[plot] - dtMs)
