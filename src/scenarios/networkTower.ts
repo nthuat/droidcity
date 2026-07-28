@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { NET_PHASES, startRequest, advanceRequest, type NetRequest } from '../sim/netFetch'
 import { makeBuilding } from '../scene/builders'
+import { makeAntenna } from '../scene/props'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
@@ -53,6 +54,29 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   arch.position.set(6, 2.5, 0)
   arch.rotation.z = Math.PI
   group.add(arch)
+
+  // Static dressing: antenna mast array at the back of the plate + a dish on the
+  // tower + a gate arch where the INTERNET road exits the board (world x 84, matching
+  // board.ts's edge text). Local y 0.3 is the plate top (anchor y 0 matches it).
+  for (const x of [-12, 0, 12]) {
+    const mast = makeAntenna()
+    mast.position.set(x, 0.3, 15)
+    group.add(mast)
+  }
+  const dish = new THREE.Mesh(
+    new THREE.CylinderGeometry(0, 1.1, 0.4, 16, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x546e7a, roughness: 0.5, side: THREE.DoubleSide }),
+  )
+  dish.position.set(0, 10, 0)
+  dish.rotation.x = -0.7
+  group.add(dish)
+  const roadArch = new THREE.Mesh(
+    new THREE.TorusGeometry(4, 0.35, 8, 24, Math.PI),
+    new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.6 }),
+  )
+  roadArch.rotation.y = Math.PI / 2
+  roadArch.position.set(19, 0.3, 0)
+  group.add(roadArch)
 
   const phaseLabel = makePhaseLabel('idle')
   phaseLabel.sprite.position.set(0, 11.5, 0)

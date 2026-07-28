@@ -22,28 +22,47 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   const compositor = makeBuilding(5, 6, 5, 0x484f58, 'SurfaceFlinger')
   group.add(compositor)
 
-  const board = new THREE.Mesh(
-    new THREE.BoxGeometry(9, 2.5, 0.3),
+  // Display wall: mounted at the zone's east edge (local x 17 = world x 82, the
+  // plan's "display wall at x 82 facing -x"), bigger than the old freestanding board.
+  // Local y 0.3 is the plate top here (anchor y 0 matches the flat plate offset).
+  const WALL_X = 17
+  const WALL_BASE_Y = 0.3
+  const WALL_H = 5
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(0.4, WALL_H, 10),
     new THREE.MeshStandardMaterial({ color: 0x161b22 }),
   )
-  board.position.set(0, 4, 6)
-  group.add(board)
-  const boardLabel = makeLabel('Display', 0.7)
-  boardLabel.position.set(0, 6, 6)
-  group.add(boardLabel)
+  wall.position.set(WALL_X, WALL_BASE_Y + WALL_H / 2, 0)
+  group.add(wall)
+  const wallLabel = makeLabel('Display', 0.7)
+  wallLabel.position.set(WALL_X, WALL_BASE_Y + WALL_H + 0.7, 0)
+  group.add(wallLabel)
 
   const tileMeshes: THREE.Mesh[] = APPS.map((app, i) => {
     const tile = new THREE.Mesh(
-      new THREE.BoxGeometry(1.8, 1.8, 0.2),
+      new THREE.BoxGeometry(0.25, 2.2, 2.2),
       new THREE.MeshStandardMaterial({ color: DARK }),
     )
-    tile.position.set((i - 1.5) * 2, 4, 6.2)
+    tile.position.set(WALL_X - 0.5, WALL_BASE_Y + WALL_H / 2, (i - 1.5) * 2.4)
     group.add(tile)
     const lbl = makeLabel(app, 0.4)
-    lbl.position.set((i - 1.5) * 2, 5.3, 6.2)
+    lbl.position.set(WALL_X - 0.5, WALL_BASE_Y + WALL_H / 2 + 1.4, (i - 1.5) * 2.4)
     group.add(lbl)
     return tile
   })
+
+  // Frame crates stacked near the conveyor mouth (west side, where ward packets
+  // arrive at this zone's anchor).
+  const crateMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.7 })
+  const crateGeo = new THREE.BoxGeometry(1.4, 1.4, 1.4)
+  const cratePositions: Array<[number, number, number]> = [
+    [-7, 1.0, -6], [-7, 2.4, -6], [-5.3, 1.0, -6.6],
+  ]
+  for (const [x, y, z] of cratePositions) {
+    const crate = new THREE.Mesh(crateGeo, crateMat)
+    crate.position.set(x, y, z)
+    group.add(crate)
+  }
 
   const tiles: TileState[] = APPS.map(() => ({ hasComposited: false, killed: false, flashT: 0, flashRed: false }))
 

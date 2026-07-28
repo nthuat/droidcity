@@ -7,6 +7,7 @@ import type { Scenario } from './types'
 
 const PULSE_MS = 300
 const RUNNING_COLOR = 0x3fb950
+const RUNNING_INTENSITY = 0.7 // kiosk signs glow slightly stronger than the old 0.5
 const IDLE_LAUNCH_MS = 8000
 const DEFAULT_NARRATION = 'Tap a kiosk to launch its app. Steady green glow = running.'
 
@@ -38,12 +39,27 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
     return { app, root, body, pulseT: 0 }
   })
 
+  // Static dressing: railing posts around the platform edge. Local y 0 is the
+  // platform's own flat top here (anchor y 3 already matches it).
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.6 })
+  const postGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8)
+  const postSpots: Array<[number, number]> = [
+    [-28, -7], [-28, 2], [-28, 11],
+    [28, -7], [28, 2], [28, 11],
+    [-18, 14], [0, 14], [18, 14],
+  ]
+  for (const [x, z] of postSpots) {
+    const post = new THREE.Mesh(postGeo, postMat)
+    post.position.set(x, 0.6, z)
+    group.add(post)
+  }
+
   function paint(): void {
     for (const k of kiosks) {
       const mat = k.body.material as THREE.MeshStandardMaterial
       const running = state.running.includes(k.app)
       mat.emissive.setHex(running ? RUNNING_COLOR : 0x000000)
-      mat.emissiveIntensity = running ? 0.5 : 0
+      mat.emissiveIntensity = running ? RUNNING_INTENSITY : 0
       const bounce = k.pulseT > 0 ? 1 + 0.25 * Math.sin((k.pulseT / PULSE_MS) * Math.PI) : 1
       k.root.scale.setScalar(bounce)
     }

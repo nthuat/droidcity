@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { createBoot, advanceBoot, BOOT_STAGES, type BootState } from '../sim/boot'
 import { makeBuilding } from '../scene/builders'
+import { makePipeRun, makeTank } from '../scene/props'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
@@ -26,6 +27,19 @@ export function makeBootRowScenario(bus: Bus, onReplayStart: () => void): Scenar
     group.add(b)
     return b
   })
+
+  // Static dressing: pipe runs + 2 tanks along the recessed strip (power/clock feel).
+  // Local y -0.2 matches the strip's own recessed plate top (board.ts).
+  for (const x of [-40, 40]) {
+    const pipeRun = makePipeRun(70)
+    pipeRun.position.set(x, -0.2, -6)
+    group.add(pipeRun)
+  }
+  for (const x of [-75, 75]) {
+    const tank = makeTank()
+    tank.position.set(x, -0.2, 5)
+    group.add(tank)
+  }
 
   function paint(): void {
     stations.forEach((b, i) => {

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { makeBuilding } from '../scene/builders'
+import { makeAntenna } from '../scene/props'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
@@ -23,6 +24,21 @@ export function makeCityHallScenario(bus: Bus): Scenario {
     return w
   })
   const buildings = [hall, ...wings]
+
+  // Static dressing: antenna on the hall roof + 4 pillar columns at the pit floor's
+  // corners. Local y 0 is the pit floor here (anchor y -2 already matches it).
+  const antenna = makeAntenna()
+  antenna.position.set(0, 6, -3)
+  group.add(antenna)
+
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.6 })
+  const pillarGeo = new THREE.CylinderGeometry(0.6, 0.6, 4, 12)
+  const pillarSpots: Array<[number, number]> = [[-40, -10], [40, -10], [-40, 10], [40, 10]]
+  for (const [x, z] of pillarSpots) {
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat)
+    pillar.position.set(x, 2, z)
+    group.add(pillar)
+  }
 
   // Dark until boot:complete while a replay is in progress; relights one stage at a time.
   let stagesSeen = 0

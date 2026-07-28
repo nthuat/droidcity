@@ -42,6 +42,31 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   group.add(stamp)
   let stampT = 0
 
+  // Static dressing: blank ward-kit boxes queued at the conveyor mouth (south side,
+  // facing the wards) + a decorative piston tower. No sim link — purely visual.
+  const kitMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.7 })
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < 3; col++) {
+      const kit = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 4), kitMat)
+      kit.position.set((col - 1) * 5, 0.8, 9 + row * 5)
+      group.add(kit)
+    }
+  }
+  const pistonTower = new THREE.Group()
+  const mast = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 6, 1.2),
+    new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.7 }),
+  )
+  mast.position.y = 3
+  const rod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.25, 0.25, 4, 8),
+    new THREE.MeshStandardMaterial({ color: 0x546e7a, roughness: 0.5 }),
+  )
+  rod.position.set(0, 5, 0.9)
+  pistonTower.add(mast, rod)
+  pistonTower.position.set(-10, 0.3, -8)
+  group.add(pistonTower)
+
   function demoteAll(): void {
     state = state.procs.reduce(
       (acc, p) => (p.priority === 'foreground' ? setPriority(acc, p.pid, 'cached') : acc),

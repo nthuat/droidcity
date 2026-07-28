@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { makeVent } from './props'
 
 // Static machine-board geometry: one contiguous plate-tiled floor replacing the old
 // ground+grid. Built once and added to the scene from main.ts — no disposal needed,
@@ -117,6 +118,22 @@ export function buildBoard(): THREE.Group {
   group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
   group.add(makeEdgeText('INTERNET →', 16, 6, 84, 0.36, 17))
   group.add(makeEdgeText('HARDWARE / KERNEL SPACE', 60, 6, 0, -0.14, -58))
+
+  // Board corners: 2 vents each. Back corners (z -57) sit on the recessed boot strip
+  // (plate top -0.2); front corners (z 57) sit on bare board (no plate reaches there).
+  const CORNER_Y_BACK = -0.2
+  const CORNER_Y_FRONT = 0
+  const cornerSpots: Array<[number, number, number]> = [
+    [-78, CORNER_Y_BACK, -57], [-74, CORNER_Y_BACK, -56],
+    [78, CORNER_Y_BACK, -57], [74, CORNER_Y_BACK, -56],
+    [-78, CORNER_Y_FRONT, 57], [-74, CORNER_Y_FRONT, 56],
+    [78, CORNER_Y_FRONT, 57], [74, CORNER_Y_FRONT, 56],
+  ]
+  for (const [x, y, z] of cornerSpots) {
+    const vent = makeVent()
+    vent.position.set(x, y, z)
+    group.add(vent)
+  }
 
   return group
 }
