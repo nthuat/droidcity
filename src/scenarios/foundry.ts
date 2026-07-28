@@ -52,6 +52,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     for (const colX of KIT_COL_X) {
       const kit = new THREE.Mesh(kitGeo, kitMat)
       kit.position.set(colX, 0.8, 9 + row * 5)
+      kit.userData.info = {
+        title: 'Ward blanks',
+        note: 'Pre-warmed process templates — what a Zygote fork stamps into a live ward. Copy-on-write: each blank shares the framework pages until written.',
+      }
       group.add(kit)
     }
   }
