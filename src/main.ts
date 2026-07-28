@@ -9,6 +9,7 @@ import type { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
 import { makeBootRowScenario } from './scenarios/bootRow'
+import { makeHardwareRowScenario } from './scenarios/hardwareRow'
 import { makeFoundryScenario } from './scenarios/foundry'
 import { makeCityHallScenario } from './scenarios/cityHall'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
@@ -24,6 +25,7 @@ import { makeCh4 } from './story/chapters/ch4-frame'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(0, 0, -52),
+  hardware: new THREE.Vector3(0, 0, -68),
   zygote: new THREE.Vector3(-65, 0, -20),
   cityhall: new THREE.Vector3(0, -2, 10),
   surfaceflinger: new THREE.Vector3(65, 0, -22),
@@ -43,6 +45,7 @@ export const PLOT_ANCHORS: THREE.Vector3[] = [
 // One offset per entry in `scenarios` below, same order.
 const SCENARIO_OFFSETS: THREE.Vector3[] = [
   ANCHORS.boot, // bootRow
+  ANCHORS.hardware, // hardwareRow
   ANCHORS.zygote, // foundry
   ANCHORS.cityhall, // cityHall
   ANCHORS.launcher, // launcherPlaza
@@ -98,6 +101,7 @@ function setCityDim(dim: boolean): void {
 }
 
 const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
+const hardwareRow = makeHardwareRowScenario()
 const foundry = makeFoundryScenario(bus)
 const cityHall = makeCityHallScenario(bus)
 const launcherPlaza = makeLauncherPlazaScenario(bus)
@@ -107,6 +111,7 @@ bus.on('boot:complete', () => setCityDim(false))
 
 const scenarios: Scenario[] = [
   bootRow,
+  hardwareRow,
   foundry,
   cityHall,
   launcherPlaza,

@@ -17,6 +17,7 @@ const COLORS = {
   surfaceflinger: 0x3a2a55,
   network: 0x553a2a,
   launcher: 0x374a37,
+  hardware: 0x263238,
 }
 
 function plateMaterial(color: number): THREE.MeshStandardMaterial {
@@ -100,14 +101,17 @@ export function buildBoard(): THREE.Group {
   const group = new THREE.Group()
   group.name = 'board'
 
+  // Depth 120→140, extending only off the back edge (front stays at z=60 so every
+  // existing plate/zone coordinate below is untouched) — box re-centers to z=-10.
   const board = new THREE.Mesh(
-    new THREE.BoxGeometry(170, 1, 120),
+    new THREE.BoxGeometry(170, 1, 140),
     new THREE.MeshStandardMaterial({ color: BOARD_COLOR, roughness: 0.9 }),
   )
-  board.position.set(0, -0.5, 0)
+  board.position.set(0, -0.5, -10)
   group.add(board)
 
   group.add(makePlate(COLORS.boot, -85, 85, -60, -45, -0.2)) // recessed back strip
+  group.add(makePlate(COLORS.hardware, -85, 85, -75, -60, -0.5)) // hardware/kernel strip, deeper recess
   group.add(makePlate(COLORS.foundry, -85, -45, -45, 5, 0.3))
   group.add(makePlate(COLORS.wards, -45, 45, -45, -5, 0.3))
   group.add(makePlate(COLORS.surfaceflinger, 45, 85, -45, 0, 0.3))
@@ -117,7 +121,7 @@ export function buildBoard(): THREE.Group {
 
   group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
   group.add(makeEdgeText('INTERNET →', 16, 6, 84, 0.36, 17))
-  group.add(makeEdgeText('HARDWARE / KERNEL SPACE', 60, 6, 0, -0.14, -58))
+  group.add(makeEdgeText('HARDWARE', 30, 6, 0, -0.44, -73)) // on the hardware plate (top -0.5)
 
   // Board corners: 2 vents each. Back corners (z -57) sit on the recessed boot strip
   // (plate top -0.2); front corners (z 57) sit on bare board (no plate reaches there).
