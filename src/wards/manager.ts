@@ -504,7 +504,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       packets.fly([...toCityhall, ...toLauncher.slice(1)], { color: 0xbc8cff, arcHeight: 1 })
     }
 
-    if (entry.panel) entry.panel.setNarration(narrationFor(entry))
+    if (entry.panel) {
+      entry.panel.setNarration(narrationFor(entry))
+      entry.panel.syncService(entry.serviceRunning)
+    }
 
     syncCars(entry.meshes, entry.looper, entry.carPool)
     syncWorkerCars(entry.meshes, entry.workerCars, entry.anrFlashT)

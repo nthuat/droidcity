@@ -5,7 +5,7 @@ import type { ActivityState } from '../sim/lifecycle'
 import { usedKb, type HeapState } from '../sim/heap'
 import type { DbState } from '../sim/roomDb'
 import type { FrameRun } from '../sim/framePipeline'
-import type { Panel } from '../ui/panel'
+import type { WardPanel } from './panel'
 
 const PROCESSED_ID_LIMIT = 50
 const LOG_LIMIT = 20
@@ -48,7 +48,7 @@ export interface WardEntry {
   cratePool: Map<number, THREE.Mesh>
   crateSlots: Map<number, number>
   workerCars: Map<'db' | 'network', THREE.Mesh>
-  panel: Panel | null
+  panel: WardPanel | null
 }
 
 export function trimProcessed(s: LooperState): LooperState {
