@@ -14,6 +14,10 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   const group = new THREE.Group()
 
   const hall = makeBuilding(14, 6, 8, LIT, 'system_server')
+  hall.userData.info = {
+    title: 'system_server',
+    note: 'ActivityManager, WindowManager, PackageManager. All Binder calls route here.',
+  }
   group.add(hall)
 
   const wingNames = ['AMS', 'WMS', 'PMS']

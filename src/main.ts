@@ -4,6 +4,7 @@ import { buildBoard } from './scene/board'
 import { buildRoutes, pathLength } from './scene/routes'
 import { createPacketSystem } from './scene/packet'
 import { createHud, makeWardLabel } from './ui/hud'
+import { createInspector } from './ui/inspector'
 import { attachZoneLabels, updateHudLines } from './ui/hudWiring'
 import { attachHardwareWiring } from './ui/hardwareWiring'
 import type { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
@@ -181,6 +182,8 @@ let tweenT = 0 // starts "done" (0 >= 0) — initial camera is set directly belo
 
 const HUD_UPDATE_MS = 500
 let hudAccMs = 0
+const INSPECTOR_UPDATE_MS = 80
+let inspectorAccMs = 0
 
 function smoothstep(t: number): number {
   return t * t * (3 - 2 * t)
@@ -287,6 +290,23 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     }
     break
   }
+})
+
+// Hover inspector: cursor-following tooltip for any mesh tagged with userData.info
+// (see ward.ts / scenarios/*.ts). Tracks the latest pointer position here; the
+// actual raycast + tooltip update is throttled in the frame loop below, and
+// skipped while a pointer is down so it doesn't fight orbit-drag.
+const inspector = createInspector(city.renderer.domElement, city.camera, city.scene)
+let pointerIsDown = false
+let lastPointerX = 0
+let lastPointerY = 0
+let hasHoverPointer = false
+city.renderer.domElement.addEventListener('pointerdown', () => { pointerIsDown = true })
+addEventListener('pointerup', () => { pointerIsDown = false })
+city.renderer.domElement.addEventListener('pointermove', (ev) => {
+  lastPointerX = ev.clientX
+  lastPointerY = ev.clientY
+  hasHoverPointer = true
 })
 
 // --- Story mode -------------------------------------------------------
@@ -496,6 +516,11 @@ city.start((dtMs) => {
     hwWiring.syncCores()
   }
   player.update(dtMs)
+  inspectorAccMs += dtMs
+  if (inspectorAccMs >= INSPECTOR_UPDATE_MS) {
+    inspectorAccMs -= INSPECTOR_UPDATE_MS
+    if (hasHoverPointer && !pointerIsDown) inspector.update(lastPointerX, lastPointerY)
+  }
   hudAccMs += dtMs
   if (hudAccMs >= HUD_UPDATE_MS) {
     hudAccMs -= HUD_UPDATE_MS

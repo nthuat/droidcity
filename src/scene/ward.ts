@@ -29,6 +29,13 @@ const FLOOR_H = 0.9
 const FLOOR_D = 2.5
 const BENCH_LABELS = ['input', 'animation', 'measure/layout', 'draw', 'renderThread']
 const BENCH_GAP = 1.6
+const BENCH_NOTES: Record<string, string> = {
+  input: 'Touch events picked up at vsync.',
+  animation: 'Animators tick.',
+  'measure/layout': 'Views measure and position themselves.',
+  draw: 'Display list recorded — heavy here = jank.',
+  renderThread: 'GPU commands issued off the UI thread.',
+}
 
 export function buildWardMeshes(app: string): WardMeshes {
   const color = APP_COLORS[app] ?? 0x6e7681
@@ -51,6 +58,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     const floor = new THREE.Mesh(geo, mat)
     floor.name = `floor${i}`
     floor.position.set(TOWER_X, FLOOR_H * i + FLOOR_H / 2, TOWER_Z)
+    floor.userData.info = { title: 'Activity', note: 'The app’s UI. Floors light with onCreate → onStart → onResume.' }
     group.add(floor)
     floors.push(floor)
   }
@@ -69,6 +77,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   viewModelOrb.name = 'viewModelOrb'
   viewModelOrb.position.set(TOWER_X, towerTop + 0.3, TOWER_Z)
   viewModelOrb.visible = false
+  viewModelOrb.userData.info = { title: 'ViewModel', note: 'UI state that survives rotation — the tower rebuilds, this floats.' }
   group.add(viewModelOrb)
 
   // Screen panel: tower-top display, dark until lit (frame:composited).
@@ -78,6 +87,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   const screenPanel = new THREE.Mesh(panelGeo, panelMat)
   screenPanel.name = 'screenPanel'
   screenPanel.position.set(TOWER_X, towerTop + 0.5, TOWER_Z + FLOOR_D / 2 + 0.05)
+  screenPanel.userData.info = { title: 'App screen', note: 'Lights when SurfaceFlinger composites this app’s frame.' }
   group.add(screenPanel)
 
   // Road toward the tower, with an empty parent for cars spawned later.
@@ -88,6 +98,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   road.name = 'road'
   road.rotation.x = -Math.PI / 2
   road.position.set(0, 0.01, 7)
+  road.userData.info = { title: 'Main thread', note: 'One road: every touch, callback and draw queues here as a car.' }
   group.add(road)
 
   const carsParent = new THREE.Group()
@@ -108,6 +119,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   const cratesParent = new THREE.Group()
   cratesParent.name = 'cratesParent'
   cratesParent.position.set(5, 0, -5)
+  cratesParent.userData.info = { title: 'Heap', note: 'Allocated objects. Tan = reachable, grey = garbage until GC sweeps.' }
   group.add(cratesParent)
 
   // Room shed with a door plane that flashes on query.
@@ -117,6 +129,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   const shed = new THREE.Mesh(shedGeo, shedMat)
   shed.name = 'roomShed'
   shed.position.set(6, 0.75, 4)
+  shed.userData.info = { title: 'Room DB', note: 'App-private database. Fast, local, survives process death.' }
   group.add(shed)
 
   const shedGlowGeo = new THREE.PlaneGeometry(0.8, 1.2)
@@ -140,6 +153,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     const box = new THREE.Mesh(geo, mat)
     box.name = `bench_${text}`
     box.position.set(x, 0.6, -8)
+    box.userData.info = { title: `Frame stage: ${text}`, note: BENCH_NOTES[text] }
     group.add(box)
     benchStations.push(box)
 
@@ -165,6 +179,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   const wallMesh = new THREE.Mesh(wallGeo, wallMat)
   wallMesh.name = 'wardWall'
   wallMesh.userData.app = app
+  wallMesh.userData.info = { title: 'Sandbox wall', note: 'Process isolation — no other app can reach inside.' }
   wallMesh.position.y = 0.6
   group.add(wallMesh)
 

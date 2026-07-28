@@ -46,6 +46,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
 
   const tower = makeBuilding(3, 10, 3, 0x388bfd, 'Network')
   tower.position.y = 0.3
+  tower.userData.info = { title: 'Radio/ISP edge', note: 'dns → connect → tls → ttfb → download.' }
   group.add(tower)
 
   const arch = new THREE.Mesh(

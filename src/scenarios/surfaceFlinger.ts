@@ -21,6 +21,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
 
   const compositor = makeBuilding(5, 6, 5, 0x484f58, 'SurfaceFlinger')
   compositor.position.y = 0.3
+  compositor.userData.info = { title: 'SurfaceFlinger', note: 'One compositor for every ward; tiles = apps on screen.' }
   group.add(compositor)
 
   // Display wall: mounted at the zone's east edge (local x 17 = world x 82, the
@@ -34,6 +35,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
     new THREE.MeshStandardMaterial({ color: 0x161b22 }),
   )
   wall.position.set(WALL_X, WALL_BASE_Y + WALL_H / 2, 0)
+  wall.userData.info = { title: 'Display', note: 'One compositor for every ward; tiles = apps on screen.' }
   group.add(wall)
   const wallLabel = makeLabel('Display', 0.7)
   wallLabel.position.set(WALL_X, WALL_BASE_Y + WALL_H + 0.7, 0)

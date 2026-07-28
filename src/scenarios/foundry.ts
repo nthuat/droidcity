@@ -22,6 +22,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
 
   const factory = makeBuilding(8, 5, 6, 0x484f58, 'Zygote Foundry')
   factory.position.y = 0.3
+  factory.userData.info = { title: 'Zygote', note: 'Every app process is forked from this warm template.' }
   group.add(factory)
 
   const meter = new THREE.Mesh(
@@ -29,6 +30,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     new THREE.MeshStandardMaterial({ color: 0x3fb950 }),
   )
   meter.position.set(10, 0.8, 0)
+  meter.userData.info = { title: 'RAM meter', note: 'Height tracks total memory used by forked processes.' }
   group.add(meter)
   const meterLabel = makeLabel('RAM', 0.7)
   meterLabel.position.set(10, 8.3, 0)

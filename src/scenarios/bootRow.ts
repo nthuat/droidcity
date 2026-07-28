@@ -14,6 +14,12 @@ const STATION_GAP = 14
 // with no events fired — replayBoot() is what drives real-time stage events.
 const PRE_BOOTED = advanceBoot(createBoot(), 10000)
 const DEFAULT_NARRATION = 'Boot sequence: bootloader → kernel → init → system_server. Each station lights when its stage completes.'
+const STAGE_NOTES: Record<string, string> = {
+  bootloader: 'First code to run — finds and starts the kernel.',
+  kernel: 'Linux kernel init — drivers, memory, process scheduling come up.',
+  init: 'PID 1 — starts core services and mounts the filesystem.',
+  system_server: 'Boots AMS, WMS, PMS — the OS services every app talks to.',
+}
 
 export function makeBootRowScenario(bus: Bus, onReplayStart: () => void): Scenario & { replayBoot(): void } {
   const group = new THREE.Group()
@@ -24,6 +30,7 @@ export function makeBootRowScenario(bus: Bus, onReplayStart: () => void): Scenar
     const b = makeBuilding(4, 3, 4, LIT, stage.name)
     // y -0.2: rests on the recessed boot strip plate (board.ts topY -0.2)
     b.position.set((i - 1.5) * STATION_GAP, -0.2, 0)
+    b.userData.info = { title: `Boot stage: ${stage.name}`, note: STAGE_NOTES[stage.name] }
     group.add(b)
     return b
   })

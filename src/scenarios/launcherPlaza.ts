@@ -36,6 +36,7 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
     group.add(root)
     const body = root.getObjectByName('body') as THREE.Mesh
     body.userData.app = app
+    body.userData.info = { title: 'App icon', note: 'Tap to ask the system to launch.' }
     return { app, root, body, pulseT: 0 }
   })
 

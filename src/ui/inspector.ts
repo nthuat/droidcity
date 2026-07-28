@@ -1,0 +1,74 @@
+import * as THREE from 'three'
+
+export interface InspectorInfo {
+  readonly title: string
+  readonly note: string
+}
+
+export interface Inspector {
+  update(clientX: number, clientY: number): void
+}
+
+const CURSOR_OFFSET = 14
+const VIEWPORT_MARGIN = 8
+
+// Walks the hit object's parent chain to the first tagged ancestor — same
+// pattern as WardManager.wardAppFromObject, generalized to any userData.info.
+function infoFromObject(obj: THREE.Object3D): InspectorInfo | null {
+  let o: THREE.Object3D | null = obj
+  while (o) {
+    const info = o.userData.info as InspectorInfo | undefined
+    if (info) return info
+    o = o.parent
+  }
+  return null
+}
+
+export function createInspector(dom: HTMLElement, camera: THREE.Camera, scene: THREE.Scene): Inspector {
+  const tip = document.querySelector<HTMLDivElement>('#inspector-tip')!
+  const titleEl = document.createElement('div')
+  titleEl.className = 'inspector-tip-title'
+  const noteEl = document.createElement('div')
+  noteEl.className = 'inspector-tip-note'
+  tip.replaceChildren(titleEl, noteEl)
+
+  const raycaster = new THREE.Raycaster()
+
+  function hide(): void {
+    tip.classList.remove('open')
+  }
+
+  function update(clientX: number, clientY: number): void {
+    const rect = dom.getBoundingClientRect()
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    )
+    if (ndc.x < -1 || ndc.x > 1 || ndc.y < -1 || ndc.y > 1) {
+      hide()
+      return
+    }
+    raycaster.setFromCamera(ndc, camera)
+    const hits = raycaster.intersectObjects(scene.children, true)
+    let info: InspectorInfo | null = null
+    for (const hit of hits) {
+      info = infoFromObject(hit.object)
+      if (info) break
+    }
+    if (!info) {
+      hide()
+      return
+    }
+    titleEl.textContent = info.title
+    noteEl.textContent = info.note
+    tip.classList.add('open')
+    // Position after content is set (so offsetWidth/Height reflect the new text),
+    // clamped so the tip never runs off the right/bottom edge.
+    const x = Math.min(clientX + CURSOR_OFFSET, window.innerWidth - tip.offsetWidth - VIEWPORT_MARGIN)
+    const y = Math.min(clientY + CURSOR_OFFSET, window.innerHeight - tip.offsetHeight - VIEWPORT_MARGIN)
+    tip.style.left = `${Math.max(VIEWPORT_MARGIN, x)}px`
+    tip.style.top = `${Math.max(VIEWPORT_MARGIN, y)}px`
+  }
+
+  return { update }
+}

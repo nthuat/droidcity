@@ -33,6 +33,7 @@ function buildCpu(group: THREE.Group): THREE.MeshStandardMaterial[] {
     new THREE.MeshStandardMaterial({ color: HOUSING_COLOR, roughness: 0.6 }),
   )
   housing.position.set(CPU_X, PLATE_TOP + 1, 0)
+  housing.userData.info = { title: 'CPU', note: 'Cores that run every ward’s main thread — red means stuck.' }
   group.add(housing)
 
   const slotTop = PLATE_TOP + 2 + 0.2
@@ -50,12 +51,13 @@ function buildCpu(group: THREE.Group): THREE.MeshStandardMaterial[] {
 
 function buildRam(group: THREE.Group): THREE.MeshStandardMaterial[] {
   const slabXOffsets = [-8.4, -6, -3.6, -1.2, 1.2, 3.6, 6, 8.4]
-  return slabXOffsets.map((dx) => {
+  return slabXOffsets.map((dx, i) => {
     const mat = new THREE.MeshStandardMaterial({
       color: RAM_IDLE, emissive: RAM_IDLE, emissiveIntensity: 0, roughness: 0.5,
     })
     const slab = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 0.8), mat)
     slab.position.set(RAM_X + dx, PLATE_TOP + 1.5, 0)
+    if (i === 0) slab.userData.info = { title: 'RAM', note: 'Fills as processes are spawned.' }
     group.add(slab)
     return mat
   })
@@ -66,6 +68,7 @@ function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   for (let i = 0; i < 3; i++) {
     const platter = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.3, 24), platterMat)
     platter.position.set(DISK_X, PLATE_TOP + 0.15 + i * 0.7, 0)
+    if (i === 0) platter.userData.info = { title: 'Disk', note: 'Blinks on every Room read/write.' }
     group.add(platter)
   }
   const arm = new THREE.Mesh(
