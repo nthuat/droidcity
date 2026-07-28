@@ -14,14 +14,19 @@ const VIEWPORT_MARGIN = 8
 
 // Walks the hit object's parent chain to the first tagged ancestor — same
 // pattern as WardManager.wardAppFromObject, generalized to any userData.info.
+// Three.js raycasting ignores `.visible` entirely, so a toggled-hidden mesh
+// (viewModelOrb, a stackCard) still reports hits — walk the full chain and
+// bail if the object or ANY ancestor is invisible (don't stop at the first
+// info found, keep checking the rest of the chain too).
 function infoFromObject(obj: THREE.Object3D): InspectorInfo | null {
   let o: THREE.Object3D | null = obj
+  let info: InspectorInfo | null = null
   while (o) {
-    const info = o.userData.info as InspectorInfo | undefined
-    if (info) return info
+    if (!o.visible) return null
+    info ??= (o.userData.info as InspectorInfo | undefined) ?? null
     o = o.parent
   }
-  return null
+  return info
 }
 
 export function createInspector(dom: HTMLElement, camera: THREE.Camera, scene: THREE.Scene): Inspector {

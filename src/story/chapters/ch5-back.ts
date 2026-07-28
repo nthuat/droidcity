@@ -7,7 +7,15 @@ export function makeCh5(ctx: StoryCtx): Chapter {
     title: 'Coming Back',
     setup: () => {
       ctx.setCityDim(false)
-      if (!ctx.wards.wards().some(w => w.app === 'chat')) ctx.launcher.clickKiosk('chat')
+      // wards() has no phase — a finish-rooted ward (alive, phase 'destroyed', e.g.
+      // left over from a prior back-stack demo) would read as "running" and skip
+      // relaunch, playing the cold-start narration over a dark ward. wardStats()
+      // is already phase-aware; clickKiosk('chat') covers both cases the same way:
+      // missing ward -> cold launch (requestLaunch accepted); present but not
+      // resumed (stopped/destroyed/etc.) -> app:broughtToFront -> manager warm-starts
+      // it (foreground() from stopped, launch() from destroyed).
+      const w = ctx.wards.wardStats().find(s => s.app === 'chat')
+      if (!w || w.phase !== 'resumed') ctx.launcher.clickKiosk('chat')
     },
     steps: [
       {
