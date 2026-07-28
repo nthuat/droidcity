@@ -101,7 +101,55 @@ function setCityDim(dim: boolean): void {
     const g = wardManager.wardGroupFor(w.app)
     if (g) g.visible = !dim
   }
+  for (const ghost of startingGhosts.values()) ghost.mesh.visible = !dim
   hud.setDimmed(dim)
+}
+
+// Starting-window splash: a translucent ghost box appears the instant a ward's plot
+// is known (process:forked), stands in for the app while the ward rises, and fades
+// out on the app's first composited frame — teaches why cold launches "feel" instant
+// (WMS shows the splash long before the real Activity is ready).
+const GHOST_SIZE = { w: 5, h: 6, d: 5 }
+const GHOST_OPACITY = 0.25
+const GHOST_FADE_MS = 400
+interface StartingGhost { mesh: THREE.Mesh; fading: boolean; fadeMs: number }
+const startingGhosts = new Map<string, StartingGhost>()
+
+function disposeGhost(app: string): void {
+  const ghost = startingGhosts.get(app)
+  if (!ghost) return
+  city.scene.remove(ghost.mesh)
+  ghost.mesh.geometry.dispose()
+  ;(ghost.mesh.material as THREE.Material).dispose()
+  startingGhosts.delete(app)
+}
+
+function spawnGhost(app: string): void {
+  disposeGhost(app) // guards a re-fork landing before the previous ghost finished fading
+  const g = wardManager.wardGroupFor(app)
+  if (!g) return
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(GHOST_SIZE.w, GHOST_SIZE.h, GHOST_SIZE.d),
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff, transparent: true, opacity: GHOST_OPACITY,
+      emissive: 0xffffff, emissiveIntensity: 0.3,
+    }),
+  )
+  mesh.position.set(g.position.x, g.position.y + GHOST_SIZE.h / 2, g.position.z)
+  mesh.visible = !dimmed
+  mesh.userData.info = { title: 'Starting window', note: 'WMS shows this splash instantly — the real app is still forking behind it.' }
+  city.scene.add(mesh)
+  startingGhosts.set(app, { mesh, fading: false, fadeMs: 0 })
+}
+
+function updateGhosts(dtMs: number): void {
+  for (const [app, ghost] of [...startingGhosts]) {
+    if (!ghost.fading) continue
+    ghost.fadeMs += dtMs
+    const mat = ghost.mesh.material as THREE.MeshStandardMaterial
+    mat.opacity = GHOST_OPACITY * Math.max(0, 1 - ghost.fadeMs / GHOST_FADE_MS)
+    if (ghost.fadeMs >= GHOST_FADE_MS) disposeGhost(app)
+  }
 }
 
 const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
@@ -161,7 +209,17 @@ bus.on('process:forked', ({ app }) => {
   if (dimmed && g) g.visible = false
   const plotKey = plotKeyFor(app)
   if (plotKey) flyRoute(routes.path('zygote', plotKey), 0x3fb950)
+  spawnGhost(app)
 })
+// First composited frame only — updateGhosts flips `fading` once, so later
+// frame:composited events for the same app are no-ops (ghost already gone).
+bus.on('frame:composited', ({ app }) => {
+  const ghost = startingGhosts.get(app)
+  if (ghost) ghost.fading = true
+})
+// Edge case: app killed before its first frame ever composited — the fade trigger
+// above never fires, so drop the ghost immediately instead of leaving it stuck.
+bus.on('process:killed', ({ app }) => disposeGhost(app))
 bus.on('data:requested', ({ app, source }) => {
   if (source !== 'network') return
   const plotKey = plotKeyFor(app)
@@ -171,6 +229,19 @@ bus.on('data:fetched', ({ app }) => {
   const plotKey = plotKeyFor(app)
   if (plotKey) flyRoute(routes.path('network', plotKey), 0xd29922)
 })
+
+// Input's system-side trip: a tap starts at hardware and is dispatched by
+// system_server's InputDispatcher before an app ever sees it. Flies that packet
+// first, then posts the app-side message ~1.2s later (browser-layer timer — story
+// logic itself stays event-driven, no Date-dependent timers there).
+const INJECT_TAP_DELAY_MS = 1200
+function injectTap(app: string): void {
+  const plotKey = plotKeyFor(app)
+  const toCityhall = routes.path('hardware', 'cityhall')
+  const path = plotKey ? [...toCityhall, ...routes.path('cityhall', plotKey).slice(1)] : toCityhall
+  flyRoute(path, 0xf2cc60)
+  window.setTimeout(() => bus.emit('ui:messagePosted', { app, label: 'tap' }), INJECT_TAP_DELAY_MS)
+}
 
 // Camera fly-to tween state (position + orbit target, eased over tweenDurationMs).
 let tweenFromPos = city.camera.position.clone()
@@ -275,7 +346,12 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   const kioskHits = raycaster.intersectObjects(launcherPlaza.kioskMeshes(), false)
   if (kioskHits.length > 0) {
     const app = kioskHits[0].object.userData.app as string | undefined
-    if (app) launcherPlaza.clickKiosk(app)
+    if (app) {
+      // Every tap enters via hardware + system_server, even a launcher icon tap —
+      // visualize that leg alongside the existing launcher→zygote launch request.
+      flyRoute(routes.path('hardware', 'launcher'), 0xf2cc60)
+      launcherPlaza.clickKiosk(app)
+    }
     return
   }
   const hits = raycaster.intersectObjects(city.scene.children, true)
@@ -320,6 +396,7 @@ const storyCtx: StoryCtx = {
   wards: wardManager,
   setCityDim,
   killApp: foundry.killApp,
+  injectTap,
 }
 
 interface StoryMenuItem {
@@ -514,6 +591,7 @@ city.start((dtMs) => {
     for (const s of scenarios) s.update(simDt)
     wardManager.update(simDt)
     hwWiring.syncCores()
+    updateGhosts(simDt)
   }
   player.update(dtMs)
   inspectorAccMs += dtMs

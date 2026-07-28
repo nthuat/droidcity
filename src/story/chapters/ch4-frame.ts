@@ -11,9 +11,9 @@ export function makeCh4(ctx: StoryCtx): Chapter {
     },
     steps: [
       {
-        narration: 'Every visible change is a race: 16.67 milliseconds from input to pixel, sixty times a second.',
+        narration: 'Every visible change is a race: 16.67 milliseconds from input to pixel, sixty times a second. The tap itself arrived from the touchscreen through system_server\'s InputDispatcher — apps never read hardware directly.',
         focus: 'ward:chat',
-        fire: () => ctx.bus.emit('ui:messagePosted', { app: 'chat', label: 'tap' }),
+        fire: () => ctx.injectTap('chat'),
         waitFor: { event: 'frame:submitted', app: 'chat' },
       },
       {

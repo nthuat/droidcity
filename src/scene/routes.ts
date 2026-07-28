@@ -12,6 +12,7 @@ const PLATE_Y = 0.3
 
 const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(0, 0, -52),
+  hardware: new THREE.Vector3(0, 0, -68),
   zygote: new THREE.Vector3(-65, PLATE_Y, -20),
   cityhall: new THREE.Vector3(0, -2, 10),
   surfaceflinger: new THREE.Vector3(65, PLATE_Y, -22),

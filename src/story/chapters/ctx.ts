@@ -8,4 +8,5 @@ export interface StoryCtx {
   wards: WardManager
   setCityDim(dim: boolean): void
   killApp(app: string): void
+  injectTap(app: string): void
 }
