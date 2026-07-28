@@ -21,7 +21,8 @@ export function makeBootRowScenario(bus: Bus, onReplayStart: () => void): Scenar
 
   const stations = BOOT_STAGES.map((stage, i) => {
     const b = makeBuilding(4, 3, 4, LIT, stage.name)
-    b.position.set((i - 1.5) * STATION_GAP, 0, 0)
+    // y -0.2: rests on the recessed boot strip plate (board.ts topY -0.2)
+    b.position.set((i - 1.5) * STATION_GAP, -0.2, 0)
     group.add(b)
     return b
   })
