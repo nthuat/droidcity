@@ -25,7 +25,7 @@ export function disposeMesh(mesh: THREE.Mesh): void {
   ;(mesh.material as THREE.Material).dispose()
 }
 
-export function clearPool(parent: { remove(o: THREE.Object3D): void }, pool: Map<number, THREE.Mesh>): void {
+export function clearPool<K>(parent: { remove(o: THREE.Object3D): void }, pool: Map<K, THREE.Mesh>): void {
   for (const mesh of pool.values()) {
     parent.remove(mesh)
     disposeMesh(mesh)
@@ -65,6 +65,26 @@ export function syncCars(meshes: WardMeshes, looper: LooperState, carPool: Map<n
       meshes.carsParent.remove(car)
       carPool.delete(id)
     }
+  }
+}
+
+const APP_FLOOR_LIT_INTENSITY = 0.35
+
+// Application floor lights once at rise-complete (bindApplication precedes any
+// Activity) and dims on demolition. No phase-driven flicker — just on/off.
+export function setAppFloorLit(meshes: WardMeshes, lit: boolean): void {
+  const mat = meshes.appFloor.material as THREE.MeshStandardMaterial
+  mat.emissiveIntensity = lit ? APP_FLOOR_LIT_INTENSITY : 0
+}
+
+// Worker cars slide along the worker lane for as long as their IO request is
+// in flight — purely cosmetic motion, no request-progress tracking needed.
+export function syncWorkerCars(meshes: WardMeshes, cars: ReadonlyMap<string, THREE.Mesh>, tMs: number): void {
+  let i = 0
+  for (const car of cars.values()) {
+    car.position.z = Math.sin(tMs / 400 + i * 2) * 3
+    car.position.y = 0.1
+    i++
   }
 }
 

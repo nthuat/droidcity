@@ -11,7 +11,7 @@ export function makeCh3(ctx: StoryCtx): Chapter {
     },
     steps: [
       {
-        narration: 'The app needs messages. It asks two places at once: its own Room database and the network.',
+        narration: 'The app needs messages. It asks two places at once: its own Room database and the network — from the worker pool, never the main thread.',
         focus: 'ward:chat',
         // ward may not exist yet if setup just clicked the kiosk (fork is queued,
         // not synchronous) — only refresh if it's already there. Either way the

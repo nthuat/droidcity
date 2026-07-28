@@ -10,7 +10,11 @@ import { createPlots, allocatePlot, releasePlot } from '../sim/wardPlots'
 import { DEFAULT_STAGES, startFrame, advanceFrame, withHeavyDraw } from '../sim/framePipeline'
 import { buildWardPanel } from './panel'
 import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
-import { syncCars, syncFloors, syncCrates, syncFlashes, syncBench, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS } from './visualSync'
+import {
+  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars,
+  setAppFloorLit, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS,
+} from './visualSync'
+import { makeCar } from '../scene/builders'
 
 export interface WardHandles {
   readonly app: string
@@ -62,6 +66,8 @@ const IDLE_ALLOC_KB = 60
 const IDLE_ALLOC_COUNT = 2
 const HEAP_CAPACITY_KB = 2000
 const HEAVY_DRAW_MS = 20
+const WORKER_CAR_COLOR = 0x8b949e
+const WORKER_CAR_SCALE = 0.3
 
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
 
@@ -135,6 +141,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       carPool: new Map(),
       cratePool: new Map(),
       crateSlots: new Map(),
+      workerCars: new Map(),
       panel: null,
     }
     wards.set(app, entry)
@@ -151,11 +158,31 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.dying = true
     entry.demolishMs = 0
     entry.demolishStartScale = entry.meshes.group.scale.y
+    setAppFloorLit(entry.meshes, false)
+  }
+
+  // A ward requesting data (auto DATA_REQUEST_MS expiry or a manual refresh —
+  // both emit this event) spawns a worker car per outstanding source, so the
+  // ward visibly hops main → worker instead of implying main-thread IO.
+  function onDataRequested({ app, source }: { app: string; source: 'db' | 'network' }): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying || entry.workerCars.has(source)) return
+    const car = makeCar(WORKER_CAR_COLOR)
+    car.scale.setScalar(WORKER_CAR_SCALE)
+    entry.meshes.workerParent.add(car)
+    entry.workerCars.set(source, car)
   }
 
   function onDataArrived(app: string, isFetched: boolean): void {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
+    const source: 'db' | 'network' = isFetched ? 'network' : 'db'
+    const workerCar = entry.workerCars.get(source)
+    if (workerCar) {
+      entry.meshes.workerParent.remove(workerCar)
+      disposeMesh(workerCar)
+      entry.workerCars.delete(source)
+    }
     const label = isFetched ? 'bindNetwork' : 'bindCache'
     const cost = isFetched ? 16 : 4
     entry.looper = post(entry.looper, label, cost)
@@ -180,6 +207,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   bus.on('process:forked', onForked)
   bus.on('process:killed', onKilled)
+  bus.on('data:requested', onDataRequested)
   bus.on('data:cacheHit', p => onDataArrived(p.app, false))
   bus.on('data:fetched', p => onDataArrived(p.app, true))
   bus.on('ui:messagePosted', onMessagePosted)
@@ -248,6 +276,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
         // above before syncCars/syncCrates can drain them), so dispose them here.
         clearPool(entry.meshes.carsParent, entry.carPool)
         clearPool(entry.meshes.cratesParent, entry.cratePool)
+        clearPool(entry.meshes.workerParent, entry.workerCars)
         entry.crateSlots.clear()
         if (entry.sweepMesh) {
           entry.meshes.cratesParent.remove(entry.sweepMesh)
@@ -341,6 +370,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     // narration reads, and the data-request timer above only starts from here.
     if (!entry.resumed && entry.riseMs >= RISE_MS) {
       entry.resumed = true
+      setAppFloorLit(entry.meshes, true)
       entry.activity = launch(entry.activity)
       bus.emit('activity:resumed', { app })
       const plotKey = `plot${entry.plot}`
@@ -352,6 +382,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (entry.panel) entry.panel.setNarration(narrationFor(entry))
 
     syncCars(entry.meshes, entry.looper, entry.carPool)
+    syncWorkerCars(entry.meshes, entry.workerCars, entry.anrFlashT)
     syncFloors(entry.meshes, entry.activity.phase)
     entry.meshes.viewModelOrb.visible = entry.activity.viewModelValue !== null
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots)

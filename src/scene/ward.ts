@@ -5,6 +5,7 @@ export interface WardMeshes {
   readonly group: THREE.Group
   readonly carsParent: THREE.Group
   readonly floors: readonly THREE.Mesh[]
+  readonly appFloor: THREE.Mesh
   readonly viewModelOrb: THREE.Mesh
   readonly screenPanel: THREE.Mesh
   readonly cratesParent: THREE.Group
@@ -12,6 +13,8 @@ export interface WardMeshes {
   readonly benchStations: readonly THREE.Mesh[]
   readonly anrOverlay: THREE.Mesh
   readonly wallMesh: THREE.Mesh
+  readonly workerParent: THREE.Group
+  readonly workerRoad: THREE.Mesh
   dispose(): void
 }
 
@@ -27,6 +30,8 @@ const TOWER_Z = -5
 const FLOOR_W = 2.5
 const FLOOR_H = 0.9
 const FLOOR_D = 2.5
+const APP_FLOOR_W = 2.8
+const APP_FLOOR_D = 2.8
 const BENCH_LABELS = ['input', 'animation', 'measure/layout', 'draw', 'renderThread']
 const BENCH_GAP = 1.6
 const BENCH_NOTES: Record<string, string> = {
@@ -49,7 +54,23 @@ export function buildWardMeshes(app: string): WardMeshes {
   group.name = 'ward'
   group.userData.app = app
 
-  // Activity tower: 3 floors stacked bottom-up.
+  // Application floor: base of the tower, created once at bindApplication —
+  // before any Activity exists. Slightly wider than the lifecycle floors above it.
+  const appFloorGeo = new THREE.BoxGeometry(APP_FLOOR_W, FLOOR_H, APP_FLOOR_D)
+  const appFloorMat = new THREE.MeshStandardMaterial({
+    color, roughness: 0.6, emissive: 0xd29922, emissiveIntensity: 0,
+  })
+  disposables.push(appFloorGeo, appFloorMat)
+  const appFloor = new THREE.Mesh(appFloorGeo, appFloorMat)
+  appFloor.name = 'appFloor'
+  appFloor.position.set(TOWER_X, FLOOR_H / 2, TOWER_Z)
+  appFloor.userData.info = {
+    title: 'Application',
+    note: 'Created once per process at bindApplication — before any Activity.',
+  }
+  group.add(appFloor)
+
+  // Activity tower: 3 lifecycle floors stacked above the Application floor.
   const floors: THREE.Mesh[] = []
   for (let i = 0; i < 3; i++) {
     const geo = new THREE.BoxGeometry(FLOOR_W, FLOOR_H, FLOOR_D)
@@ -57,15 +78,15 @@ export function buildWardMeshes(app: string): WardMeshes {
     disposables.push(geo, mat)
     const floor = new THREE.Mesh(geo, mat)
     floor.name = `floor${i}`
-    floor.position.set(TOWER_X, FLOOR_H * i + FLOOR_H / 2, TOWER_Z)
+    floor.position.set(TOWER_X, FLOOR_H * (i + 1) + FLOOR_H / 2, TOWER_Z)
     floor.userData.info = { title: 'Activity', note: 'The app’s UI. Floors light with onCreate → onStart → onResume.' }
     group.add(floor)
     floors.push(floor)
   }
-  const towerTop = FLOOR_H * 3
+  const towerTop = FLOOR_H * 4
 
   const nameLabel = makeLabel(app, 1)
-  nameLabel.position.set(TOWER_X, 8, TOWER_Z)
+  nameLabel.position.set(TOWER_X, 8 + FLOOR_H, TOWER_Z)
   trackLabel(nameLabel)
   group.add(nameLabel)
 
@@ -98,13 +119,41 @@ export function buildWardMeshes(app: string): WardMeshes {
   road.name = 'road'
   road.rotation.x = -Math.PI / 2
   road.position.set(0, 0.01, 7)
-  road.userData.info = { title: 'Main thread', note: 'One road: every touch, callback and draw queues here as a car.' }
+  road.userData.info = {
+    title: 'Main thread',
+    note: 'One road: every touch, callback and draw queues here as a car…posting IO to the worker pool.',
+  }
   group.add(road)
 
   const carsParent = new THREE.Group()
   carsParent.name = 'carsParent'
   carsParent.position.set(0, 0, 7)
   group.add(carsParent)
+
+  // Worker pool: a second, narrower road parallel to the main road — real IO
+  // (Room queries, network fetches) runs here, never on the main thread.
+  const workerRoadGeo = new THREE.PlaneGeometry(0.6, 10)
+  const workerRoadMat = new THREE.MeshStandardMaterial({ color: 0x37474f })
+  disposables.push(workerRoadGeo, workerRoadMat)
+  const workerRoad = new THREE.Mesh(workerRoadGeo, workerRoadMat)
+  workerRoad.name = 'workerRoad'
+  workerRoad.rotation.x = -Math.PI / 2
+  workerRoad.position.set(1, 0.01, 7)
+  workerRoad.userData.info = {
+    title: 'Worker pool',
+    note: 'IO and heavy work run here — the main thread only posts and receives.',
+  }
+  group.add(workerRoad)
+
+  const workerParent = new THREE.Group()
+  workerParent.name = 'workerParent'
+  workerParent.position.set(1, 0, 7)
+  group.add(workerParent)
+
+  const workerLabel = makeLabel('workers', 0.35)
+  workerLabel.position.set(1, 1.2, 7)
+  trackLabel(workerLabel)
+  group.add(workerLabel)
 
   // Heap yard: dark plate with an empty parent for crates spawned later.
   const heapGeo = new THREE.PlaneGeometry(6, 6)
@@ -191,6 +240,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     group,
     carsParent,
     floors,
+    appFloor,
     viewModelOrb,
     screenPanel,
     cratesParent,
@@ -198,6 +248,8 @@ export function buildWardMeshes(app: string): WardMeshes {
     benchStations,
     anrOverlay,
     wallMesh,
+    workerParent,
+    workerRoad,
     dispose,
   }
 }

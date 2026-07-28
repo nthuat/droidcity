@@ -15,6 +15,7 @@ function fakeMeshes(): WardMeshes {
     },
     carsParent: { add() {}, remove() {} },
     floors: [],
+    appFloor: { material: { emissiveIntensity: 0 } },
     viewModelOrb: { visible: false },
     screenPanel: { material: { emissiveIntensity: 0 } },
     cratesParent: { add() {}, remove() {} },
@@ -22,6 +23,8 @@ function fakeMeshes(): WardMeshes {
     benchStations: [],
     anrOverlay: { material: { opacity: 0 } },
     wallMesh: {},
+    workerParent: { add() {}, remove() {} },
+    workerRoad: {},
     dispose: vi.fn(),
   } as unknown as WardMeshes
 }

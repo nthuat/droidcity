@@ -42,6 +42,7 @@ export interface WardEntry {
   carPool: Map<number, THREE.Mesh>
   cratePool: Map<number, THREE.Mesh>
   crateSlots: Map<number, number>
+  workerCars: Map<'db' | 'network', THREE.Mesh>
   panel: Panel | null
 }
 
