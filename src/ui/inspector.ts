@@ -55,11 +55,22 @@ export function createInspector(dom: HTMLElement, camera: THREE.Camera, scene: T
     }
     raycaster.setFromCamera(ndc, camera)
     const hits = raycaster.intersectObjects(scene.children, true)
+    // The translucent sandbox wall encloses each ward, so it's often the nearest
+    // hit — prefer any interior tooltip behind it, fall back to the wall only
+    // when the ray reaches nothing else tagged.
     let info: InspectorInfo | null = null
+    let wallInfo: InspectorInfo | null = null
     for (const hit of hits) {
-      info = infoFromObject(hit.object)
-      if (info) break
+      const found = infoFromObject(hit.object)
+      if (!found) continue
+      if (hit.object.name === 'wardWall') {
+        wallInfo ??= found
+        continue
+      }
+      info = found
+      break
     }
+    info ??= wallInfo
     if (!info) {
       hide()
       return
