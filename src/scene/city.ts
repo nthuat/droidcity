@@ -12,7 +12,7 @@ export interface City {
 export function createCity(container: HTMLElement): City {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x0d1117)
-  scene.fog = new THREE.Fog(0x0d1117, 150, 450)
+  scene.fog = new THREE.Fog(0x0d1117, 140, 380)
 
   const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500)
   camera.position.set(18, 16, 18)
@@ -30,14 +30,6 @@ export function createCity(container: HTMLElement): City {
   const sun = new THREE.DirectionalLight(0xffffff, 1.2)
   sun.position.set(20, 30, 10)
   scene.add(sun)
-
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(300, 300),
-    new THREE.MeshStandardMaterial({ color: 0x161b22 }),
-  )
-  ground.rotation.x = -Math.PI / 2
-  scene.add(ground)
-  scene.add(new THREE.GridHelper(300, 150, 0x30363d, 0x21262d))
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight

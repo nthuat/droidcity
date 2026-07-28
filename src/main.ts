@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { createCity } from './scene/city'
+import { buildBoard } from './scene/board'
 import { createPacketSystem } from './scene/packet'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
@@ -18,19 +19,19 @@ import { makeCh3 } from './story/chapters/ch3-data'
 import { makeCh4 } from './story/chapters/ch4-frame'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
-  boot: new THREE.Vector3(-90, 0, 20),
-  zygote: new THREE.Vector3(-55, 0, -45),
-  cityhall: new THREE.Vector3(0, 0, -60),
-  surfaceflinger: new THREE.Vector3(55, 0, -45),
-  network: new THREE.Vector3(90, 0, 20),
-  launcher: new THREE.Vector3(0, 0, 85),
+  boot: new THREE.Vector3(0, 0, -52),
+  zygote: new THREE.Vector3(-65, 0, -20),
+  cityhall: new THREE.Vector3(0, -2, 10),
+  surfaceflinger: new THREE.Vector3(65, 0, -22),
+  network: new THREE.Vector3(65, 0, 17),
+  launcher: new THREE.Vector3(0, 3, 40),
 }
 
 export const PLOT_ANCHORS: THREE.Vector3[] = [
-  new THREE.Vector3(-22, 0, -5),
-  new THREE.Vector3(22, 0, -5),
-  new THREE.Vector3(-22, 0, 35),
-  new THREE.Vector3(22, 0, 35),
+  new THREE.Vector3(-33.75, 0, -25),
+  new THREE.Vector3(-11.25, 0, -25),
+  new THREE.Vector3(11.25, 0, -25),
+  new THREE.Vector3(33.75, 0, -25),
 ]
 
 // One offset per entry in `scenarios` below, same order.
@@ -43,13 +44,14 @@ const SCENARIO_OFFSETS: THREE.Vector3[] = [
   ANCHORS.surfaceflinger, // surfaceFlinger
 ]
 
-const OVERVIEW_POS = new THREE.Vector3(0, 115, 155)
-const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 10)
+const OVERVIEW_POS = new THREE.Vector3(0, 85, 105)
+const OVERVIEW_TARGET = new THREE.Vector3(0, 0, -5)
 const TWEEN_MS = 600
 const WARD_CAMERA_OFFSET = new THREE.Vector3(10, 9, 12)
 const WARD_TARGET_OFFSET = new THREE.Vector3(0, 2, 0)
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
+city.scene.add(buildBoard())
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
 const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
@@ -227,8 +229,8 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
 })
 
 // --- Story mode -------------------------------------------------------
-const DISTRICT_FOCUS_OFFSET = new THREE.Vector3(10, 9, 14)
-const DISTRICT_FOCUS_TARGET_OFFSET = new THREE.Vector3(0, 2, 0)
+const DISTRICT_FOCUS_OFFSET = new THREE.Vector3(0, 14, 22)
+const DISTRICT_FOCUS_TARGET_OFFSET = new THREE.Vector3(0, 1, 0)
 
 const storyCtx: StoryCtx = {
   bus,

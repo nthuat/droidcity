@@ -7,7 +7,7 @@ import type { Scenario } from './types'
 
 const LIT = 0x3fb950
 const DIM = 0x21262d
-const STATION_GAP = 7
+const STATION_GAP = 14
 // Default city state: already booted (matches the rest of the unified city being "on").
 // advanceBoot's 10000ms exceeds the 4400ms total, so this is a one-shot pure computation
 // with no events fired — replayBoot() is what drives real-time stage events.

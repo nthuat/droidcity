@@ -1,0 +1,122 @@
+import * as THREE from 'three'
+
+// Static machine-board geometry: one contiguous plate-tiled floor replacing the old
+// ground+grid. Built once and added to the scene from main.ts — no disposal needed,
+// this lives for the page lifetime (see plan's disposal-discipline note).
+
+const BOARD_COLOR = 0xcfcbc4
+const PLATE_EMISSIVE_INTENSITY = 0.15
+const PLATE_H = 0.3
+
+const COLORS = {
+  boot: 0x37474f,
+  foundry: 0x2e4a3a,
+  wards: 0x2b3440,
+  cityhall: 0x2a2f55,
+  surfaceflinger: 0x3a2a55,
+  network: 0x553a2a,
+  launcher: 0x374a37,
+}
+
+function plateMaterial(color: number): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: PLATE_EMISSIVE_INTENSITY,
+    roughness: 0.8,
+  })
+}
+
+// A flat zone plate: box top face sits at `topY`, footprint is [x0,x1] x [z0,z1].
+function makePlate(color: number, x0: number, x1: number, z0: number, z1: number, topY: number): THREE.Mesh {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, PLATE_H, z1 - z0), plateMaterial(color))
+  mesh.position.set((x0 + x1) / 2, topY - PLATE_H / 2, (z0 + z1) / 2)
+  return mesh
+}
+
+// A ramp/rim wedge whose top face tilts linearly from `from` to `to` (any axis) —
+// `thickness` is the flat width of the ramp perpendicular to travel. Orientation via
+// lookAt (not hand-rolled trig): robust regardless of which world axis the slope runs
+// along, and keeps the perpendicular edge level since the default up vector is (0,1,0).
+function makeSlope(color: number, from: THREE.Vector3, to: THREE.Vector3, thickness: number): THREE.Mesh {
+  const len = from.distanceTo(to)
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(thickness, PLATE_H, len), plateMaterial(color))
+  mesh.position.copy(from).lerp(to, 0.5)
+  mesh.lookAt(to)
+  return mesh
+}
+
+// Flat canvas-texture "silk-screen" plane, laid on top of the board facing up.
+function makeEdgeText(text: string, width: number, depth: number, x: number, y: number, z: number): THREE.Mesh {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1024
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')!
+  ctx.font = 'bold 56px system-ui, sans-serif'
+  ctx.fillStyle = '#8b98a5'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2)
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, depth),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false }),
+  )
+  mesh.rotation.x = -Math.PI / 2
+  mesh.position.set(x, y, z)
+  return mesh
+}
+
+// cityhallPit: recessed floor (y -2) with a sloped rim connecting it back up to
+// board level (y 0), inset RIM units from the pit's outer footprint.
+function buildPit(): THREE.Object3D[] {
+  const x0 = -45, x1 = 45, z0 = -5, z1 = 25
+  const floorY = -2
+  const RIM = 3
+  const fx0 = x0 + RIM, fx1 = x1 - RIM, fz0 = z0 + RIM, fz1 = z1 - RIM
+  const midZ = (fz0 + fz1) / 2
+  return [
+    makePlate(COLORS.cityhall, fx0, fx1, fz0, fz1, floorY),
+    makeSlope(COLORS.cityhall, new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, floorY, fz0), x1 - x0), // north rim
+    makeSlope(COLORS.cityhall, new THREE.Vector3(0, 0, z1), new THREE.Vector3(0, floorY, fz1), x1 - x0), // south rim
+    makeSlope(COLORS.cityhall, new THREE.Vector3(x0, 0, midZ), new THREE.Vector3(fx0, floorY, midZ), fz1 - fz0), // west rim
+    makeSlope(COLORS.cityhall, new THREE.Vector3(x1, 0, midZ), new THREE.Vector3(fx1, floorY, midZ), fz1 - fz0), // east rim
+  ]
+}
+
+// launcherPlatform: elevated deck (top y 3) with a ramp down to board level (y 0)
+// on its pit-facing edge, per the plan's "ramp from platform front edge to pit rim".
+function buildLauncherPlatform(): THREE.Object3D[] {
+  const x0 = -30, x1 = 30, z0 = 25, z1 = 55
+  const topY = 3
+  const rampZ1 = z0 + 6 // ramp occupies the first 6 units of the platform's depth
+  return [
+    makePlate(COLORS.launcher, x0, x1, rampZ1, z1, topY),
+    makeSlope(COLORS.launcher, new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, topY, rampZ1), x1 - x0),
+  ]
+}
+
+export function buildBoard(): THREE.Group {
+  const group = new THREE.Group()
+  group.name = 'board'
+
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(170, 1, 120),
+    new THREE.MeshStandardMaterial({ color: BOARD_COLOR, roughness: 0.9 }),
+  )
+  board.position.set(0, -0.5, 0)
+  group.add(board)
+
+  group.add(makePlate(COLORS.boot, -85, 85, -60, -45, -0.2)) // recessed back strip
+  group.add(makePlate(COLORS.foundry, -85, -45, -45, 5, 0.3))
+  group.add(makePlate(COLORS.wards, -45, 45, -45, -5, 0.3))
+  group.add(makePlate(COLORS.surfaceflinger, 45, 85, -45, 0, 0.3))
+  group.add(makePlate(COLORS.network, 45, 85, 0, 35, 0.3))
+  for (const o of buildPit()) group.add(o)
+  for (const o of buildLauncherPlatform()) group.add(o)
+
+  group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
+  group.add(makeEdgeText('INTERNET →', 16, 6, 84, 0.36, 17))
+  group.add(makeEdgeText('HARDWARE / KERNEL SPACE', 60, 6, 0, -0.14, -58))
+
+  return group
+}
