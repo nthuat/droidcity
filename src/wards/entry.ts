@@ -56,6 +56,14 @@ export interface WardEntry {
   crateSlots: Map<number, number>
   workerCars: Map<'db' | 'network', THREE.Mesh>
   panel: WardPanel | null
+  // launchMode singleTop: brief top-stack-card flash timer, decremented like the
+  // other *Ms flash fields; also drives a transient narration line while > 0.
+  singleTopFlashMs: number
+  // bindService/unbindService: app name of the ward this one is currently bound
+  // to as a client (null = not bound). Drives foundry priority inheritance on
+  // the target and the visible tether line.
+  boundTo: string | null
+  tether: THREE.Line | null
 }
 
 export function trimProcessed(s: LooperState): LooperState {
@@ -72,7 +80,15 @@ export function narrationFor(entry: WardEntry): string {
   const base = `${entry.activity.phase} · queue ${entry.looper.queue.length} · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB`
   const line = entry.looper.anr ? `${base} · ANR! main thread blocked 5s+` : base
   const withRestored = entry.restored ? `Restored — saved state + ViewModel made this cheap.\n${line}` : line
-  return entry.serviceRunning
+  const withService = entry.serviceRunning
     ? `${withRestored}\nService running — LMK will take cached wards first.`
     : withRestored
+  // Rotation (and any other config change — locale, dark mode, fold state)
+  // drives the same tear-down/rebuild — rebuildMs > 0 covers all of them.
+  const withRotate = entry.rebuildMs > 0
+    ? `${withService}\nRotation is just one config change — locale, dark mode, fold state recreate the Activity the same way.`
+    : withService
+  return entry.singleTopFlashMs > 0
+    ? `${withRotate}\nsingleTop: already on top — reused, no new instance.`
+    : withRotate
 }

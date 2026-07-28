@@ -13,7 +13,8 @@ import { buildWardPanel } from './panel'
 import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import {
   syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards,
-  setAppFloorLit, setServiceAnnexLit, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS,
+  setAppFloorLit, setServiceAnnexLit, setProviderSlabLit, disposeMesh, clearPool,
+  syncSingleTopFlash, SHED_FLASH_MS, SCREEN_FLASH_MS, SINGLE_TOP_FLASH_MS,
 } from './visualSync'
 import { makeCar } from '../scene/builders'
 
@@ -41,8 +42,10 @@ export interface WardManager {
   runHeavyFrame(app: string): void
   goHome(app: string): void
   toggleService(app: string): boolean
-  pushActivity(app: string): void
+  pushActivity(app: string, mode?: 'standard' | 'singleTop'): void
   popActivity(app: string): void
+  bindService(clientApp: string, serviceApp: string): void
+  unbindService(clientApp: string): void
 }
 
 export interface WardManagerDeps {
@@ -87,6 +90,8 @@ const WORKER_CAR_COLOR = 0x8b949e
 const WORKER_CAR_SCALE = 0.3
 const HOT_PULSE_MS = 200
 const MAX_BACK_STACK = 3
+const TETHER_COLOR = 0xbc8cff
+const TETHER_Y = 2
 
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
 
@@ -122,7 +127,86 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (!prevEntry || prevEntry.dying || prevEntry.activity.phase !== 'resumed') return
     prevEntry.activity = background(prevEntry.activity)
     bus.emit('activity:backgrounded', { app: previous })
-    setAppPriority?.(previous, (prevEntry.serviceRunning ?? false) ? 'service' : 'cached')
+    setAppPriority?.(previous, backgroundPriority(prevEntry))
+  }
+
+  // The priority a backgrounded ward should hold: normally 'service' while its
+  // own Service runs, else 'cached' — but a bound client keeps this ward's
+  // importance at 'visible' as long as that client is foreground, mirroring
+  // Android's Binder-connection priority inheritance (oom_adj 100 vs 500/900).
+  function backgroundPriority(entry: WardEntry): Priority {
+    const boundClient = [...wards.values()].find(
+      w => w.app !== entry.app && !w.dying && w.boundTo === entry.app,
+    )
+    if (boundClient && boundClient.activity.phase === 'resumed') return 'visible'
+    return entry.serviceRunning ? 'service' : 'cached'
+  }
+
+  // Only meaningful while the target isn't itself foreground (that priority is
+  // owned by the resume/foreground path, not this one). Called right after a
+  // bind/unbind changes what backgroundPriority(target) would return.
+  function recomputeBackgroundPriority(entry: WardEntry): void {
+    if (entry.dying || entry.activity.phase === 'resumed') return
+    setAppPriority?.(entry.app, backgroundPriority(entry))
+  }
+
+  // Next living ward alphabetically after `app`, wrapping around — the target
+  // the panel's 'Bind to <next app>' button offers.
+  function nextLivingWard(app: string): string | null {
+    const names = [...wards.values()].filter(w => !w.dying).map(w => w.app).sort()
+    if (names.length < 2) return null
+    const idx = names.indexOf(app)
+    return names[(idx + 1) % names.length]
+  }
+
+  function createTether(client: WardEntry, service: WardEntry): THREE.Line {
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(client.meshes.group.position.x, TETHER_Y, client.meshes.group.position.z),
+      new THREE.Vector3(service.meshes.group.position.x, TETHER_Y, service.meshes.group.position.z),
+    ])
+    const material = new THREE.LineBasicMaterial({ color: TETHER_COLOR })
+    const line = new THREE.Line(geometry, material)
+    line.userData.info = {
+      title: 'Bound service',
+      note: 'Client holds a Binder connection; while the client is foreground the service process inherits visibility — oom_adj 100 instead of 500/900.',
+    }
+    scene.add(line)
+    return line
+  }
+
+  function disposeTether(entry: WardEntry): void {
+    if (!entry.tether) return
+    scene.remove(entry.tether)
+    entry.tether.geometry.dispose()
+    ;(entry.tether.material as THREE.Material).dispose()
+    entry.tether = null
+  }
+
+  // Panel 'Bind to <next app>' / 'Unbind' button: client's Binder connection to
+  // another ward's Service. Rebinding drops any prior tether first (one bind
+  // per client). Priority inheritance is recomputed immediately (bind/unbind)
+  // and again on every future background-transition via backgroundPriority.
+  function bindService(clientApp: string, serviceApp: string): void {
+    const client = wards.get(clientApp)
+    const service = wards.get(serviceApp)
+    if (!client || !service || client.dying || service.dying || clientApp === serviceApp) return
+    if (client.boundTo === serviceApp) return
+    if (client.boundTo) unbindService(clientApp)
+    client.boundTo = serviceApp
+    client.tether = createTether(client, service)
+    bus.emit('service:bound', { client: clientApp, service: serviceApp })
+    recomputeBackgroundPriority(service)
+  }
+
+  function unbindService(clientApp: string): void {
+    const client = wards.get(clientApp)
+    if (!client || client.boundTo === null) return
+    const serviceApp = client.boundTo
+    disposeTether(client)
+    client.boundTo = null
+    bus.emit('service:unbound', { client: clientApp })
+    const service = wards.get(serviceApp)
+    if (service) recomputeBackgroundPriority(service)
   }
 
   function allocateN(entry: WardEntry, app: string, count: number, sizeKb: number): void {
@@ -192,6 +276,9 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       crateSlots: new Map(),
       workerCars: new Map(),
       panel: null,
+      singleTopFlashMs: 0,
+      boundTo: null,
+      tether: null,
     }
     wards.set(app, entry)
     onWardSpawned?.(app, pid, meshes.group)
@@ -210,6 +297,13 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.demolishMs = 0
     entry.demolishStartScale = entry.meshes.group.scale.y
     setAppFloorLit(entry.meshes, false)
+    setProviderSlabLit(entry.meshes, false)
+    // Tether never outlives either end: drop this ward's own outgoing bind,
+    // and any other living client's tether that pointed at this (now-dead) ward.
+    if (entry.boundTo) { disposeTether(entry); entry.boundTo = null }
+    for (const other of wards.values()) {
+      if (other.boundTo === app) { disposeTether(other); other.boundTo = null }
+    }
   }
 
   // onTrimMemory, modeled coarsely: every live ward voluntarily sheds its two
@@ -362,17 +456,24 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
     entry.activity = background(entry.activity)
-    setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
+    setAppPriority?.(app, backgroundPriority(entry))
     bus.emit('activity:backgrounded', { app })
     if (foregroundApp === app) foregroundApp = null
   }
 
-  // Panel 'Open screen' button: pushes a stacked Activity onto the task. Only
-  // meaningful from the foreground (resumed) — capped at 3 (matches the 3
-  // pre-built stackCards in WardMeshes), beyond that a no-op.
-  function pushActivity(app: string): void {
+  // Panel 'Open screen' / 'Open (singleTop)' buttons: pushes a stacked Activity
+  // onto the task. Only meaningful from the foreground (resumed) — capped at 3
+  // (matches the 3 pre-built stackCards in WardMeshes), beyond that a no-op.
+  // singleTop + something already stacked above the root: reuse the top
+  // instance instead — no new card, no activity:pushed, just a brief flash.
+  function pushActivity(app: string, mode: 'standard' | 'singleTop' = 'standard'): void {
     const entry = wards.get(app)
-    if (!entry || entry.dying || entry.activity.phase !== 'resumed' || entry.backStack >= MAX_BACK_STACK) return
+    if (!entry || entry.dying || entry.activity.phase !== 'resumed') return
+    if (mode === 'singleTop' && entry.backStack > 0) {
+      entry.singleTopFlashMs = SINGLE_TOP_FLASH_MS
+      return
+    }
+    if (entry.backStack >= MAX_BACK_STACK) return
     entry.backStack += 1
     bus.emit('activity:pushed', { app, depth: entry.backStack })
   }
@@ -393,7 +494,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     }
     if (entry.activity.phase === 'destroyed') return
     entry.activity = finish(entry.activity)
-    setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
+    setAppPriority?.(app, backgroundPriority(entry))
     bus.emit('activity:backgrounded', { app })
     if (foregroundApp === app) foregroundApp = null
   }
@@ -410,7 +511,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     setServiceAnnexLit(entry.meshes, entry.serviceRunning)
     bus.emit('service:changed', { app, running: entry.serviceRunning })
     if (entry.activity.phase === 'stopped') {
-      setAppPriority?.(app, entry.serviceRunning ? 'service' : 'cached')
+      setAppPriority?.(app, backgroundPriority(entry))
     }
     return entry.serviceRunning
   }
@@ -487,6 +588,11 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       }
       return
     }
+
+    // ContentProviders instantiate before Application.onCreate — light the
+    // slab a beat ahead of the appFloor (which lights at rise-complete, below).
+    const riseDuration = entry.restored ? RISE_MS / 2 : RISE_MS
+    setProviderSlabLit(entry.meshes, entry.riseMs >= riseDuration * 0.75)
 
     if (entry.resumed && !entry.dataRequested) {
       entry.resumedMs += dtMs
@@ -567,6 +673,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.shedFlashMs = Math.max(0, entry.shedFlashMs - dtMs)
     entry.screenFlashMs = Math.max(0, entry.screenFlashMs - dtMs)
     entry.sweepMs = Math.max(0, entry.sweepMs - dtMs)
+    entry.singleTopFlashMs = Math.max(0, entry.singleTopFlashMs - dtMs)
     entry.anrFlashT += dtMs
     updateGroupScale(entry, dtMs)
     if (entry.hotPulseMs > 0) {
@@ -594,15 +701,30 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (entry.panel) {
       entry.panel.setNarration(narrationFor(entry))
       entry.panel.syncService(entry.serviceRunning)
+      entry.panel.syncBind(entry.boundTo, nextLivingWard(app))
     }
 
     syncCars(entry.meshes, entry.looper, entry.carPool)
     syncWorkerCars(entry.meshes, entry.workerCars, entry.anrFlashT)
     syncFloors(entry.meshes, entry.activity.phase)
     syncStackCards(entry.meshes, entry.backStack)
+    syncSingleTopFlash(entry.meshes, entry.backStack, entry.singleTopFlashMs)
     entry.meshes.viewModelOrb.visible = entry.activity.viewModelValue !== null
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots)
     syncFlashes(entry, entry.looper.anr, entry.anrFlashT)
+  }
+
+  // Panel 'Bind to <next app>' / 'Unbind' button: toggles a bind to the next
+  // living ward alphabetically (the same target the panel label shows).
+  function toggleBind(app: string): void {
+    const entry = wards.get(app)
+    if (!entry) return
+    if (entry.boundTo) {
+      unbindService(app)
+      return
+    }
+    const target = nextLivingWard(app)
+    if (target) bindService(app, target)
   }
 
   return {
@@ -638,7 +760,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (!entry.panel) {
         entry.panel = buildWardPanel(
           app,
-          { blockMainThread, rotate: rotateWard, forceGc, refreshData, goHome, toggleService, pushActivity, popActivity },
+          { blockMainThread, rotate: rotateWard, forceGc, refreshData, goHome, toggleService, pushActivity, popActivity, toggleBind },
           narrationFor(entry),
           entry.serviceRunning,
         )
@@ -654,5 +776,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     toggleService,
     pushActivity,
     popActivity,
+    bindService,
+    unbindService,
   }
 }

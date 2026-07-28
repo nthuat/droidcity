@@ -16,6 +16,7 @@ function fakeMeshes(): WardMeshes {
     carsParent: { add() {}, remove() {} },
     floors: [],
     appFloor: { material: { emissiveIntensity: 0 } },
+    providerSlab: { material: { emissiveIntensity: 0 } },
     viewModelOrb: { visible: false },
     screenPanel: { material: { emissiveIntensity: 0 } },
     cratesParent: { add() {}, remove() {} },
@@ -26,7 +27,11 @@ function fakeMeshes(): WardMeshes {
     wallMesh: {},
     workerParent: { add() {}, remove() {} },
     workerRoad: {},
-    stackCards: [{ visible: false }, { visible: false }, { visible: false }],
+    stackCards: [
+      { visible: false, material: { emissiveIntensity: 0 } },
+      { visible: false, material: { emissiveIntensity: 0 } },
+      { visible: false, material: { emissiveIntensity: 0 } },
+    ],
     dispose: vi.fn(),
   } as unknown as WardMeshes
 }
@@ -368,5 +373,41 @@ describe('WardManager', () => {
     expect(manager.toggleService('chat')).toBe(false)
     expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'cached')
     expect(changed[1]).toEqual({ app: 'chat', running: false })
+  })
+
+  it('launchMode singleTop: pushing onto an already-stacked top reuses it instead of pushing (no activity:pushed, backStack unchanged)', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed
+
+    manager.pushActivity('chat') // standard push -> backStack 1
+
+    const pushed: { app: string; depth: number }[] = []
+    deps.bus.on('activity:pushed', p => pushed.push(p))
+
+    manager.pushActivity('chat', 'singleTop')
+
+    expect(manager.wardStats().find(s => s.app === 'chat')?.backStack).toBe(1)
+    expect(pushed).toHaveLength(0)
+  })
+
+  it('bindService: a resumed client binding to a backgrounded service promotes it to visible; unbind recomputes back to cached', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority })
+
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // chat resumed (foreground)
+    manager.goHome('chat') // chat backgrounded -> cached (no service running)
+
+    deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
+    manager.update(800) // maps resumed (foreground)
+
+    manager.bindService('maps', 'chat') // maps (resumed) binds to chat (backgrounded)
+    expect(setAppPriority).toHaveBeenCalledWith('chat', 'visible')
+
+    manager.unbindService('maps')
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'cached')
   })
 })

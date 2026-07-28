@@ -6,6 +6,7 @@ export interface WardMeshes {
   readonly carsParent: THREE.Group
   readonly floors: readonly THREE.Mesh[]
   readonly appFloor: THREE.Mesh
+  readonly providerSlab: THREE.Mesh
   readonly viewModelOrb: THREE.Mesh
   readonly screenPanel: THREE.Mesh
   readonly cratesParent: THREE.Group
@@ -55,6 +56,23 @@ export function buildWardMeshes(app: string): WardMeshes {
   const group = new THREE.Group()
   group.name = 'ward'
   group.userData.app = app
+
+  // ContentProvider slab: thin slab below the Application floor. Providers are
+  // instantiated before Application.onCreate — the classic hidden startup tax —
+  // so it lights a beat before the appFloor above it.
+  const providerSlabGeo = new THREE.BoxGeometry(2.6, 0.3, 2.6)
+  const providerSlabMat = new THREE.MeshStandardMaterial({
+    color: 0x8b6c3f, roughness: 0.6, emissive: 0x8b6c3f, emissiveIntensity: 0,
+  })
+  disposables.push(providerSlabGeo, providerSlabMat)
+  const providerSlab = new THREE.Mesh(providerSlabGeo, providerSlabMat)
+  providerSlab.name = 'providerSlab'
+  providerSlab.position.set(TOWER_X, -0.15, TOWER_Z)
+  providerSlab.userData.info = {
+    title: 'ContentProviders',
+    note: 'Initialize BEFORE Application.onCreate — the classic hidden startup tax.',
+  }
+  group.add(providerSlab)
 
   // Application floor: base of the tower, created once at bindApplication —
   // before any Activity exists. Slightly wider than the lifecycle floors above it.
@@ -108,7 +126,9 @@ export function buildWardMeshes(app: string): WardMeshes {
   const stackCards: THREE.Mesh[] = []
   for (let i = 0; i < 3; i++) {
     const geo = new THREE.BoxGeometry(2, 0.3, 2)
-    const mat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.35 })
+    const mat = new THREE.MeshStandardMaterial({
+      color, transparent: true, opacity: 0.35, emissive: 0xffffff, emissiveIntensity: 0,
+    })
     disposables.push(geo, mat)
     const card = new THREE.Mesh(geo, mat)
     card.name = `stackCard${i}`
@@ -116,7 +136,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     card.visible = false
     card.userData.info = {
       title: 'Back stack',
-      note: 'Activities stack in a task. Back pops the top one; the last pop leaves the process alive — a warm start next time.',
+      note: 'Activities stack in a task. Back pops the top one; the last pop leaves the process alive — a warm start next time. launchMode singleTop reuses the top instance instead of stacking a new one.',
     }
     group.add(card)
     stackCards.push(card)
@@ -178,7 +198,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   workerRoad.position.set(1, 0.01, 7)
   workerRoad.userData.info = {
     title: 'Worker pool',
-    note: 'IO and heavy work run here — the main thread only posts and receives.',
+    note: 'IO and heavy work run here — the main thread only posts and receives. Results must post back to the main road — touching views from a worker throws CalledFromWrongThreadException.',
   }
   group.add(workerRoad)
 
@@ -261,7 +281,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   anrOverlay.position.y = 6
   anrOverlay.userData.info = {
     title: 'ANR',
-    note: 'Blocked main looper. Timers: input 5s · foreground service 20s · broadcast 10s (60s background).',
+    note: 'Blocked main looper. Timers: input 5s · foreground service 20s · broadcast 10s (60s background) · background service 200s.',
   }
   group.add(anrOverlay)
 
@@ -285,6 +305,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     carsParent,
     floors,
     appFloor,
+    providerSlab,
     viewModelOrb,
     screenPanel,
     cratesParent,

@@ -23,7 +23,7 @@ export function makeCh3(ctx: StoryCtx): Chapter {
         waitFor: { event: 'data:requested', app: 'chat' },
       },
       {
-        narration: 'The Room shed answers in ~30 milliseconds — stale data from last session. Show it anyway: stale beats blank.',
+        narration: 'The Room shed answers in a few milliseconds — stale data from last session. Show it anyway: stale beats blank.',
         focus: 'ward:chat',
         waitFor: { event: 'data:cacheHit', app: 'chat' },
       },

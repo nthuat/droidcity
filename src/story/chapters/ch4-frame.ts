@@ -11,7 +11,7 @@ export function makeCh4(ctx: StoryCtx): Chapter {
     },
     steps: [
       {
-        narration: 'Every visible change is a race: 16.67 milliseconds from input to pixel, sixty times a second. The tap itself arrived from the touchscreen through system_server\'s InputDispatcher — apps never read hardware directly. Every frame starts on a vsync tick — Choreographer lines the work up against a 16.67ms train timetable.',
+        narration: 'Every visible change is a race: 16.67 milliseconds of work per frame, sixty times a second. The tap itself arrived from the touchscreen through system_server\'s InputDispatcher — apps never read hardware directly. Every frame starts on a vsync tick — Choreographer lines the work up against a 16.67ms train timetable.',
         focus: 'ward:chat',
         fire: () => ctx.injectTap('chat'),
         waitFor: { event: 'frame:submitted', app: 'chat' },

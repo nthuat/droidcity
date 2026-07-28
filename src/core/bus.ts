@@ -32,6 +32,10 @@ export interface CityEvents {
   // app's tile from bright to faint. LMK death is already covered by
   // process:killed, so this event never fires for that path.
   'activity:backgrounded': { app: string }
+  // bindService/unbindService — client holds a Binder connection to service's
+  // ward; drives the tether visual and foundry priority inheritance.
+  'service:bound': { client: string; service: string }
+  'service:unbound': { client: string }
 }
 export type CityEventName = keyof CityEvents
 export interface Bus {

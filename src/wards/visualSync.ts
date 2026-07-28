@@ -77,6 +77,15 @@ export function setAppFloorLit(meshes: WardMeshes, lit: boolean): void {
   mat.emissiveIntensity = lit ? APP_FLOOR_LIT_INTENSITY : 0
 }
 
+const PROVIDER_SLAB_LIT_INTENSITY = 0.35
+
+// ContentProviders instantiate before Application.onCreate — lit slightly ahead
+// of the appFloor during rise, dimmed on demolition (same on/off shape).
+export function setProviderSlabLit(meshes: WardMeshes, lit: boolean): void {
+  const mat = meshes.providerSlab.material as THREE.MeshStandardMaterial
+  mat.emissiveIntensity = lit ? PROVIDER_SLAB_LIT_INTENSITY : 0
+}
+
 const SERVICE_ANNEX_LIT_INTENSITY = 0.6
 
 // Service annex lights amber on toggleService(app) → running; on/off toggle,
@@ -157,6 +166,18 @@ export function syncCrates(
 // One card visible per stacked activity above the root (entry.backStack).
 export function syncStackCards(meshes: WardMeshes, backStack: number): void {
   meshes.stackCards.forEach((card, i) => { card.visible = i < backStack })
+}
+
+export const SINGLE_TOP_FLASH_MS = 300
+
+// launchMode singleTop: pushing onto an already-on-top instance reuses it
+// instead of stacking a new card — flash the top visible card instead.
+export function syncSingleTopFlash(meshes: WardMeshes, backStack: number, flashMs: number): void {
+  const topIndex = backStack - 1
+  meshes.stackCards.forEach((card, i) => {
+    const mat = card.material as THREE.MeshStandardMaterial
+    mat.emissiveIntensity = i === topIndex && flashMs > 0 ? flashMs / SINGLE_TOP_FLASH_MS : 0
+  })
 }
 
 export function syncBench(meshes: WardMeshes, frame: FrameRun | null): void {

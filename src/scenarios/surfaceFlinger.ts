@@ -47,7 +47,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   wall.position.set(WALL_X, WALL_BASE_Y + WALL_H / 2, 0)
   wall.userData.info = {
     title: 'Display',
-    note: 'One app is on screen at a time — the bright tile. Faint tiles are alive behind it, rendering nothing. Multi-window would light two; not modeled yet.',
+    note: 'One app is on screen at a time — the bright tile. Faint tiles are alive behind it, rendering nothing. Multi-window would light two; not modeled yet. HWC composites overlays in hardware when possible.',
   }
   group.add(wall)
   const wallLabel = makeLabel('Display', 0.7)
