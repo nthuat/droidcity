@@ -59,17 +59,22 @@ export function buildWardMeshes(app: string): WardMeshes {
   group.name = 'ward'
   group.userData.app = app
 
-  // ContentProvider slab: thin slab below the Application floor. Providers are
+  // ContentProvider slab: plinth ring under the Application floor. Providers are
   // instantiated before Application.onCreate — the classic hidden startup tax —
-  // so it lights a beat before the appFloor above it.
-  const providerSlabGeo = new THREE.BoxGeometry(2.6, 0.3, 2.6)
+  // so it lights a beat before the appFloor above it. Footprint 3.2 (wider than
+  // appFloor's 2.8) at local y -0.05..0.25: the ward group now sits on the plate
+  // top (PLOT_ANCHORS y 0.3), so the old -0.3..0 slab would be flush-buried in
+  // the plate — instead it pokes above as a visible plinth, with a tiny 0.05
+  // sink hiding the plate seam. appFloor's base (local 0) and the plinth top
+  // (0.25) are different planes — no z-fight.
+  const providerSlabGeo = new THREE.BoxGeometry(3.2, 0.3, 3.2)
   const providerSlabMat = new THREE.MeshStandardMaterial({
     color: 0x8b6c3f, roughness: 0.6, emissive: 0x8b6c3f, emissiveIntensity: 0,
   })
   disposables.push(providerSlabGeo, providerSlabMat)
   const providerSlab = new THREE.Mesh(providerSlabGeo, providerSlabMat)
   providerSlab.name = 'providerSlab'
-  providerSlab.position.set(TOWER_X, -0.15, TOWER_Z)
+  providerSlab.position.set(TOWER_X, 0.1, TOWER_Z)
   providerSlab.userData.info = {
     title: 'ContentProviders',
     note: 'Initialize BEFORE Application.onCreate — the classic hidden startup tax.',

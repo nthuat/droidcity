@@ -45,7 +45,9 @@ export function makeCityHallScenario(bus: Bus): Scenario {
 
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.6 })
   const pillarGeo = new THREE.CylinderGeometry(0.6, 0.6, 4, 12)
-  const pillarSpots: Array<[number, number]> = [[-40, -10], [40, -10], [-40, 10], [40, 10]]
+  // (40,-10) would sit at world z 0 under the network->wards bridge roads
+  // (their trunk spans x -33.75..45), so that one pulls in to z -7.5.
+  const pillarSpots: Array<[number, number]> = [[-40, -10], [40, -7.5], [-40, 10], [40, 10]]
   for (const [x, z] of pillarSpots) {
     const pillar = new THREE.Mesh(pillarGeo, pillarMat)
     pillar.position.set(x, 2, z)

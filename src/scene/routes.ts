@@ -48,46 +48,78 @@ interface RouteDef {
   readonly to: string
   readonly waypoints: readonly THREE.Vector3[]
   readonly conveyor?: boolean
+  // Polyline actually meshed for this route (defaults to `waypoints`). Per-plot
+  // routes that share a long trunk leg draw only their unique branch — the trunk
+  // is meshed exactly once in TRUNKS below. Rebuilding it per plot stacked 4
+  // coplanar boxes (conveyors with mismatched stripe phases) that z-fought.
+  readonly draw?: readonly THREE.Vector3[]
 }
 
 const ROUTES: RouteDef[] = [
-  // foundry -> each ward plot (conveyor along z -25)
+  // foundry -> each ward plot (conveyor along z -25). Packets fly the full path;
+  // the visible conveyor spine is built once in TRUNKS (draw: []).
   ...PLOT_X.map((x, n): RouteDef => ({
-    from: 'zygote', to: `plot${n}`, conveyor: true,
+    from: 'zygote', to: `plot${n}`, conveyor: true, draw: [],
     waypoints: [ANCHORS.zygote, v(ANCHORS.zygote.x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, PLOT_Z)],
   })),
-  // each ward plot -> cityhall (Binder road, radiating south into the pit). The
-  // (x,0,-5) point is the pit rim's own board-level top (board.ts's north rim slope
-  // starts at y 0, not the wards plate's 0.3) — an existing plate/rim seam, not this
-  // fix's concern.
+  // each ward plot -> cityhall (Binder road, radiating south into the pit):
+  // rides the wards plate (0.3) to its south edge at z -5, then steps down the
+  // pit's north rim to the floor — no long half-buried lerp across the plate.
   ...PLOT_X.map((x, n): RouteDef => ({
     from: `plot${n}`, to: 'cityhall',
-    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, 0, -5), v(x, -2, -2), ANCHORS.cityhall],
+    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -5), v(x, -2, -2), ANCHORS.cityhall],
   })),
-  // cityhall -> launcher ramp base
-  { from: 'cityhall', to: 'launcher', waypoints: [ANCHORS.cityhall, v(0, -2, 22), v(0, 0, 25), ANCHORS.launcher] },
-  // each ward plot -> surfaceflinger (east corridor along z -22, still on the wards/
-  // surfaceflinger plates throughout)
+  // cityhall -> launcher ramp base: jogs east around the WMS wing (local (0,7),
+  // world z 17 on the pit floor) instead of driving through it, then up the rim.
+  {
+    from: 'cityhall', to: 'launcher',
+    waypoints: [ANCHORS.cityhall, v(3.2, -2, 14.5), v(3.2, -2, 22), v(0, 0, 25), ANCHORS.launcher],
+  },
+  // each ward plot -> surfaceflinger: corridor along z -23 (z -22 clipped the
+  // ward Room sheds, world z -22..-20). Draws only the short plot spur; the
+  // shared east corridor is built once in TRUNKS.
   ...PLOT_X.map((x, n): RouteDef => ({
     from: `plot${n}`, to: 'surfaceflinger',
-    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -22), ANCHORS.surfaceflinger],
+    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -23), ANCHORS.surfaceflinger],
+    draw: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -23)],
   })),
   // surfaceflinger -> display wall (visual connector only, no named "to" key)
   { from: 'surfaceflinger', to: 'displaywall', waypoints: [ANCHORS.surfaceflinger, DISPLAY_WALL] },
-  // launcher -> foundry (launch request road: down the ramp, west along z 30, then north)
+  // launcher -> foundry: traverse the deck flat (starts z 31) at z 33, step off
+  // its west edge (x -30) onto bare board, cross to the foundry plate's south
+  // seam (z 5) and climb on at z 4, then north to the Zygote.
   {
     from: 'launcher', to: 'zygote',
-    waypoints: [ANCHORS.launcher, v(0, 3, 30), v(-30, 3, 30), v(-30, 0, 30), v(ANCHORS.zygote.x, 0, 30), ANCHORS.zygote],
+    waypoints: [
+      ANCHORS.launcher, v(0, 3, 33), v(-30, 3, 33), v(-33, 0, 33),
+      v(ANCHORS.zygote.x, 0, 6), v(ANCHORS.zygote.x, PLATE_Y, 4), ANCHORS.zygote,
+    ],
   },
-  // network -> each ward plot (corridor along z 0, crossing the pit's east rim — the
-  // z 0 midpoints ride through the pit's own footprint, not the flat 0.3 plates, so
-  // they stay at board-base y like the pit-crossing route above)
+  // network -> each ward plot: shared trunk (network plate -> step down at the
+  // plate's SW corner -> west along z 0 over the pit) built once in TRUNKS;
+  // per-plot branch turns north at board level, then steps up onto the wards
+  // plate across the z -5/-6 seam.
   ...PLOT_X.map((x, n): RouteDef => ({
     from: 'network', to: `plot${n}`,
-    waypoints: [ANCHORS.network, v(45, 0, 0), v(x, 0, 0), v(x, PLATE_Y, PLOT_Z)],
+    waypoints: [
+      ANCHORS.network, v(46.5, PLATE_Y, 1.5), v(45, 0, 0), v(x, 0, 0),
+      v(x, 0, -5), v(x, PLATE_Y, -6), v(x, PLATE_Y, PLOT_Z),
+    ],
+    draw: [v(x, 0, 0), v(x, 0, -5), v(x, PLATE_Y, -6), v(x, PLATE_Y, PLOT_Z)],
   })),
-  // network -> off-board east (the INTERNET road)
-  { from: 'network', to: 'offboard-east', waypoints: [ANCHORS.network, OFFBOARD_EAST] },
+  // network -> off-board east (the INTERNET road): stays on the network plate
+  // (0.3) to the board rim at x 85, then steps down off-board.
+  { from: 'network', to: 'offboard-east', waypoints: [ANCHORS.network, v(85, PLATE_Y, 17), OFFBOARD_EAST] },
+]
+
+// Shared trunk legs, each meshed exactly once (see RouteDef.draw above).
+const TRUNKS: { readonly points: readonly THREE.Vector3[]; readonly conveyor?: boolean }[] = [
+  // foundry conveyor spine: down to z -25, then east through all 4 plot anchors
+  { conveyor: true, points: [ANCHORS.zygote, v(ANCHORS.zygote.x, PLATE_Y, PLOT_Z), v(PLOT_X[3], PLATE_Y, PLOT_Z)] },
+  // network trunk: off the plate at (45,0,0), then west along z 0 to the last plot
+  { points: [ANCHORS.network, v(46.5, PLATE_Y, 1.5), v(45, 0, 0), v(PLOT_X[0], 0, 0)] },
+  // surfaceflinger corridor along z -23, with a final 1-unit jog to the anchor
+  { points: [v(PLOT_X[0], PLATE_Y, -23), v(ANCHORS.surfaceflinger.x, PLATE_Y, -23), ANCHORS.surfaceflinger] },
 ]
 
 function resolveAnchor(key: string): THREE.Vector3 | undefined {
@@ -140,13 +172,11 @@ function conveyorLeg(from: THREE.Vector3, to: THREE.Vector3): THREE.Object3D[] {
   return segments
 }
 
-function buildRouteMesh(route: RouteDef): THREE.Object3D[] {
+function buildPolyline(points: readonly THREE.Vector3[], conveyor: boolean | undefined): THREE.Object3D[] {
   const meshes: THREE.Object3D[] = []
-  for (let i = 0; i < route.waypoints.length - 1; i++) {
-    const a = route.waypoints[i]
-    const b = route.waypoints[i + 1]
-    if (route.conveyor) meshes.push(...conveyorLeg(a, b))
-    else meshes.push(roadSegment(ROAD_COLOR, a, b, ROAD_RAISE))
+  for (let i = 0; i < points.length - 1; i++) {
+    if (conveyor) meshes.push(...conveyorLeg(points[i], points[i + 1]))
+    else meshes.push(roadSegment(ROAD_COLOR, points[i], points[i + 1], ROAD_RAISE))
   }
   return meshes
 }
@@ -160,7 +190,10 @@ export function buildRoutes(): Routes {
   const group = new THREE.Group()
   group.name = 'routes'
   for (const route of ROUTES) {
-    for (const mesh of buildRouteMesh(route)) group.add(mesh)
+    for (const mesh of buildPolyline(route.draw ?? route.waypoints, route.conveyor)) group.add(mesh)
+  }
+  for (const trunk of TRUNKS) {
+    for (const mesh of buildPolyline(trunk.points, trunk.conveyor)) group.add(mesh)
   }
 
   return {

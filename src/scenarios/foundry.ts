@@ -41,14 +41,18 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   group.add(stamp)
   let stampT = 0
 
-  // Static dressing: blank ward-kit boxes queued at the conveyor mouth (south side,
-  // facing the wards) + a decorative piston tower. No sim link — purely visual.
+  // Static dressing: blank ward-kit boxes queued south of the factory (the wards
+  // are NORTH at z -25; these sit clear of them) + a decorative piston tower.
+  // Kit columns at local x -13/-8/-3 (world -78/-73/-68) — the old centered
+  // layout's middle column straddled the launcher->zygote road at world x -65.
+  // No sim link — purely visual.
   const kitMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.7 })
   const kitGeo = new THREE.BoxGeometry(4, 1, 4)
+  const KIT_COL_X = [-13, -8, -3]
   for (let row = 0; row < 2; row++) {
-    for (let col = 0; col < 3; col++) {
+    for (const colX of KIT_COL_X) {
       const kit = new THREE.Mesh(kitGeo, kitMat)
-      kit.position.set((col - 1) * 5, 0.8, 9 + row * 5)
+      kit.position.set(colX, 0.8, 9 + row * 5)
       group.add(kit)
     }
   }

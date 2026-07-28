@@ -41,11 +41,12 @@ const WARDS_ANCHOR = new THREE.Vector3(0, 5, -25)
 const HUD_UPDATE_MS = 500
 const START_TYPE_FLASH_MS = 3000
 
+// y 0.3 = wards plate top (board.ts) — at y 0 the wards' lower 0.3 sat buried in the plate.
 export const PLOT_ANCHORS: THREE.Vector3[] = [
-  new THREE.Vector3(-33.75, 0, -25),
-  new THREE.Vector3(-11.25, 0, -25),
-  new THREE.Vector3(11.25, 0, -25),
-  new THREE.Vector3(33.75, 0, -25),
+  new THREE.Vector3(-33.75, 0.3, -25),
+  new THREE.Vector3(-11.25, 0.3, -25),
+  new THREE.Vector3(11.25, 0.3, -25),
+  new THREE.Vector3(33.75, 0.3, -25),
 ]
 
 // One offset per entry in `scenarios` below, same order.

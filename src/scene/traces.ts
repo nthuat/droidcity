@@ -41,6 +41,10 @@ const CORE_OFFSETS = [-4.8, -1.6, 1.6, 4.8] // mirrors hardwareRow.ts's CPU slot
 // so each family still reads as landing on the right plot.
 const RAM_LANE_OFFSET = 0.8
 const DISK_LANE_OFFSET = 1.6
+// RAM family gets its own narrower fan: CPU's CORE_OFFSETS lane 4 (+4.8, +0.8
+// lane = x 5.6) cut through the 'init' boot station (x ~5..9 on the boot strip).
+// Max here is 3.6 + 0.8 = 4.4 — clear of the station's west face.
+const RAM_FAN_OFFSETS = [-3.6, -1.2, 1.2, 3.6]
 const RAM_TRACE_INFO = { title: 'Memory bus', note: 'Lights when this ward allocates or GC runs — pages moving between heap and physical RAM.' }
 const DISK_TRACE_INFO = { title: 'Storage bus', note: 'Lights on Room reads and write-backs — the ward\'s private DB lives on this flash.' }
 
@@ -102,7 +106,7 @@ function climbPoints(x: number, srcZ: number): THREE.Vector3[] {
 // CPU per-plot loop in buildTraces below — kept separate (not shared with CPU)
 // since CPU has no tooltip and predates this lane-offset shape.
 function buildPlotFamily(
-  sourceX: number, laneOffsetX: number, info: { title: string; note: string },
+  sourceX: number, fanOffsets: readonly number[], laneOffsetX: number, info: { title: string; note: string },
 ): { mats: THREE.MeshStandardMaterial[]; meshes: THREE.Mesh[] } {
   const mats: THREE.MeshStandardMaterial[] = []
   const meshes: THREE.Mesh[] = []
@@ -110,7 +114,7 @@ function buildPlotFamily(
     const mat = traceMaterial()
     mats.push(mat)
     const points = [
-      ...climbPoints(sourceX + CORE_OFFSETS[n] + laneOffsetX, HW_Z),
+      ...climbPoints(sourceX + fanOffsets[n] + laneOffsetX, HW_Z),
       v(plotX + laneOffsetX, Y_PLATE, PLOT_Z),
     ]
     for (const m of ribbon(mat, points)) {
@@ -181,9 +185,9 @@ export function buildTraces(): Traces {
   for (const m of ribbon(diskMat, diskPoints)) group.add(m)
 
   // Per-plot RAM and DISK traces, parallel to the CPU family above.
-  const ramFamily = buildPlotFamily(RAM_X, RAM_LANE_OFFSET, RAM_TRACE_INFO)
+  const ramFamily = buildPlotFamily(RAM_X, RAM_FAN_OFFSETS, RAM_LANE_OFFSET, RAM_TRACE_INFO)
   for (const m of ramFamily.meshes) group.add(m)
-  const diskFamily = buildPlotFamily(DISK_X, DISK_LANE_OFFSET, DISK_TRACE_INFO)
+  const diskFamily = buildPlotFamily(DISK_X, CORE_OFFSETS, DISK_LANE_OFFSET, DISK_TRACE_INFO)
   for (const m of diskFamily.meshes) group.add(m)
 
   function setFamilyGlow(mats: THREE.MeshStandardMaterial[], plot: number, color: number | null): void {

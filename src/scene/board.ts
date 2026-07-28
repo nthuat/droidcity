@@ -105,8 +105,15 @@ function buildLauncherPlatform(): THREE.Object3D[] {
   const x0 = -30, x1 = 30, z0 = 25, z1 = 55
   const topY = 3
   const rampZ1 = z0 + 6 // ramp occupies the first 6 units of the platform's depth
+  // Solid deck box (full height, base on the board at y 0) — the old 0.3 plate
+  // floated at y 2.7..3 with visible void beneath it.
+  const deck = new THREE.Mesh(
+    new THREE.BoxGeometry(x1 - x0, topY, z1 - rampZ1),
+    plateMaterial(COLORS.launcher),
+  )
+  deck.position.set((x0 + x1) / 2, topY / 2, (rampZ1 + z1) / 2)
   return [
-    makePlate(COLORS.launcher, x0, x1, rampZ1, z1, topY),
+    deck,
     makeSlope(COLORS.launcher, new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, topY, rampZ1), x1 - x0),
   ]
 }
@@ -121,7 +128,14 @@ export function buildBoard(): THREE.Group {
   // own lower top-face y so the recess is real geometry, not just a thin plate
   // floating inside an opaque box — their shared z-boundaries render as the visible
   // step/cliff walls (BoxGeometry side faces render by default, no extra work needed).
-  group.add(makeSlab(-85, 85, -45, 60, 0)) // main slab — all front zones, unchanged look
+  // Main slab is 4 segments ringing the city-hall pit footprint (-45..45 × -5..25) —
+  // a single -85..85 box would fill the pit solid, hiding the recessed floor and
+  // rim slopes inside opaque geometry (same buried-geometry lesson as the strips).
+  group.add(makeSlab(-85, -45, -45, 60, 0)) // west of pit
+  group.add(makeSlab(45, 85, -45, 60, 0)) // east of pit
+  group.add(makeSlab(-45, 45, -45, -5, 0)) // north strip (wards)
+  group.add(makeSlab(-45, 45, 25, 60, 0)) // south strip (under launcher)
+  group.add(makeSlab(-45, 45, -5, 25, -2 - PLATE_H)) // recessed under the pit — floor plate rests on it
   // Recessed slabs sit one PLATE_H below their plate tops so the plates rest ON
   // the slab instead of embedding flush in it — coplanar top faces z-fight (visible
   // as shimmering scanline flicker across the strip).
@@ -149,7 +163,7 @@ export function buildBoard(): THREE.Group {
   group.add(makeEdgeText('HAL · drivers · physical', 40, 1.6, 0, -0.44, -70, HW_LABEL_DIM))
   group.add(makeEdgeText('CPU', 8, 1.6, -55, -0.44, -62, HW_LABEL_DIM))
   group.add(makeEdgeText('RAM BANK', 8, 1.6, 0, -0.44, -62, HW_LABEL_DIM))
-  group.add(makeEdgeText('PSI', 8, 1.6, 11, -0.44, -62, HW_LABEL_DIM))
+  group.add(makeEdgeText('PSI', 8, 1.6, 14, -0.44, -62, HW_LABEL_DIM))
   group.add(makeEdgeText('DISK', 8, 1.6, 55, -0.44, -62, HW_LABEL_DIM))
 
   // Board corners: 2 vents each. Back corners (z -57) sit on the recessed boot strip

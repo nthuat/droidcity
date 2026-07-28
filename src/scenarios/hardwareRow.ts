@@ -28,7 +28,8 @@ const CPU_X = -55
 const RAM_X = 0
 const DISK_X = 55
 
-const PSI_X = RAM_X + 11
+// +14 clears the RAM bank's east end (app slab at +10.8, 2 wide → edge 11.8)
+const PSI_X = RAM_X + 14
 const PSI_BASE_H = 0.4
 const PSI_MAX_H = 4
 const PSI_AMBER_AT = 0.5

@@ -79,7 +79,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
     new THREE.CylinderGeometry(0, 1.1, 0.4, 16, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x546e7a, roughness: 0.5, side: THREE.DoubleSide }),
   )
-  dish.position.set(0, 10, 0)
+  dish.position.set(0, 10.5, 0) // tower body tops out at 10.3 (base 0.3 + height 10)
   dish.rotation.x = -0.7
   group.add(dish)
   const roadArch = new THREE.Mesh(
@@ -91,7 +91,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   group.add(roadArch)
 
   const phaseLabel = makePhaseLabel('idle')
-  phaseLabel.sprite.position.set(0, 11.5, 0)
+  phaseLabel.sprite.position.set(0, 13, 0) // above the building-name sprite (was colliding at 11.5)
   group.add(phaseLabel.sprite)
 
   const retryLight = new THREE.Mesh(
