@@ -56,7 +56,9 @@ const SCENARIO_OFFSETS: THREE.Vector3[] = [
 
 const OVERVIEW_POS = new THREE.Vector3(0, 85, 105)
 const OVERVIEW_TARGET = new THREE.Vector3(0, 0, -5)
-const TWEEN_MS = 600
+const TWEEN_MS_MIN = 800
+const TWEEN_MS_MAX = 2200
+const TWEEN_MS_PER_UNIT = 12
 const WARD_CAMERA_OFFSET = new THREE.Vector3(10, 9, 12)
 const WARD_TARGET_OFFSET = new THREE.Vector3(0, 2, 0)
 
@@ -169,12 +171,13 @@ bus.on('data:fetched', ({ app }) => {
   if (plotKey) flyRoute(routes.path('network', plotKey), 0xd29922)
 })
 
-// Camera fly-to tween state (position + orbit target, eased over TWEEN_MS).
+// Camera fly-to tween state (position + orbit target, eased over tweenDurationMs).
 let tweenFromPos = city.camera.position.clone()
 let tweenToPos = OVERVIEW_POS.clone()
 let tweenFromTarget = city.controls.target.clone()
 let tweenToTarget = OVERVIEW_TARGET.clone()
-let tweenT = TWEEN_MS // starts "done" — initial camera is set directly below
+let tweenDurationMs = 0
+let tweenT = 0 // starts "done" (0 >= 0) — initial camera is set directly below
 
 const HUD_UPDATE_MS = 500
 let hudAccMs = 0
@@ -183,11 +186,16 @@ function smoothstep(t: number): number {
   return t * t * (3 - 2 * t)
 }
 
+// Longer flights get more tween time so the camera doesn't whip across the
+// whole map in the same 600ms as a short hop — clamped so short hops stay
+// snappy and long ones don't drag on forever.
 function flyTo(pos: THREE.Vector3, target: THREE.Vector3): void {
   tweenFromPos = city.camera.position.clone()
   tweenToPos = pos.clone()
   tweenFromTarget = city.controls.target.clone()
   tweenToTarget = target.clone()
+  const distance = tweenFromPos.distanceTo(tweenToPos)
+  tweenDurationMs = THREE.MathUtils.clamp(distance * TWEEN_MS_PER_UNIT, TWEEN_MS_MIN, TWEEN_MS_MAX)
   tweenT = 0
 }
 
@@ -415,7 +423,7 @@ const player = createPlayer(bus, {
       storyNarrationEl.textContent = 'Chapter done — ✕ to exit'
     }
   },
-})
+}, { minStepMs: 3500 })
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && storyActive) stopStory()
@@ -458,9 +466,9 @@ for (const item of storyMenuItems) {
 storyBarEl.append(storyToggleBtn, storyMenuEl)
 
 city.start((dtMs) => {
-  if (tweenT < TWEEN_MS) {
-    tweenT = Math.min(tweenT + dtMs, TWEEN_MS)
-    const t = smoothstep(tweenT / TWEEN_MS)
+  if (tweenT < tweenDurationMs) {
+    tweenT = Math.min(tweenT + dtMs, tweenDurationMs)
+    const t = smoothstep(tweenT / tweenDurationMs)
     city.camera.position.lerpVectors(tweenFromPos, tweenToPos, t)
     city.controls.target.lerpVectors(tweenFromTarget, tweenToTarget, t)
   } else if (inOverview && !driftStopped) {

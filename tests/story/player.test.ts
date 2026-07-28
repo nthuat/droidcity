@@ -115,4 +115,51 @@ describe('storyPlayer', () => {
     bus.emit('boot:complete', {}) // now emit event for step 1
     expect(onStep).toHaveBeenCalledTimes(3) // step 2 entered
   })
+  it('early event satisfies a later step without re-emission', () => {
+    const bus = createBus()
+    const onStep = vi.fn()
+    const done = vi.fn()
+    const p = createPlayer(bus, { onStep, onChapterDone: done })
+    p.play(chapter([
+      { narration: 'a', focus: 'overview', waitFor: { ms: 1000 } },
+      { narration: 'b', focus: 'overview', waitFor: { event: 'boot:complete' } },
+    ]))
+    // Fires while step 0 (an ms-wait) is still in progress — buffered, not lost.
+    bus.emit('boot:complete', {})
+    expect(onStep).toHaveBeenCalledTimes(1)
+    p.update(1000) // step 0's ms-wait completes, advances into step 1
+    expect(onStep).toHaveBeenCalledTimes(2)
+    p.update(0) // step 1's wait was already buffered — no re-emission needed
+    expect(done).toHaveBeenCalled()
+  })
+  it('minStepMs holds a satisfied step until dwell elapses', () => {
+    const bus = createBus()
+    const onStep = vi.fn()
+    const p = createPlayer(bus, { onStep, onChapterDone: vi.fn() }, { minStepMs: 1000 })
+    p.play(chapter([
+      { narration: 'a', focus: 'boot', waitFor: { event: 'boot:complete' } },
+      { narration: 'b', focus: 'boot', waitFor: { ms: 0 } },
+    ]))
+    bus.emit('boot:complete', {}) // satisfied immediately, but dwell hasn't elapsed
+    expect(onStep).toHaveBeenCalledTimes(1)
+    p.update(999)
+    expect(onStep).toHaveBeenCalledTimes(1)
+    p.update(1)
+    expect(onStep).toHaveBeenCalledTimes(2)
+  })
+  it('2x speed halves the dwell needed to advance', () => {
+    const bus = createBus()
+    const onStep = vi.fn()
+    const p = createPlayer(bus, { onStep, onChapterDone: vi.fn() }, { minStepMs: 1000 })
+    p.play(chapter([
+      { narration: 'a', focus: 'boot', waitFor: { event: 'boot:complete' } },
+      { narration: 'b', focus: 'boot', waitFor: { ms: 0 } },
+    ]))
+    bus.emit('boot:complete', {})
+    p.setSpeed(2)
+    p.update(499)
+    expect(onStep).toHaveBeenCalledTimes(1)
+    p.update(1)
+    expect(onStep).toHaveBeenCalledTimes(2)
+  })
 })

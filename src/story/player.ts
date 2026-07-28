@@ -31,19 +31,80 @@ export interface Player {
   readonly playing: boolean
 }
 
-export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
+export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?: number }): Player {
+  const minStepMs = opts?.minStepMs ?? 0
+
   let state = {
     chapter: null as Chapter | null,
     index: -1,
     waitElapsed: 0,
+    dwellElapsed: 0,
     paused: false,
     speed: 1 as 1 | 2,
-    pendingEventArrived: false,
-    unsub: null as (() => void) | null,
+    // Chapter-scoped event buffer: fired-count per event name, and how many of
+    // those firings each waiting step has consumed. Events that fire early
+    // (during an earlier step's dwell) stay counted and satisfy later steps in
+    // order — no per-step arm/unarm race to get wrong.
+    buffer: new Map<CityEventName, number>(),
+    consumed: new Map<CityEventName, number>(),
+    unsubs: [] as (() => void)[],
   }
 
   function isEventWait(w: Step['waitFor']): w is { event: CityEventName } {
     return 'event' in w
+  }
+
+  // Peek-only: is the current step's wait satisfiable right now? Never mutates
+  // consumed counts — safe to call repeatedly across ticks.
+  function isSatisfied(step: Step): boolean {
+    if (isEventWait(step.waitFor)) {
+      const name = step.waitFor.event
+      return (state.buffer.get(name) ?? 0) > (state.consumed.get(name) ?? 0)
+    }
+    return state.waitElapsed >= step.waitFor.ms
+  }
+
+  // Consumes one buffered firing for an event-wait step. No-op for ms-waits.
+  function consumeIfEvent(step: Step): void {
+    if (isEventWait(step.waitFor)) {
+      const name = step.waitFor.event
+      state.consumed.set(name, (state.consumed.get(name) ?? 0) + 1)
+    }
+  }
+
+  // Single source of truth for "should the current step advance": satisfied
+  // wait + minimum dwell elapsed. Called from update() (time/event
+  // progression), the bus subscription (same-tick advance while not paused),
+  // and resume() (re-check whatever buffered while paused).
+  function checkAndAdvance(): void {
+    if (!state.chapter || state.paused) return
+    const step = state.chapter.steps[state.index]
+    if (isSatisfied(step) && state.dwellElapsed >= minStepMs) {
+      consumeIfEvent(step)
+      advance()
+    }
+  }
+
+  function subscribeChapterEvents(ch: Chapter) {
+    const names = new Set<CityEventName>()
+    for (const step of ch.steps) {
+      if (isEventWait(step.waitFor)) names.add(step.waitFor.event)
+    }
+    for (const name of names) {
+      state.buffer.set(name, 0)
+      state.consumed.set(name, 0)
+      state.unsubs.push(bus.on(name, () => {
+        state.buffer.set(name, (state.buffer.get(name) ?? 0) + 1)
+        if (!state.paused) checkAndAdvance()
+      }))
+    }
+  }
+
+  function unsubscribeAll() {
+    for (const unsub of state.unsubs) unsub()
+    state.unsubs = []
+    state.buffer.clear()
+    state.consumed.clear()
   }
 
   function enterStep() {
@@ -52,39 +113,20 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
     const step = state.chapter.steps[state.index]
     cbs.onStep(step, state.index, state.chapter.steps.length, state.chapter.title)
 
-    // Clear pending flag at step entry to avoid stale events from before
-    state.pendingEventArrived = false
+    state.waitElapsed = 0
+    state.dwellElapsed = 0
 
-    // Arm wait subscription BEFORE firing
-    if (isEventWait(step.waitFor)) {
-      state.unsub = bus.on(step.waitFor.event, () => {
-        if (state.paused) {
-          state.pendingEventArrived = true
-        } else {
-          advance()
-        }
-      })
-    } else {
-      state.waitElapsed = 0
-    }
-
-    // Fire after subscription is armed
     step.fire?.()
   }
 
   function advance() {
     if (!state.chapter) return
 
-    // Clean up previous subscription
-    if (state.unsub) {
-      state.unsub()
-      state.unsub = null
-    }
-
     state.index++
 
     if (state.index >= state.chapter.steps.length) {
       state.chapter = null
+      unsubscribeAll()
       cbs.onChapterDone()
     } else {
       enterStep()
@@ -92,12 +134,15 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
   }
 
   function play(ch: Chapter) {
+    unsubscribeAll()
+
     state.chapter = ch
     state.index = 0
     state.waitElapsed = 0
+    state.dwellElapsed = 0
     state.paused = false
-    state.pendingEventArrived = false
 
+    subscribeChapterEvents(ch)
     ch.setup?.()
     enterStep()
   }
@@ -109,14 +154,13 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
   function resume() {
     if (!state.paused) return
     state.paused = false
-
-    if (state.pendingEventArrived) {
-      state.pendingEventArrived = false
-      advance()
-    }
+    checkAndAdvance()
   }
 
   function next() {
+    if (!state.chapter) return
+    const step = state.chapter.steps[state.index]
+    if (isSatisfied(step)) consumeIfEvent(step)
     advance()
   }
 
@@ -129,10 +173,7 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
   }
 
   function stop() {
-    if (state.unsub) {
-      state.unsub()
-      state.unsub = null
-    }
+    unsubscribeAll()
     state.chapter = null
   }
 
@@ -144,13 +185,10 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks): Player {
     if (!state.chapter || state.paused) return
 
     const step = state.chapter.steps[state.index]
-    if (isEventWait(step.waitFor)) return
+    state.dwellElapsed += dtMs * state.speed
+    if (!isEventWait(step.waitFor)) state.waitElapsed += dtMs * state.speed
 
-    state.waitElapsed += dtMs * state.speed
-
-    if (state.waitElapsed >= step.waitFor.ms) {
-      advance()
-    }
+    checkAndAdvance()
   }
 
   return {
