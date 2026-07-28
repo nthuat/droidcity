@@ -20,12 +20,12 @@ export function makeCh3(ctx: StoryCtx): Chapter {
         fire: () => {
           if (ctx.wards.wards().some(w => w.app === 'chat')) ctx.wards.refreshData('chat')
         },
-        waitFor: { event: 'data:requested' },
+        waitFor: { event: 'data:requested', app: 'chat' },
       },
       {
         narration: 'The Room shed answers in ~30 milliseconds — stale data from last session. Show it anyway: stale beats blank.',
         focus: 'ward:chat',
-        waitFor: { event: 'data:cacheHit' },
+        waitFor: { event: 'data:cacheHit', app: 'chat' },
       },
       {
         narration: "The result rides the ward's main road like any other message. The UI renders the cached view.",
@@ -35,7 +35,7 @@ export function makeCh3(ctx: StoryCtx): Chapter {
         // wait can be armed, so a wait on ui:messagePosted here would miss it.
         // frame:submitted is emitted from the ward manager's own tick (never
         // nested in another bus handler), so it can't be outrun the same way.
-        waitFor: { event: 'frame:submitted' },
+        waitFor: { event: 'frame:submitted', app: 'chat' },
       },
       {
         narration: 'Meanwhile the real fetch leaves the city: DNS, connect, TLS, waiting for first byte, download. Every phase costs time.',
@@ -45,14 +45,14 @@ export function makeCh3(ctx: StoryCtx): Chapter {
       {
         narration: 'A phase can time out — then OkHttp retries with backoff. There: fresh data, about a second after the cache answered.',
         focus: 'network',
-        waitFor: { event: 'data:fetched' },
+        waitFor: { event: 'data:fetched', app: 'chat' },
       },
       {
         narration: 'Fresh data takes the same road home. Re-render — you saw stale-then-fresh and never a spinner.',
         focus: 'ward:chat',
         // Same reasoning as the cache-hit render step above: wait on frame:submitted,
         // not the ui:messagePosted that data:fetched's handler fires nested.
-        waitFor: { event: 'frame:submitted' },
+        waitFor: { event: 'frame:submitted', app: 'chat' },
       },
       {
         narration: "The stale objects are garbage now. The ward's collector sweeps them. Memory is a city that cleans itself.",

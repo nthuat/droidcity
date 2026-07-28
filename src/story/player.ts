@@ -4,7 +4,12 @@ export interface Step {
   readonly narration: string
   readonly focus: string
   readonly fire?: () => void
-  readonly waitFor: { event: CityEventName } | { ms: number }
+  // `app` narrows the wait to firings whose payload carries a matching `app`
+  // field — needed because the chapter-scoped buffer is otherwise name-only,
+  // so e.g. another ward's `activity:resumed` would satisfy a wait meant for
+  // 'chat'. Omit `app` for events with no per-app payload (boot:*) or where
+  // only one app can be in flight.
+  readonly waitFor: { event: CityEventName; app?: string } | { ms: number }
 }
 
 export interface Chapter {
@@ -41,25 +46,30 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
     dwellElapsed: 0,
     paused: false,
     speed: 1 as 1 | 2,
-    // Chapter-scoped event buffer: fired-count per event name, and how many of
-    // those firings each waiting step has consumed. Events that fire early
-    // (during an earlier step's dwell) stay counted and satisfy later steps in
-    // order — no per-step arm/unarm race to get wrong.
-    buffer: new Map<CityEventName, number>(),
-    consumed: new Map<CityEventName, number>(),
+    // Chapter-scoped event buffer: fired-count per key, and how many of those
+    // firings each waiting step has consumed. Key is the bare event name, or
+    // `event:app` for app-filtered waits (see Step.waitFor). Events that fire
+    // early (during an earlier step's dwell) stay counted and satisfy later
+    // steps in order — no per-step arm/unarm race to get wrong.
+    buffer: new Map<string, number>(),
+    consumed: new Map<string, number>(),
     unsubs: [] as (() => void)[],
   }
 
-  function isEventWait(w: Step['waitFor']): w is { event: CityEventName } {
+  function isEventWait(w: Step['waitFor']): w is { event: CityEventName; app?: string } {
     return 'event' in w
+  }
+
+  function bufferKey(event: CityEventName, app?: string): string {
+    return app ? `${event}:${app}` : event
   }
 
   // Peek-only: is the current step's wait satisfiable right now? Never mutates
   // consumed counts — safe to call repeatedly across ticks.
   function isSatisfied(step: Step): boolean {
     if (isEventWait(step.waitFor)) {
-      const name = step.waitFor.event
-      return (state.buffer.get(name) ?? 0) > (state.consumed.get(name) ?? 0)
+      const key = bufferKey(step.waitFor.event, step.waitFor.app)
+      return (state.buffer.get(key) ?? 0) > (state.consumed.get(key) ?? 0)
     }
     return state.waitElapsed >= step.waitFor.ms
   }
@@ -67,8 +77,8 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
   // Consumes one buffered firing for an event-wait step. No-op for ms-waits.
   function consumeIfEvent(step: Step): void {
     if (isEventWait(step.waitFor)) {
-      const name = step.waitFor.event
-      state.consumed.set(name, (state.consumed.get(name) ?? 0) + 1)
+      const key = bufferKey(step.waitFor.event, step.waitFor.app)
+      state.consumed.set(key, (state.consumed.get(key) ?? 0) + 1)
     }
   }
 
@@ -91,10 +101,16 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
       if (isEventWait(step.waitFor)) names.add(step.waitFor.event)
     }
     for (const name of names) {
-      state.buffer.set(name, 0)
-      state.consumed.set(name, 0)
-      state.unsubs.push(bus.on(name, () => {
+      state.unsubs.push(bus.on(name, (payload) => {
+        // Bare-name count, for waits with no app filter.
         state.buffer.set(name, (state.buffer.get(name) ?? 0) + 1)
+        // Plus a per-app count, for app-filtered waits — only when the
+        // payload actually carries a string `app` field.
+        const app = (payload as { app?: unknown } | undefined)?.app
+        if (typeof app === 'string') {
+          const key = bufferKey(name, app)
+          state.buffer.set(key, (state.buffer.get(key) ?? 0) + 1)
+        }
         if (!state.paused) checkAndAdvance()
       }))
     }

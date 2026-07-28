@@ -391,6 +391,7 @@ function stopStory(): void {
   storyActive = false
   storyPaused = false
   launcherPlaza.setIdle(true)
+  wardManager.setIdle(true)
   storyCardEl.classList.remove('open')
   panelEl.style.display = ''
   setSwitcherLocked(false)
@@ -400,6 +401,7 @@ function startStory(chapter: Chapter): void {
   storyActive = true
   storyPaused = false
   launcherPlaza.setIdle(false)
+  wardManager.setIdle(false)
   panelEl.style.display = 'none'
   storyCardEl.classList.add('open')
   setSwitcherLocked(true)

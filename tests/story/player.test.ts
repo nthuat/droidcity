@@ -162,4 +162,18 @@ describe('storyPlayer', () => {
     p.update(1)
     expect(onStep).toHaveBeenCalledTimes(2)
   })
+  it('app-filtered wait consumes only the matching app event', () => {
+    const bus = createBus()
+    const onStep = vi.fn()
+    const done = vi.fn()
+    const p = createPlayer(bus, { onStep, onChapterDone: done })
+    p.play(chapter([
+      { narration: 'a', focus: 'ward:chat', waitFor: { event: 'activity:resumed', app: 'chat' } },
+      { narration: 'b', focus: 'ward:chat', waitFor: { ms: 0 } },
+    ]))
+    bus.emit('activity:resumed', { app: 'mail' })
+    expect(onStep).toHaveBeenCalledTimes(1) // wrong app — does not satisfy
+    bus.emit('activity:resumed', { app: 'chat' })
+    expect(onStep).toHaveBeenCalledTimes(2) // matching app — advances
+  })
 })
