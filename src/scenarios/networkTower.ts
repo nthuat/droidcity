@@ -45,6 +45,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   let forceFailNext = false
 
   const tower = makeBuilding(3, 10, 3, 0x388bfd, 'Network')
+  tower.position.y = 0.3
   group.add(tower)
 
   const arch = new THREE.Mesh(

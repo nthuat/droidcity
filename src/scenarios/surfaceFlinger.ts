@@ -20,6 +20,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   let totalComposited = 0
 
   const compositor = makeBuilding(5, 6, 5, 0x484f58, 'SurfaceFlinger')
+  compositor.position.y = 0.3
   group.add(compositor)
 
   // Display wall: mounted at the zone's east edge (local x 17 = world x 82, the

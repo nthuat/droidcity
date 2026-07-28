@@ -21,16 +21,17 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   let pendingLaunches: string[] = []
 
   const factory = makeBuilding(8, 5, 6, 0x484f58, 'Zygote Foundry')
+  factory.position.y = 0.3
   group.add(factory)
 
   const meter = new THREE.Mesh(
     new THREE.BoxGeometry(1.5, 1, 1.5),
     new THREE.MeshStandardMaterial({ color: 0x3fb950 }),
   )
-  meter.position.set(10, 0.5, 0)
+  meter.position.set(10, 0.8, 0)
   group.add(meter)
   const meterLabel = makeLabel('RAM', 0.7)
-  meterLabel.position.set(10, 8, 0)
+  meterLabel.position.set(10, 8.3, 0)
   group.add(meterLabel)
 
   // Piston stamp: slides out from the factory front on every fork.
@@ -45,9 +46,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   // Static dressing: blank ward-kit boxes queued at the conveyor mouth (south side,
   // facing the wards) + a decorative piston tower. No sim link — purely visual.
   const kitMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.7 })
+  const kitGeo = new THREE.BoxGeometry(4, 1, 4)
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 3; col++) {
-      const kit = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 4), kitMat)
+      const kit = new THREE.Mesh(kitGeo, kitMat)
       kit.position.set((col - 1) * 5, 0.8, 9 + row * 5)
       group.add(kit)
     }
