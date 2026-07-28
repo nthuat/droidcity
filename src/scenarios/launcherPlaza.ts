@@ -69,7 +69,19 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
 
   function clickKiosk(app: string): void {
     const result = requestLaunch(state, app)
-    if (!result.accepted) return
+    if (!result.accepted) {
+      // Rejected because it's already running: don't drop the tap — this is a
+      // brought-to-front request. Sim stays untouched (launcher only tracks
+      // running/launching); WardManager owns activity phase and is the only
+      // party that can tell warm from hot, so the event carries no start type
+      // — manager decides and reports the real type via onStartType.
+      if (state.running.includes(app)) {
+        bus.emit('app:broughtToFront', { app })
+        const k = kiosks.find(k => k.app === app)
+        if (k) k.pulseT = PULSE_MS
+      }
+      return
+    }
     state = result.state
     bus.emit('app:launchRequested', { app })
     const k = kiosks.find(k => k.app === app)

@@ -18,6 +18,7 @@ const OOM_ADJ: Record<Priority, number> = { foreground: 0, visible: 100, service
 export function makeFoundryScenario(bus: Bus): Scenario & {
   demoteAll(): void
   killApp(app: string): void
+  setAppPriority(app: string, priority: Priority): void
   stats(): { usedMb: number; capacityMb: number; procs: number; procList: { name: string; memoryMb: number; oomAdj: number }[] }
 } {
   const group = new THREE.Group()
@@ -80,6 +81,14 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
       (acc, p) => (p.priority === 'foreground' ? setPriority(acc, p.pid, 'cached') : acc),
       state,
     )
+  }
+
+  // WardManager calls this on warm/hot brought-to-front and on Home — named-proc
+  // lookup, no-op if the app hasn't forked (or already died).
+  function setAppPriority(app: string, priority: Priority): void {
+    const proc = state.procs.find(p => p.name === app)
+    if (!proc) return
+    state = setPriority(state, proc.pid, priority)
   }
 
   function procTable(): string {
@@ -196,6 +205,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     },
     demoteAll,
     killApp,
+    setAppPriority,
     stats() {
       return {
         usedMb: usedMb(state),

@@ -5,6 +5,11 @@ export interface CityEvents {
   'process:forked': { app: string; pid: number }
   'process:killed': { app: string; pid: number }
   'activity:resumed': { app: string }
+  // No `start` field: launcherPlaza (the emitter) can't see activity phase, only
+  // WardManager can — it decides warm vs hot on receipt and reports the actual
+  // type via the onStartType dep callback. (Plan drafted a `start` field on this
+  // payload; dropped as unreliable since the only producer can't know the truth.)
+  'app:broughtToFront': { app: string }
   'data:requested': { app: string; source: 'db' | 'network' }
   'data:cacheHit': { app: string; stale: boolean }
   'data:fetched': { app: string; ms: number }

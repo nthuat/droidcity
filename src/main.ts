@@ -36,6 +36,7 @@ export const ANCHORS: Record<string, THREE.Vector3> = {
 
 const WARDS_ANCHOR = new THREE.Vector3(0, 0, -25)
 const HUD_UPDATE_MS = 500
+const START_TYPE_FLASH_MS = 3000
 
 export const PLOT_ANCHORS: THREE.Vector3[] = [
   new THREE.Vector3(-33.75, 0, -25),
@@ -74,10 +75,22 @@ const bus = createBus()
 const packets = createPacketSystem(city.scene)
 const hud = createHud(city.scene)
 const wardLabels = new Map<string, WardLabel>()
+// Wall-clock (not sim-time) expiry per app for the ward label's start-type flash
+// — this is pure UI feedback, not part of the simulation, so it shouldn't be
+// affected by story-mode's sim-time slowdown. Cleared by the 500ms HUD tick.
+const startTypeExpiry = new Map<string, number>()
+// Foundry constructed first so WardManager can call its setAppPriority on
+// warm/hot brought-to-front and on Home.
+const foundry = makeFoundryScenario(bus)
 // Constructed before any bus.on() below, so its process:forked handler (which spawns
 // the ward group synchronously) always runs before main.ts's own handlers.
 const wardManager = createWardManager({
   bus, scene: city.scene, packets, anchors: ANCHORS, plotAnchors: PLOT_ANCHORS, routePath: routes.path,
+  setAppPriority: foundry.setAppPriority,
+  onStartType(app, type) {
+    wardLabels.get(app)?.setStartLine(`${type} start`)
+    startTypeExpiry.set(app, Date.now() + START_TYPE_FLASH_MS)
+  },
   onWardSpawned(app, pid, group) {
     wardLabels.set(app, makeWardLabel(group, `${app} · pid ${pid}`))
   },
@@ -85,6 +98,7 @@ const wardManager = createWardManager({
     const label = wardLabels.get(app)
     if (label) label.obj.parent?.remove(label.obj)
     wardLabels.delete(app)
+    startTypeExpiry.delete(app)
   },
 })
 
@@ -154,7 +168,6 @@ function updateGhosts(dtMs: number): void {
 
 const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
 const hardwareRow = makeHardwareRowScenario()
-const foundry = makeFoundryScenario(bus)
 const cityHall = makeCityHallScenario(bus)
 const launcherPlaza = makeLauncherPlazaScenario(bus)
 const networkTower = makeNetworkTowerScenario(bus)
@@ -188,9 +201,15 @@ function refreshHud(): void {
   hwWiring.syncPressure(HUD_UPDATE_MS)
   hud.setLine('hardware', hwWiring.label())
   const procList = foundry.stats().procList
+  const now = Date.now()
   for (const w of wardManager.wards()) {
     const oomAdj = procList.find(p => p.name === w.app)?.oomAdj
     wardLabels.get(w.app)?.setLine(`oom_adj ${oomAdj ?? '?'}`)
+    const expiry = startTypeExpiry.get(w.app)
+    if (expiry !== undefined && now >= expiry) {
+      wardLabels.get(w.app)?.setStartLine('')
+      startTypeExpiry.delete(w.app)
+    }
   }
 }
 refreshHud()

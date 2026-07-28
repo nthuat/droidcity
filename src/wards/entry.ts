@@ -23,6 +23,9 @@ export interface WardEntry {
   dying: boolean
   resumed: boolean
   restored: boolean
+  // Arrives properly in Task 2 (service annex toggle); default false and unused
+  // beyond goHome's foundry-priority read until then.
+  serviceRunning: boolean
   riseMs: number
   demolishMs: number
   demolishStartScale: number
@@ -36,6 +39,7 @@ export interface WardEntry {
   sweepMs: number
   sweepMesh: THREE.Mesh | null
   rebuildMs: number
+  hotPulseMs: number
   idleTapMs: number
   idleRotateMs: number
   idleReleaseMs: number

@@ -163,4 +163,46 @@ describe('WardManager', () => {
     // otherwise its CPU core stays lit/stuck for the whole animation.
     expect(manager.wardStats().some(s => s.app === 'chat')).toBe(false)
   })
+
+  it('warm start: goHome then app:broughtToFront relights the ward and re-emits activity:resumed', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const onStartType = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority, onStartType })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // rise completes -> cold start, activity resumed
+    expect(onStartType).toHaveBeenCalledWith('chat', 'cold')
+
+    manager.goHome('chat')
+    expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('stopped')
+    expect(setAppPriority).toHaveBeenCalledWith('chat', 'cached')
+
+    const resumed: { app: string }[] = []
+    deps.bus.on('activity:resumed', p => resumed.push(p))
+    deps.bus.emit('app:broughtToFront', { app: 'chat' })
+
+    expect(resumed).toEqual([{ app: 'chat' }])
+    expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('resumed')
+    expect(setAppPriority).toHaveBeenCalledWith('chat', 'foreground')
+    expect(onStartType).toHaveBeenCalledWith('chat', 'warm')
+  })
+
+  it('hot start: app:broughtToFront while already resumed re-emits activity:resumed without a phase change', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const onStartType = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority, onStartType })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed via cold start; never backgrounded
+
+    const resumed: { app: string }[] = []
+    deps.bus.on('activity:resumed', p => resumed.push(p))
+    deps.bus.emit('app:broughtToFront', { app: 'chat' })
+
+    expect(resumed).toEqual([{ app: 'chat' }])
+    expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('resumed')
+    expect(onStartType).toHaveBeenCalledWith('chat', 'hot')
+    // Already foreground — hot path never touches priority.
+    expect(setAppPriority).not.toHaveBeenCalled()
+  })
 })

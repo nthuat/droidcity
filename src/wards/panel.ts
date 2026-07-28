@@ -7,6 +7,7 @@ export interface WardPanelActions {
   rotate(app: string): void
   forceGc(app: string): void
   refreshData(app: string): void
+  goHome(app: string): void
 }
 
 export function buildWardPanel(app: string, actions: WardPanelActions, narration: string): Panel {
@@ -15,6 +16,7 @@ export function buildWardPanel(app: string, actions: WardPanelActions, narration
   panel.addButton('Rotate', () => actions.rotate(app))
   panel.addButton('Force GC', () => actions.forceGc(app))
   panel.addButton('Refresh data', () => actions.refreshData(app))
+  panel.addButton('Home', () => actions.goHome(app))
   panel.setNarration(narration)
   return panel
 }

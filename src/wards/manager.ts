@@ -3,8 +3,9 @@ import type { Bus } from '../core/bus'
 import type { PacketSystem } from '../scene/packet'
 import { buildWardMeshes, type WardMeshes } from '../scene/ward'
 import { createLooper, post, advance } from '../sim/looper'
-import { createActivity, launch, rotate as rotateActivity } from '../sim/lifecycle'
+import { createActivity, launch, rotate as rotateActivity, background, foreground, type Phase } from '../sim/lifecycle'
 import { createHeap, allocate, releaseOldest, gc as gcHeap } from '../sim/heap'
+import type { Priority } from '../sim/processes'
 import { createDb, query, insert, DB_QUERY_MS } from '../sim/roomDb'
 import { createPlots, allocatePlot, releasePlot } from '../sim/wardPlots'
 import { DEFAULT_STAGES, startFrame, advanceFrame, withHeavyDraw } from '../sim/framePipeline'
@@ -26,7 +27,7 @@ export interface WardManager {
   update(dtMs: number): void
   setIdle(enabled: boolean): void
   wards(): readonly WardHandles[]
-  wardStats(): { app: string; plot: number; busy: boolean; anr: boolean }[]
+  wardStats(): { app: string; plot: number; busy: boolean; anr: boolean; phase: Phase }[]
   wardGroupFor(app: string): THREE.Group | null
   wardAppFromObject(obj: THREE.Object3D): string | null
   panelFor(app: string): HTMLElement | null
@@ -35,6 +36,7 @@ export interface WardManager {
   rotate(app: string): void
   refreshData(app: string): void
   runHeavyFrame(app: string): void
+  goHome(app: string): void
 }
 
 export interface WardManagerDeps {
@@ -47,6 +49,13 @@ export interface WardManagerDeps {
   routePath?: (from: string, to: string) => THREE.Vector3[]
   onWardSpawned?: (app: string, pid: number, group: THREE.Group) => void
   onWardKilled?: (app: string) => void
+  // Told about warm/hot brought-to-front (via app:broughtToFront) and Home
+  // (goHome) so the foreground/cached/service split stays in sync with foundry's
+  // OOM ladder. Optional so unit tests can omit it.
+  setAppPriority?: (app: string, priority: Priority) => void
+  // Fired once per spawn ('cold') and once per app:broughtToFront resolution
+  // ('warm' | 'hot') — main.ts flashes the ward label's third line with it.
+  onStartType?: (app: string, type: 'cold' | 'warm' | 'hot') => void
 }
 
 const RISE_MS = 800
@@ -69,11 +78,12 @@ const HEAP_CAPACITY_KB = 2000
 const HEAVY_DRAW_MS = 20
 const WORKER_CAR_COLOR = 0x8b949e
 const WORKER_CAR_SCALE = 0.3
+const HOT_PULSE_MS = 200
 
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
 
 export function createWardManager(deps: WardManagerDeps): WardManager {
-  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled } = deps
+  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled, setAppPriority, onStartType } = deps
   const buildMeshes = deps.buildMeshes ?? buildWardMeshes
   // Default mirrors pre-routes.ts behavior: a straight two-point hop between the
   // named anchors/plot slots. Real routing is wired in from main.ts via routePath.
@@ -131,6 +141,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       dying: false,
       resumed: false,
       restored,
+      serviceRunning: false,
       riseMs: 0,
       demolishMs: 0,
       demolishStartScale: 1,
@@ -144,6 +155,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       sweepMs: 0,
       sweepMesh: null,
       rebuildMs: 0,
+      hotPulseMs: 0,
       idleTapMs: 0,
       idleRotateMs: 0,
       idleReleaseMs: 0,
@@ -245,6 +257,28 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.screenFlashMs = SCREEN_FLASH_MS
   }
 
+  // Reached only via launcherPlaza tapping an already-running app's kiosk. The
+  // event carries no start type — this manager owns activity.phase, so it's the
+  // only party that can tell warm ('stopped' → foreground()) from hot (already
+  // 'resumed') apart, and it reports the real type back via onStartType.
+  function onBroughtToFront({ app }: { app: string }): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return
+    if (entry.activity.phase === 'stopped') {
+      entry.activity = foreground(entry.activity) // floors relight 1→3 via syncFloors
+      setAppPriority?.(app, 'foreground')
+      bus.emit('activity:resumed', { app })
+      onStartType?.(app, 'warm')
+    } else if (entry.activity.phase === 'resumed') {
+      entry.screenFlashMs = SCREEN_FLASH_MS
+      entry.hotPulseMs = HOT_PULSE_MS
+      bus.emit('activity:resumed', { app })
+      onStartType?.(app, 'hot')
+    }
+    // Any other phase (created/started/paused/destroyed): no-op — launcherPlaza
+    // only emits this for an app the launcher sim already considers running.
+  }
+
   bus.on('process:forked', onForked)
   bus.on('process:killed', onKilled)
   bus.on('data:requested', onDataRequested)
@@ -254,6 +288,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   bus.on('ui:messagePosted', onMessagePosted)
   bus.on('frame:composited', onComposited)
   bus.on('memory:trim', onMemoryTrim)
+  bus.on('app:broughtToFront', onBroughtToFront)
 
   function blockMainThread(app: string, ms: number): void {
     const entry = wards.get(app)
@@ -274,6 +309,15 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (!entry || entry.dying || entry.activity.phase !== 'resumed') return
     entry.activity = rotateActivity(entry.activity)
     entry.rebuildMs = REBUILD_MS
+  }
+
+  // Panel 'Home' button: backgrounds the Activity (floors dim to 1) and drops
+  // foundry priority to service (if the ward's service is on) or cached.
+  function goHome(app: string): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return
+    entry.activity = background(entry.activity)
+    setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
   }
 
   function refreshData(app: string): void {
@@ -409,6 +453,11 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.sweepMs = Math.max(0, entry.sweepMs - dtMs)
     entry.anrFlashT += dtMs
     updateGroupScale(entry, dtMs)
+    if (entry.hotPulseMs > 0) {
+      entry.hotPulseMs = Math.max(0, entry.hotPulseMs - dtMs)
+      const bounce = 1 + 0.15 * Math.sin((entry.hotPulseMs / HOT_PULSE_MS) * Math.PI)
+      entry.meshes.group.scale.y *= bounce
+    }
 
     // Activity resumes (onCreate/onStart/onResume + Binder packet) once the rise
     // animation finishes — not synchronously on fork — so floors light while the
@@ -418,6 +467,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       setAppFloorLit(entry.meshes, true)
       entry.activity = launch(entry.activity)
       bus.emit('activity:resumed', { app })
+      onStartType?.(app, 'cold')
       const plotKey = `plot${entry.plot}`
       const toCityhall = routePath(plotKey, 'cityhall')
       const toLauncher = routePath('cityhall', 'launcher')
@@ -445,7 +495,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     },
     wardStats() {
       return [...wards.values()].filter(e => !e.dying).map(e => ({
-        app: e.app, plot: e.plot, busy: e.looper.current !== null, anr: e.looper.anr,
+        app: e.app, plot: e.plot, busy: e.looper.current !== null, anr: e.looper.anr, phase: e.activity.phase,
       }))
     },
     wardGroupFor(app) {
@@ -466,7 +516,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (!entry.panel) {
         entry.panel = buildWardPanel(
           app,
-          { blockMainThread, rotate: rotateWard, forceGc, refreshData },
+          { blockMainThread, rotate: rotateWard, forceGc, refreshData, goHome },
           narrationFor(entry),
         )
       }
@@ -477,5 +527,6 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     rotate: rotateWard,
     refreshData,
     runHeavyFrame,
+    goHome,
   }
 }
