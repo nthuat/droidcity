@@ -127,21 +127,27 @@ describe('WardManager', () => {
     matDispose.mockRestore()
   })
 
-  it('sheds the oldest 2 heap objects and emits gc:swept per non-dying ward on memory:trim', () => {
+  it('on memory:trim, frees exactly the 2 oldest heap objects for a living ward and skips a dying one', () => {
     const deps = makeDeps()
     const manager = createWardManager(deps)
     deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
-    // 3 allocated heap objects via a fetched response.
+    deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
+
+    // chat: known heap state — 3 objects of 80KB each via the fetched-response path.
     deps.bus.emit('data:fetched', { app: 'chat', ms: 10 })
     manager.update(1)
+
+    // maps: killed but still mid-demolition (600ms) — dying, must be skipped by trim.
+    deps.bus.emit('process:killed', { app: 'maps', pid: 2 })
 
     const swept: { app: string; freedKb: number }[] = []
     deps.bus.on('gc:swept', (p) => swept.push(p))
 
     deps.bus.emit('memory:trim', {})
 
-    expect(swept).toHaveLength(1)
-    expect(swept[0].app).toBe('chat')
+    // Only the living ward reacts, and freedKb is the exact size of the 2
+    // oldest objects released (80KB each), not just "some" positive number.
+    expect(swept).toEqual([{ app: 'chat', freedKb: 160 }])
   })
 
   it('excludes a dying ward from wardStats immediately on process:killed', () => {
