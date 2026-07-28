@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { createCity } from './scene/city'
 import { buildBoard } from './scene/board'
 import { buildRoutes, pathLength } from './scene/routes'
+import { buildTraces } from './scene/traces'
 import { createPacketSystem } from './scene/packet'
 import { createHud, makeWardLabel, type WardLabel } from './ui/hud'
 import { createInspector } from './ui/inspector'
@@ -69,6 +70,18 @@ const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
 city.scene.add(buildBoard())
 const routes = buildRoutes()
 city.scene.add(routes.group)
+const traces = buildTraces()
+city.scene.add(traces.group)
+
+// Hardware component world positions — mirrors hardwareRow.ts's private RAM_X/DISK_X
+// plus ANCHORS.hardware's z and board.ts's hardware-strip plate top (-0.5). Duplicated
+// as plain numbers (not imported) for the same reason ANCHORS/PLOT_ANCHORS are
+// duplicated between main.ts and routes.ts (see routes.ts's header) — these two points
+// are used only for the small-packet flights below.
+const RAM_POS = new THREE.Vector3(0, -0.5, -68)
+const DISK_POS = new THREE.Vector3(55, -0.5, -68)
+const HW_PACKET_MS = 600
+const HW_PACKET_ARC = 0.5
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
 const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
@@ -201,7 +214,7 @@ attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)
 // Single combined HARDWARE chip (CPU/RAM/DISK on one line) rather than three
 // sub-labels — matches the other zone chips' one-title/one-line shape.
 hud.attach('hardware', ANCHORS.hardware, 'HARDWARE')
-const hwWiring = attachHardwareWiring(bus, hardwareRow, wardManager, foundry)
+const hwWiring = attachHardwareWiring(bus, hardwareRow, wardManager, foundry, traces.setCpuTraceGlow)
 function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
   hwWiring.syncRam()
@@ -252,6 +265,8 @@ bus.on('process:forked', ({ app }) => {
   // app key, still `dying`) — wardStats() excludes dying entries, so this only
   // spawns a ghost for a fork that actually produced a live ward.
   if (wardManager.wardStats().some(w => w.app === app)) spawnGhost(app)
+  // Memory pages get handed to the new process: RAM -> plot.
+  if (g) packets.fly([RAM_POS, g.position], { color: 0xbc8cff, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
 })
 // First composited frame only — updateGhosts flips `fading` once, so later
 // frame:composited events for the same app are no-ops (ghost already gone).
@@ -264,7 +279,14 @@ bus.on('frame:composited', ({ app }) => {
 })
 // Edge case: app killed before its first frame ever composited — the fade trigger
 // above never fires, so drop the ghost immediately instead of leaving it stuck.
-bus.on('process:killed', ({ app }) => disposeGhost(app))
+bus.on('process:killed', ({ app }) => {
+  disposeGhost(app)
+  // Freed pages return to RAM: plot -> RAM. wardGroupFor still resolves here —
+  // the manager keeps the entry (and its group) alive through the demolition
+  // animation, only deleting it once that finishes (see wards/manager.ts).
+  const g = wardManager.wardGroupFor(app)
+  if (g) packets.fly([g.position, RAM_POS], { color: 0x6e7681, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
+})
 bus.on('data:requested', ({ app, source }) => {
   if (source !== 'network') return
   const plotKey = plotKeyFor(app)
@@ -273,6 +295,14 @@ bus.on('data:requested', ({ app, source }) => {
 bus.on('data:fetched', ({ app }) => {
   const plotKey = plotKeyFor(app)
   if (plotKey) flyRoute(routes.path('network', plotKey), 0xd29922)
+})
+// Room cache hit: plot -> DISK -> plot, a quick round-trip pair (both hops fired
+// immediately — no timers — reading as one flight there and one back).
+bus.on('data:cacheHit', ({ app }) => {
+  const g = wardManager.wardGroupFor(app)
+  if (!g) return
+  packets.fly([g.position, DISK_POS], { color: 0x76e3ea, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
+  packets.fly([DISK_POS, g.position], { color: 0x76e3ea, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
 })
 // Broadcast fan-out: cityhall -> every living ward's plot. wardManager reacts
 // to the same event itself (posts onReceive per ward); this just visualizes

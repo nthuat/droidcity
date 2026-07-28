@@ -26,14 +26,20 @@ interface ProcListSource {
   stats(): { usedMb: number; capacityMb: number; procList: { name: string; memoryMb: number }[] }
 }
 
-// Live wiring for the hardware row: colors CPU core slots per-frame from ward
-// looper state, fills RAM segments from foundry's proc list, and blinks the disk
-// LED on Room read/write bus events. Read-only — never touches sim state.
+// Mirrors hardwareRow.ts's private CORE_STUCK — the trace glow should read the same
+// red as the core slot it feeds when that ward's main thread is ANR'd.
+const CORE_STUCK_GLOW = 0xf85149
+
+// Live wiring for the hardware row: colors CPU core slots (and their motherboard
+// traces) per-frame from ward looper state, fills RAM segments from foundry's proc
+// list, and blinks the disk LED on Room read/write bus events. Read-only — never
+// touches sim state.
 export function attachHardwareWiring(
   bus: Bus,
   hardwareRow: HardwareRow,
   wardManager: WardStatsSource,
   foundry: ProcListSource,
+  setCpuTraceGlow: (plot: number, color: number | null) => void,
 ): { syncCores(): void; syncRam(): void; syncPressure(dtMs: number): void; label(): string } {
   let reads = 0
   let writes = 0
@@ -52,6 +58,7 @@ export function attachHardwareWiring(
       return { color: w.busy ? (APP_COLORS[w.app] ?? 0x6e7681) : null, stuck: w.anr }
     })
     hardwareRow.setCoreStates(cores)
+    cores.forEach((c, plot) => setCpuTraceGlow(plot, c.stuck ? CORE_STUCK_GLOW : c.color))
   }
 
   function syncRam(): void {

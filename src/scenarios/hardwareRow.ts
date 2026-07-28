@@ -66,7 +66,12 @@ function buildRam(group: THREE.Group): THREE.MeshStandardMaterial[] {
     })
     const slab = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 0.8), mat)
     slab.position.set(RAM_X + dx, PLATE_TOP + 1.5, 0)
-    if (i === 0) slab.userData.info = { title: 'RAM', note: 'Fills as processes are spawned.' }
+    if (i === 0) {
+      slab.userData.info = {
+        title: 'RAM',
+        note: 'Each running app owns segments in its color — physical pages behind every ward\'s heap.',
+      }
+    }
     group.add(slab)
     return mat
   })

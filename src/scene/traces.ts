@@ -1,0 +1,125 @@
+import * as THREE from 'three'
+
+// Motherboard "ribbon" traces: thin flat strips connecting the hardware strip
+// (CPU/RAM/DISK, board.ts plate top y -0.5) up through the boot strip (top y -0.2)
+// onto the main plates (top y 0.3). Each ribbon climbs in two short sloped steps —
+// one at the hardware/boot seam (z -60), one at the boot/plate seam (z -45), board.ts's
+// real plate boundaries — with flat runs in between, so the strip crossings read as a
+// deliberate climb. Nothing sits flush-buried under a plate (learned from MB2/HW1:
+// buried geometry reads as missing, not present-but-hidden).
+//
+// x/z sources duplicate hardwareRow.ts's private CPU_X/RAM_X/DISK_X and main.ts's
+// ANCHORS.hardware.z (-68) as plain numbers rather than importing them — same
+// import-cycle rationale as routes.ts's ANCHORS duplication (see that file's header).
+
+const TRACE_W = 0.5
+const TRACE_H = 0.06
+const TRACE_COLOR = 0x2a3038
+const TRACE_RAISE = 0.02 // clears the plate top so the ribbon's visible face doesn't z-fight
+
+const Y_HW = -0.5
+const Y_BOOT = -0.2
+const Y_PLATE = 0.3
+const Z_HW_BOOT = -60 // hardware/boot plate seam (board.ts)
+const Z_BOOT_PLATE = -45 // boot/main-plate seam (board.ts)
+const STEP_LEN = 2 // z-length of each sloped climbing step
+
+const HW_Z = -68 // hardwareRow.ts component z (world, matches ANCHORS.hardware)
+const CPU_X = -55
+const RAM_X = 0
+const DISK_X = 55
+const CORE_OFFSETS = [-4.8, -1.6, 1.6, 4.8] // mirrors hardwareRow.ts's CPU slotXOffsets
+
+const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
+const PLOT_Z = -25
+const WARD_TRUNK = new THREE.Vector3(0, Y_PLATE, PLOT_Z) // ward-strip center, no specific plot
+const ZYGOTE = new THREE.Vector3(-65, Y_PLATE, -20)
+// "database district" analog: this sim has no standalone DB district — Room reads
+// that miss cache (data:fetched) already route through the network district, so
+// that's the closest real target for an east-corridor disk trace.
+const NETWORK = new THREE.Vector3(65, Y_PLATE, 17)
+
+function v(x: number, y: number, z: number): THREE.Vector3 {
+  return new THREE.Vector3(x, y, z)
+}
+
+function traceMaterial(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: TRACE_COLOR, emissive: 0x000000, emissiveIntensity: 0, roughness: 0.6,
+  })
+}
+
+// One flat/sloped ribbon tile between two points, oriented via lookAt (handles the
+// sloped climbing steps the same way board.ts's makeSlope does — no separate math).
+function segment(mat: THREE.MeshStandardMaterial, from: THREE.Vector3, to: THREE.Vector3): THREE.Mesh {
+  const a = from.clone().setY(from.y + TRACE_RAISE)
+  const b = to.clone().setY(to.y + TRACE_RAISE)
+  const len = a.distanceTo(b) || 0.001
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(TRACE_W, TRACE_H, len), mat)
+  mesh.position.copy(a).lerp(b, 0.5)
+  mesh.position.y -= TRACE_H / 2
+  mesh.lookAt(b)
+  return mesh
+}
+
+function ribbon(mat: THREE.MeshStandardMaterial, points: readonly THREE.Vector3[]): THREE.Mesh[] {
+  const meshes: THREE.Mesh[] = []
+  for (let i = 0; i < points.length - 1; i++) meshes.push(segment(mat, points[i], points[i + 1]))
+  return meshes
+}
+
+// The climb from a hardware-strip source point up to just inside the main plate:
+// flat along hw strip -> sloped step across the hw/boot seam -> flat across boot
+// strip -> sloped step across the boot/plate seam. Returned exit point sits just
+// past the plate seam, ready for a tail run across the plate to the real target.
+function climbPoints(x: number, srcZ: number): THREE.Vector3[] {
+  return [
+    v(x, Y_HW, srcZ),
+    v(x, Y_HW, Z_HW_BOOT - STEP_LEN),
+    v(x, Y_BOOT, Z_HW_BOOT + STEP_LEN),
+    v(x, Y_BOOT, Z_BOOT_PLATE - STEP_LEN),
+    v(x, Y_PLATE, Z_BOOT_PLATE + STEP_LEN),
+  ]
+}
+
+export interface Traces {
+  readonly group: THREE.Group
+  setCpuTraceGlow(plot: number, color: number | null): void
+}
+
+export function buildTraces(): Traces {
+  const group = new THREE.Group()
+  group.name = 'traces'
+  const cpuMats: THREE.MeshStandardMaterial[] = []
+
+  // 4 CPU traces: CPU block -> each ward plot, one parallel ribbon per core slot.
+  PLOT_X.forEach((plotX, n) => {
+    const mat = traceMaterial()
+    cpuMats.push(mat)
+    const points = [...climbPoints(CPU_X + CORE_OFFSETS[n], HW_Z), v(plotX, Y_PLATE, PLOT_Z)]
+    for (const m of ribbon(mat, points)) group.add(m)
+  })
+
+  // RAM: one climb, forking into RAM -> zygote and RAM -> ward-strip trunk.
+  const ramMat = traceMaterial()
+  const ramClimb = climbPoints(RAM_X, HW_Z)
+  const ramExit = ramClimb[ramClimb.length - 1]
+  for (const m of ribbon(ramMat, ramClimb)) group.add(m)
+  for (const m of ribbon(ramMat, [ramExit, ZYGOTE])) group.add(m)
+  for (const m of ribbon(ramMat, [ramExit, WARD_TRUNK])) group.add(m)
+
+  // DISK -> east corridor toward the network district (see NETWORK comment above).
+  const diskMat = traceMaterial()
+  const diskPoints = [...climbPoints(DISK_X, HW_Z), NETWORK]
+  for (const m of ribbon(diskMat, diskPoints)) group.add(m)
+
+  return {
+    group,
+    setCpuTraceGlow(plot, color) {
+      const mat = cpuMats[plot]
+      if (!mat) return
+      mat.emissive.setHex(color ?? 0x000000)
+      mat.emissiveIntensity = color !== null ? 0.5 : 0
+    },
+  }
+}
