@@ -26,6 +26,12 @@ export interface CityEvents {
   'memory:pressure': Record<string, never>
   'activity:pushed': { app: string; depth: number }
   'activity:popped': { app: string; depth: number }
+  // Fired whenever an Activity leaves the foreground while the process survives
+  // (goHome, or finish-rooting the last stacked Activity) — real Android only
+  // ever renders the one foreground app; this tells the display wall to drop the
+  // app's tile from bright to faint. LMK death is already covered by
+  // process:killed, so this event never fires for that path.
+  'activity:backgrounded': { app: string }
 }
 export type CityEventName = keyof CityEvents
 export interface Bus {

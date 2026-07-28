@@ -13,7 +13,13 @@ const RED = 0xf85149
 const DEFAULT_NARRATION = 'SurfaceFlinger composites every submitted frame onto the display, one at a time.'
 
 interface QueueEntry { readonly app: string; readonly dropped: boolean }
-interface TileState { hasComposited: boolean; killed: boolean; flashT: number; flashRed: boolean }
+// Real Android: one foreground app renders; everything else behind it is alive
+// but draws nothing. 'bright' = the single most-recent activity:resumed app,
+// 'faint' = alive but not on screen, 'dark' = killed or never started.
+type TileVisualState = 'bright' | 'faint' | 'dark'
+interface TileState { state: TileVisualState; flashT: number; flashRed: boolean }
+const BRIGHT_INTENSITY = 0.25
+const FAINT_INTENSITY = 0.08
 
 export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { composited: number } } {
   const group = new THREE.Group()
@@ -40,7 +46,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   wall.position.set(WALL_X, WALL_BASE_Y + WALL_H / 2, 0)
   wall.userData.info = {
     title: 'Display',
-    note: 'One compositor for every ward; tiles = apps on screen. HWC composites overlays in hardware when it can — GPU only when it must.',
+    note: 'One app is on screen at a time — the bright tile. Faint tiles are alive behind it, rendering nothing. Multi-window would light two; not modeled yet.',
   }
   group.add(wall)
   const wallLabel = makeLabel('Display', 0.7)
@@ -73,7 +79,15 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
     group.add(crate)
   }
 
-  const tiles: TileState[] = APPS.map(() => ({ hasComposited: false, killed: false, flashT: 0, flashRed: false }))
+  const tiles: TileState[] = APPS.map(() => ({ state: 'dark', flashT: 0, flashRed: false }))
+  // The single app currently holding the bright tile (the real foreground app).
+  let brightApp: string | null = null
+
+  function setFaint(app: string): void {
+    const i = APPS.indexOf(app)
+    if (i < 0 || tiles[i].state === 'dark') return
+    tiles[i].state = 'faint'
+  }
 
   let queue: QueueEntry[] = []
   let busyMs = 0
@@ -82,12 +96,22 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
     if (queue.length >= 8) return // generous backlog cap — SF still drains one at a time
     queue = [...queue, { app, dropped }]
   })
+  bus.on('activity:resumed', ({ app }) => {
+    if (brightApp && brightApp !== app) setFaint(brightApp)
+    const i = APPS.indexOf(app)
+    if (i >= 0) tiles[i].state = 'bright'
+    brightApp = app
+  })
+  bus.on('activity:backgrounded', ({ app }) => {
+    setFaint(app)
+    if (brightApp === app) brightApp = null
+  })
   bus.on('process:killed', ({ app }) => {
     const i = APPS.indexOf(app)
     if (i < 0) return
-    tiles[i].hasComposited = false
-    tiles[i].killed = true
+    tiles[i].state = 'dark'
     tiles[i].flashT = 0
+    if (brightApp === app) brightApp = null
   })
 
   const panel = makePanel('SurfaceFlinger — the compositor that hands frames to the display')
@@ -100,17 +124,24 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
     compositorMat.emissiveIntensity = busyMs > 0 ? 0.5 : 0
     tiles.forEach((t, i) => {
       const mat = tileMeshes[i].material as THREE.MeshStandardMaterial
-      if (t.killed) {
+      const flashFrac = t.flashT > 0 ? t.flashT / FLASH_MS : 0
+      if (flashFrac > 0) {
+        // Composite flash overlays whatever's underneath, same as before.
+        const color = t.flashRed ? RED : GREEN
+        mat.color.setHex(color)
+        mat.emissive.setHex(color)
+        mat.emissiveIntensity = flashFrac
+        return
+      }
+      if (t.state === 'dark') {
         mat.color.setHex(DARK)
         mat.emissive.setHex(0x000000)
         mat.emissiveIntensity = 0
         return
       }
-      const flashFrac = t.flashT > 0 ? t.flashT / FLASH_MS : 0
-      const color = flashFrac > 0 && t.flashRed ? RED : GREEN
-      mat.color.setHex(t.hasComposited || flashFrac > 0 ? color : DARK)
-      mat.emissive.setHex(t.hasComposited || flashFrac > 0 ? color : 0x000000)
-      mat.emissiveIntensity = Math.max(t.hasComposited ? 0.25 : 0, flashFrac)
+      mat.color.setHex(GREEN)
+      mat.emissive.setHex(GREEN)
+      mat.emissiveIntensity = t.state === 'bright' ? BRIGHT_INTENSITY : FAINT_INTENSITY
     })
   }
   paint()
@@ -134,8 +165,6 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
           totalComposited += 1
           const i = APPS.indexOf(head.app)
           if (i >= 0) {
-            tiles[i].hasComposited = true
-            tiles[i].killed = false
             tiles[i].flashT = FLASH_MS
             tiles[i].flashRed = head.dropped
           }
@@ -150,9 +179,9 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
       queue = []
       busyMs = 0
       totalComposited = 0
+      brightApp = null
       for (const t of tiles) {
-        t.hasComposited = false
-        t.killed = false
+        t.state = 'dark'
         t.flashT = 0
         t.flashRed = false
       }

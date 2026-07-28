@@ -252,7 +252,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   function onMessagePosted({ app }: { app: string; label: string }): void {
     const entry = wards.get(app)
-    if (!entry || entry.dying) return
+    // Backgrounded/destroyed wards still run their looper (background work is
+    // real) but never render — matches real Android: only the foreground
+    // Activity produces frames.
+    if (!entry || entry.dying || entry.activity.phase !== 'resumed') return
     if (!entry.frame) entry.frame = startFrame(APP_STAGES)
   }
 
@@ -333,6 +336,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (!entry || entry.dying) return
     entry.activity = background(entry.activity)
     setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
+    bus.emit('activity:backgrounded', { app })
   }
 
   // Panel 'Open screen' button: pushes a stacked Activity onto the task. Only
@@ -362,6 +366,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (entry.activity.phase === 'destroyed') return
     entry.activity = finish(entry.activity)
     setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
+    bus.emit('activity:backgrounded', { app })
   }
 
   // Panel 'Start service'/'Stop service' button: flips entry.serviceRunning,

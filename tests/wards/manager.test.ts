@@ -280,6 +280,45 @@ describe('WardManager', () => {
     expect(posted).toEqual([{ app: 'chat', label: 'onReceive' }])
   })
 
+  it('emits activity:backgrounded on goHome and on the finish-root pop', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed
+
+    const backgrounded: { app: string }[] = []
+    deps.bus.on('activity:backgrounded', p => backgrounded.push(p))
+
+    manager.goHome('chat')
+    expect(backgrounded).toEqual([{ app: 'chat' }])
+
+    // Warm-relight then finish the root via popActivity (backStack already 0).
+    deps.bus.emit('app:broughtToFront', { app: 'chat' })
+    manager.popActivity('chat')
+    expect(backgrounded).toEqual([{ app: 'chat' }, { app: 'chat' }])
+  })
+
+  it('a backgrounded ward never submits a frame for a posted message; foreground again and it does', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed
+
+    manager.goHome('chat') // backgrounded — looper still runs, but no frames
+
+    const submitted: { app: string; dropped: boolean }[] = []
+    deps.bus.on('frame:submitted', p => submitted.push(p))
+
+    deps.bus.emit('ui:messagePosted', { app: 'chat', label: 'onReceive' })
+    manager.update(1000) // long enough for a frame to complete if one had started
+    expect(submitted).toHaveLength(0)
+
+    deps.bus.emit('app:broughtToFront', { app: 'chat' }) // warm start -> resumed again
+    deps.bus.emit('ui:messagePosted', { app: 'chat', label: 'onReceive' })
+    manager.update(1000)
+    expect(submitted).toHaveLength(1)
+  })
+
   it('toggleService: backgrounded ward flips foundry priority service<->cached and lights the annex', () => {
     const deps = makeDeps()
     const setAppPriority = vi.fn()
