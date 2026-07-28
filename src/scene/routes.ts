@@ -22,7 +22,9 @@ const ANCHORS: Record<string, THREE.Vector3> = {
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -25
 const PLOT_ANCHORS = PLOT_X.map(x => new THREE.Vector3(x, PLATE_Y, PLOT_Z))
-const OFFBOARD_EAST = new THREE.Vector3(95, 0, 17)
+// Stops just past the board rim (85) so the road reads as leaving the city
+// without a long strip floating over the void.
+const OFFBOARD_EAST = new THREE.Vector3(88, 0, 17)
 const DISPLAY_WALL = new THREE.Vector3(82, PLATE_Y, -22)
 
 const ROAD_COLOR = 0x455a64

@@ -53,8 +53,10 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
     new THREE.TorusGeometry(2.5, 0.4, 8, 24, Math.PI),
     new THREE.MeshStandardMaterial({ color: 0x484f58 }),
   )
-  arch.position.set(6, 2.5, 0)
-  arch.rotation.z = Math.PI
+  // Upright half-torus spanning the eastward road (base on the plate top; the
+  // arc opens upward — no z-flip, which would bury it in the plate).
+  arch.position.set(6, 0.3, 0)
+  arch.rotation.y = Math.PI / 2
   group.add(arch)
 
   // Static dressing: antenna mast array at the back of the plate + a dish on the

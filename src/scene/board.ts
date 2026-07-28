@@ -133,7 +133,7 @@ export function buildBoard(): THREE.Group {
   for (const o of buildLauncherPlatform()) group.add(o)
 
   group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
-  group.add(makeEdgeText('INTERNET →', 16, 6, 84, 0.36, 17))
+  group.add(makeEdgeText('INTERNET →', 16, 6, 76, 0.36, 17))
   group.add(makeEdgeText('HARDWARE', 30, 6, 0, -0.44, -73)) // on the hardware plate (top -0.5)
 
   // Board corners: 2 vents each. Back corners (z -57) sit on the recessed boot strip
