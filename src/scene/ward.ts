@@ -18,6 +18,7 @@ export interface WardMeshes {
   readonly workerParent: THREE.Group
   readonly workerRoad: THREE.Mesh
   readonly stackCards: readonly THREE.Mesh[]
+  readonly threadPosts: readonly THREE.Mesh[]
   dispose(): void
 }
 
@@ -212,6 +213,59 @@ export function buildWardMeshes(app: string): WardMeshes {
   trackLabel(workerLabel)
   group.add(workerLabel)
 
+  // Thread rack: 6 posts (main, renderThread, binder×2, worker×2) — the ward's
+  // real thread inventory, lit per-frame by the manager to show which threads
+  // are doing work right now. No post for GC/HeapTaskDaemon — the sweep plane
+  // over the heap yard already covers that. Footprint check (local coords):
+  // rack sits at x -5.85..-1.35, z -1.8 — north of the tower/provider-slab/
+  // annex block (x -8.5..-3.7, z -6.3..-3.7), west of the main road (x -0.5..
+  // 0.5, z 2..12) and north of the heap yard (x 2..8, z -8..-2). Clear on all
+  // sides; the "between tower and bench" spot suggested at scoping time
+  // overlapped the service annex, so this is the actual free patch.
+  const THREAD_POST_LABELS = ['main', 'renderThread', 'binder0', 'binder1', 'worker0', 'worker1']
+  const THREAD_POST_GAP = 0.9
+  const THREAD_POST_W = 0.5
+  const THREAD_POST_H = 1.6
+  const THREAD_RACK_CENTER_X = -3.6
+  const THREAD_RACK_Z = -1.8
+  const THREAD_POST_INFO: Record<string, { title: string; note: string }> = {
+    main: {
+      title: 'Main thread',
+      note: 'Services the message road. Owns a private ~8MB stack of call frames — freed on return, no GC needed. Blocks it 5s = ANR.',
+    },
+    renderThread: {
+      title: 'RenderThread',
+      note: 'Turns display lists into GPU work off the main thread. Own stack, shares the heap.',
+    },
+    binder: {
+      title: 'Binder pool thread',
+      note: 'Incoming IPC lands here — never on your main thread. ~15 of these per process.',
+    },
+    worker: {
+      title: 'Worker thread',
+      note: 'IO and heavy work. Every thread: private stack, shared heap — stack frames vanish on return; heap objects wait for GC.',
+    },
+  }
+  const threadPosts: THREE.Mesh[] = []
+  const rackStartX = THREAD_RACK_CENTER_X - ((THREAD_POST_LABELS.length - 1) * THREAD_POST_GAP) / 2
+  THREAD_POST_LABELS.forEach((label, i) => {
+    const geo = new THREE.BoxGeometry(THREAD_POST_W, THREAD_POST_H, THREAD_POST_W)
+    const mat = new THREE.MeshStandardMaterial({ color: 0x21262d, roughness: 0.6 })
+    disposables.push(geo, mat)
+    const post = new THREE.Mesh(geo, mat)
+    post.name = `threadPost_${label}`
+    post.position.set(rackStartX + i * THREAD_POST_GAP, THREAD_POST_H / 2, THREAD_RACK_Z)
+    const infoKey = label.startsWith('binder') ? 'binder' : label.startsWith('worker') ? 'worker' : label
+    post.userData.info = THREAD_POST_INFO[infoKey]
+    group.add(post)
+    threadPosts.push(post)
+  })
+
+  const threadLabel = makeLabel('threads', 0.35)
+  threadLabel.position.set(THREAD_RACK_CENTER_X, THREAD_POST_H + 0.6, THREAD_RACK_Z)
+  trackLabel(threadLabel)
+  group.add(threadLabel)
+
   // Heap yard: dark plate with an empty parent for crates spawned later.
   const heapGeo = new THREE.PlaneGeometry(6, 6)
   const heapMat = new THREE.MeshStandardMaterial({ color: 0x0d1117 })
@@ -317,6 +371,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     workerParent,
     workerRoad,
     stackCards,
+    threadPosts,
     dispose,
   }
 }

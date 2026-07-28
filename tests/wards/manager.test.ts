@@ -32,6 +32,9 @@ function fakeMeshes(): WardMeshes {
       { visible: false, material: { emissiveIntensity: 0 } },
       { visible: false, material: { emissiveIntensity: 0 } },
     ],
+    threadPosts: Array.from({ length: 6 }, () => ({
+      material: { color: { setHex() {} }, emissive: { setHex() {} }, emissiveIntensity: 0 },
+    })),
     dispose: vi.fn(),
   } as unknown as WardMeshes
 }

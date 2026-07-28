@@ -69,6 +69,10 @@ Two independent layers: **GC works inside one process's heap; lmkd kills whole p
 - **mmap / file-backed pages**: APK, dex/oat, libraries are memory-mapped from flash — paged in on demand (page fault → read), evictable for free (clean pages have a backing file). Anonymous pages (heap) have no file — under pressure they go to zram instead.
 - **Demand paging**: nothing is resident until touched; cold-start page faults are part of why first launches cost more.
 
+### Stacks vs heap
+
+Every thread owns a private stack — call frames, locals, ~8MB for the Java main thread (1MB typical for others) — allocated on creation, reclaimed frame-by-frame on return. No GC involved: stack memory is free. The heap is the opposite: shared by all threads, garbage-collected. A process's thread inventory at rest: main, RenderThread, ~15 binder pool threads, HeapTaskDaemon/GC threads, JIT, plus whatever worker pools the app spawns (OkHttp dispatcher, coroutine dispatchers). StackOverflowError = one thread's stack exhausted (deep recursion); OutOfMemoryError = the shared heap. Different failures, different memories.
+
 ### System memory pressure: PSI → lmkd → kill
 7. **Before killing:** kernel reclaims — drops clean file pages, and swaps anonymous pages to **zram** (compressed RAM swap — Android's "swap" is usually RAM squeezing itself). `kswapd` does this in background.
 8. **PSI (Pressure Stall Information)** — `/proc/pressure/memory` reports what % of time tasks stalled waiting for memory (`some` = at least one task, `full` = all). This measures actual pain, not free-byte counts. Modern **lmkd is PSI-driven**: it registers epoll listeners on PSI thresholds (e.g. partial stall over a 1s window) instead of the legacy minfree watermarks.
@@ -159,6 +163,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Silent kill → savedInstanceState restore | ch4 finale relaunches; restored wards rise 2x fast + panel badge | ✅ (fixed) |
 | Virtual memory: COW shared framework pages, mmap, PSS | shared slabs in RAM bank + tooltips | ✅ (v3.1; demand paging doc-only) |
 | Per-app RAM fill (live heap → physical pages view) | slab tanks fill/drain with ward heap; GC pulse | ✅ (v5) |
+| Threads + per-thread stacks | ward thread rack (main/render/binder/worker posts, live-lit) + stacks doc | ✅ (v5.1) |
 
 ### Not modeled at all (out of scope so far, fine for v-next list)
 JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window. (Started services, broadcasts-minimal, and kill→restore shipped in v3.)

@@ -14,7 +14,7 @@ import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import {
   syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards,
   setAppFloorLit, setServiceAnnexLit, setProviderSlabLit, disposeMesh, clearPool,
-  syncSingleTopFlash, SHED_FLASH_MS, SCREEN_FLASH_MS, SINGLE_TOP_FLASH_MS,
+  syncSingleTopFlash, syncThreadPosts, SHED_FLASH_MS, SCREEN_FLASH_MS, SINGLE_TOP_FLASH_MS,
 } from './visualSync'
 import { makeCar } from '../scene/builders'
 
@@ -89,6 +89,7 @@ const HEAVY_DRAW_MS = 20
 const WORKER_CAR_COLOR = 0x8b949e
 const WORKER_CAR_SCALE = 0.3
 const HOT_PULSE_MS = 200
+const BINDER_PULSE_MS = 300
 const MAX_BACK_STACK = 3
 const TETHER_COLOR = 0xbc8cff
 const TETHER_Y = 2
@@ -126,6 +127,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const prevEntry = wards.get(previous)
     if (!prevEntry || prevEntry.dying || prevEntry.activity.phase !== 'resumed') return
     prevEntry.activity = background(prevEntry.activity)
+    prevEntry.binderPulseMs = BINDER_PULSE_MS
     bus.emit('activity:backgrounded', { app: previous })
     setAppPriority?.(previous, backgroundPriority(prevEntry))
   }
@@ -279,6 +281,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       singleTopFlashMs: 0,
       boundTo: null,
       tether: null,
+      binderPulseMs: 0,
     }
     wards.set(app, entry)
     onWardSpawned?.(app, pid, meshes.group)
@@ -389,6 +392,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   function onBroughtToFront({ app }: { app: string }): void {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
+    entry.binderPulseMs = BINDER_PULSE_MS
     if (entry.activity.phase === 'stopped') {
       bringToForeground(app)
       entry.activity = foreground(entry.activity) // floors relight 1→3 via syncFloors
@@ -456,6 +460,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
     entry.activity = background(entry.activity)
+    entry.binderPulseMs = BINDER_PULSE_MS
     setAppPriority?.(app, backgroundPriority(entry))
     bus.emit('activity:backgrounded', { app })
     if (foregroundApp === app) foregroundApp = null
@@ -674,6 +679,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.screenFlashMs = Math.max(0, entry.screenFlashMs - dtMs)
     entry.sweepMs = Math.max(0, entry.sweepMs - dtMs)
     entry.singleTopFlashMs = Math.max(0, entry.singleTopFlashMs - dtMs)
+    entry.binderPulseMs = Math.max(0, entry.binderPulseMs - dtMs)
     entry.anrFlashT += dtMs
     updateGroupScale(entry, dtMs)
     if (entry.hotPulseMs > 0) {
@@ -712,6 +718,12 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.meshes.viewModelOrb.visible = entry.activity.viewModelValue !== null
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots)
     syncFlashes(entry, entry.looper.anr, entry.anrFlashT, entry.app === foregroundApp && entry.activity.phase === 'resumed')
+    syncThreadPosts(entry.meshes, {
+      main: entry.busyGlowMs > 0,
+      render: entry.frame !== null,
+      binder: entry.binderPulseMs > 0,
+      worker: entry.workerCars.size,
+    })
   }
 
   // Panel 'Bind to <next app>' / 'Unbind' button: toggles a bind to the next

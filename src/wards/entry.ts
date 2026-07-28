@@ -64,6 +64,10 @@ export interface WardEntry {
   // the target and the visible tether line.
   boundTo: string | null
   tether: THREE.Line | null
+  // Binder pool posts flash for a beat whenever an IPC crosses to/from this
+  // ward's process (foreground/background transitions) — set to
+  // BINDER_PULSE_MS, decays like the other *Ms flash fields.
+  binderPulseMs: number
 }
 
 export function trimProcessed(s: LooperState): LooperState {

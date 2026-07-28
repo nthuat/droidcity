@@ -180,6 +180,41 @@ export function syncSingleTopFlash(meshes: WardMeshes, backStack: number, flashM
   })
 }
 
+const THREAD_MAIN = 0x3fb950
+const THREAD_RENDER = 0x76e3ea
+const THREAD_BINDER = 0xbc8cff
+const THREAD_WORKER = 0x8b949e
+const THREAD_DIM = 0x21262d
+const THREAD_LIT_INTENSITY = 0.6
+
+function setThreadPostLit(post: THREE.Mesh, litColor: number, on: boolean): void {
+  const mat = post.material as THREE.MeshStandardMaterial
+  mat.color.setHex(on ? litColor : THREAD_DIM)
+  mat.emissive.setHex(on ? litColor : 0x000000)
+  mat.emissiveIntensity = on ? THREAD_LIT_INTENSITY : 0
+}
+
+export interface ThreadPostSync {
+  main: boolean
+  render: boolean
+  binder: boolean
+  worker: number
+}
+
+// Thread rack: 6 posts (main, renderThread, binder×2, worker×2). Worker posts
+// light left-to-right, one per in-flight worker car — matches syncWorkerCars'
+// count instead of tracking per-thread identity (there's no per-thread sim
+// state to key off of).
+export function syncThreadPosts(meshes: WardMeshes, s: ThreadPostSync): void {
+  const [main, render, binder0, binder1, worker0, worker1] = meshes.threadPosts
+  setThreadPostLit(main, THREAD_MAIN, s.main)
+  setThreadPostLit(render, THREAD_RENDER, s.render)
+  setThreadPostLit(binder0, THREAD_BINDER, s.binder)
+  setThreadPostLit(binder1, THREAD_BINDER, s.binder)
+  setThreadPostLit(worker0, THREAD_WORKER, s.worker >= 1)
+  setThreadPostLit(worker1, THREAD_WORKER, s.worker >= 2)
+}
+
 export function syncBench(meshes: WardMeshes, frame: FrameRun | null): void {
   meshes.benchStations.forEach((station, i) => {
     const mat = station.material as THREE.MeshStandardMaterial
