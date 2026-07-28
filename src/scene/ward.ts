@@ -35,7 +35,7 @@ const APP_FLOOR_D = 2.8
 const BENCH_LABELS = ['input', 'animation', 'measure/layout', 'draw', 'renderThread']
 const BENCH_GAP = 1.6
 const BENCH_NOTES: Record<string, string> = {
-  input: 'Touch events picked up at vsync.',
+  input: 'Choreographer picks up the tap at the next vsync tick.',
   animation: 'Animators tick.',
   'measure/layout': 'Views measure and position themselves.',
   draw: 'Display list recorded — heavy here = jank.',

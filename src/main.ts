@@ -160,6 +160,12 @@ const launcherPlaza = makeLauncherPlazaScenario(bus)
 const networkTower = makeNetworkTowerScenario(bus)
 const surfaceFlinger = makeSurfaceFlingerScenario(bus)
 bus.on('boot:complete', () => setCityDim(false))
+// SF starts at init stage in real Android (not later), so un-dim it early during boot replay
+bus.on('boot:stageDone', ({ stage }) => {
+  if (stage === 'init' && dimmed) {
+    surfaceFlinger.group.visible = true
+  }
+})
 
 const scenarios: Scenario[] = [
   bootRow,

@@ -23,17 +23,17 @@ export function makeCh1(ctx: StoryCtx): Chapter {
         waitFor: { event: 'boot:stageDone' },
       },
       {
-        narration: 'init starts userspace — the first civilian process, PID 1.',
+        narration: 'init starts userspace — PID 1. Its first big job: warming the Zygote foundry.',
         focus: 'boot',
         waitFor: { event: 'boot:stageDone' },
       },
       {
-        narration: 'system_server ignites: ActivityManager, WindowManager, PackageManager. City hall is open.',
+        narration: 'system_server ignites — itself the foundry\'s first casting. ActivityManager, WindowManager, PackageManager: city hall opens.',
         focus: 'boot',
         waitFor: { event: 'boot:complete' },
       },
       {
-        narration: 'The Zygote foundry is already warm — a process with the whole framework pre-loaded, waiting to be copied.',
+        narration: 'The foundry stays warm — every app you\'ll ever launch is copied from this one pre-loaded process.',
         focus: 'zygote',
         waitFor: { ms: 2500 },
       },
