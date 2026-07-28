@@ -46,7 +46,7 @@ Order that matters: init → **Zygote → system_server** (system_server is fork
 
 **Render (every frame, 16.67ms budget @60Hz):**
 9. `Choreographer` schedules on next **vsync**: input callbacks → animation callbacks → traversal (measure/layout/draw).
-10. Draw records a display list; **RenderThread** turns it into GPU commands (main thread is already free).
+10. Draw records a display list; **RenderThread** turns it into GPU commands (main thread is already free) — issued via **Skia/HWUI on top of OpenGL ES or Vulkan**.
 11. GPU renders into a buffer from the Surface's BufferQueue (triple buffering absorbs hiccups).
 12. **SurfaceFlinger** (own process) latches ready buffers at its vsync offset, composites every visible app's surface (HWC does overlay composition in hardware when it can) → scanout.
 13. **Jank** = the app-side work (9-10) missing the vsync train → frame shown twice. **ANR** = main thread's Looper blocked ≥5s for input (different failure: not slow drawing, but a blocked queue).
@@ -198,6 +198,42 @@ The flow above is one path through the system. These are the concepts an Android
 **📖 IPC menu beyond Binder**: ContentProvider (structured data), Messenger (Binder-wrapped Handler), shared memory (`ashmem`/`SharedMemory` for big blobs — how providers pass cursors), Unix sockets (Zygote's own command channel is one).
 
 **v4 shipped:** Binder mechanics beats, ANR ladder, tasks & back stack. **v5 (gap sweep) shipped:** ContentProvider init beat, worker→main post-back rule, launchMode singleTop, bound-service tether with visibility inheritance, RAM fill tanks, CPU afterglow, single-foreground display. Remaining doc-only: the 📖 set below plus multi-window, Compose recomposition, predictive back, JobScheduler/Doze.
+
+---
+
+## The official platform diagram, mapped
+
+The developer.android.com platform-architecture diagram (System Apps / Java API Framework / Native C-C++ Libraries + Android Runtime / HAL / Linux Kernel) is the canonical picture most engineers hold in their head. Mapping DroidCity's coverage onto its actual boxes, not just the vertical flow above:
+
+| Diagram box | Status | Where |
+|---|---|---|
+| **System Apps** (Dialer, Email, Calendar, Camera…) | ✅ | Launcher + app wards (generic apps stand in for the specific system apps) |
+| Framework: ActivityManager | ✅ | City Hall AMS |
+| Framework: PackageManager | ✅ | Intent resolution + PMS boot APK scan |
+| Framework: WindowManager | ⚠️ | Wing label only (City Hall) + doc-only detail |
+| Framework: View System | ✅ | Render bench + doc Phase 2/3 |
+| Framework: Content Providers | ✅ | Providers slab (v5 init beat) |
+| Framework: NotificationManager | 📖 | Concept atlas only |
+| Framework: LocationManager | ❌ | Absent |
+| Framework: TelephonyManager | ❌ | Absent (radio implied by Network Tower, not the manager itself) |
+| Framework: ResourceManager | ⚠️ | One clause in Zygote preload narration |
+| Android Runtime: ART | ✅ | GC modeled in depth; CMC/JIT/AOT/baseline profiles doc-only |
+| Android Runtime: Core Libraries | ⚠️ | Implied in Zygote preload, not named |
+| Native: libc | ❌ | Absent |
+| Native: WebKit | ❌ | Absent |
+| Native: Media Framework | ❌ | Absent |
+| Native: OpenMAX | ❌ | Absent |
+| Native: OpenGL ES / Vulkan / Skia | ⚠️ | Render path modeled; APIs now named in Phase 3 step 10 clause above |
+| HAL (layer, named at boot) | 📖 | `init` starts HALs (Phase 1, step 4) |
+| HAL: audio / Bluetooth / camera / sensors | ❌ | Absent — Hardware row is the physical HW beneath the HAL, not the HAL itself |
+| Kernel: Binder driver | ✅ | City Hall roads + Binder mechanics atlas entry |
+| Kernel: display driver | ✅ | SurfaceFlinger district + HWC |
+| Kernel: shared memory | 📖 | ashmem, IPC atlas entry |
+| Kernel: input driver | ✅ | evdev → InputReader/InputDispatcher (Phase 3) |
+| Kernel: power management | 📖 | Doze/wakelocks atlas entry |
+| Kernel: audio / Bluetooth / camera / USB / wifi drivers | ❌ | Absent (wifi implied by Network Tower) |
+
+Coverage philosophy: DroidCity models the vertical execution slice (tap → framework → runtime → kernel → hardware and memory management) at depth, and deliberately skips the horizontal service stacks (media, audio, telephony, location, peripherals) — each is its own vertical with the same shape: framework manager → native service → HAL → driver.
 
 ---
 

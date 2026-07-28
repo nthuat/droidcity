@@ -144,6 +144,9 @@ export function buildBoard(): THREE.Group {
   // Silk-screen sub-labels under each hardware block — dimmer than the section
   // title above, x's mirror hardwareRow.ts's CPU_X/RAM_X/DISK_X (and PSI_X).
   const HW_LABEL_DIM = '#4d5560'
+  // Sits between the title (-73) and the CPU/RAM/PSI/DISK row (-62) — names the
+  // layer beneath this physical strip without claiming to model it (see docs).
+  group.add(makeEdgeText('HAL · drivers · physical', 40, 1.6, 0, -0.44, -70, HW_LABEL_DIM))
   group.add(makeEdgeText('CPU', 8, 1.6, -55, -0.44, -62, HW_LABEL_DIM))
   group.add(makeEdgeText('RAM BANK', 8, 1.6, 0, -0.44, -62, HW_LABEL_DIM))
   group.add(makeEdgeText('PSI', 8, 1.6, 11, -0.44, -62, HW_LABEL_DIM))
