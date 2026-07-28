@@ -21,15 +21,16 @@ interface TileState { state: TileVisualState; flashT: number; flashRed: boolean 
 const BRIGHT_INTENSITY = 0.25
 const FAINT_INTENSITY = 0.08
 
-export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { composited: number } } {
+export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { composited: number; dropped: number } } {
   const group = new THREE.Group()
   let totalComposited = 0
+  let totalDropped = 0
 
   const compositor = makeBuilding(5, 6, 5, 0x484f58, 'SurfaceFlinger')
   compositor.position.y = 0.3
   compositor.userData.info = {
     title: 'SurfaceFlinger',
-    note: 'One compositor for every ward; tiles = apps on screen. Frames arrive through BufferQueues — triple buffering absorbs hiccups.',
+    note: 'One compositor for every ward; tiles = apps on screen. Frames arrive through BufferQueues — triple buffering absorbs hiccups. Real SF latches at every vsync (60/s while anything animates); here frames are event-driven, so the counter only ticks when an app actually draws.',
   }
   group.add(compositor)
 
@@ -163,6 +164,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
           queue = queue.slice(1)
           bus.emit('frame:composited', { app: head.app })
           totalComposited += 1
+          if (head.dropped) totalDropped += 1
           const i = APPS.indexOf(head.app)
           if (i >= 0) {
             tiles[i].flashT = FLASH_MS
@@ -179,6 +181,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
       queue = []
       busyMs = 0
       totalComposited = 0
+      totalDropped = 0
       brightApp = null
       for (const t of tiles) {
         t.state = 'dark'
@@ -191,7 +194,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
       // no ambient behavior — composited frames come only from frame:submitted events
     },
     stats() {
-      return { composited: totalComposited }
+      return { composited: totalComposited, dropped: totalDropped }
     },
   }
 }

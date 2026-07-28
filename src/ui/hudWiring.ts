@@ -29,7 +29,7 @@ export function updateHudLines(
   const n = networkTower.stats()
   hud.setLine('network', `queue ${n.queue} · ${n.phase}`)
   const sf = surfaceFlinger.stats()
-  hud.setLine('surfaceflinger', `${sf.composited} frames`)
+  hud.setLine('surfaceflinger', `${sf.composited} composited · ${sf.dropped} janky`)
   const l = launcherPlaza.stats()
   hud.setLine('launcher', `${l.running} apps`)
 }
