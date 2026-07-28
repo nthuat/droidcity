@@ -16,6 +16,7 @@ export interface WardMeshes {
   readonly wallMesh: THREE.Mesh
   readonly workerParent: THREE.Group
   readonly workerRoad: THREE.Mesh
+  readonly stackCards: readonly THREE.Mesh[]
   dispose(): void
 }
 
@@ -101,6 +102,25 @@ export function buildWardMeshes(app: string): WardMeshes {
     floors.push(floor)
   }
   const towerTop = FLOOR_H * 4
+
+  // Back stack: 3 pre-built, hidden translucent plates stacked behind the tower —
+  // toggled visible per entry.backStack (no dynamic build/dispose churn per push/pop).
+  const stackCards: THREE.Mesh[] = []
+  for (let i = 0; i < 3; i++) {
+    const geo = new THREE.BoxGeometry(2, 0.3, 2)
+    const mat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.35 })
+    disposables.push(geo, mat)
+    const card = new THREE.Mesh(geo, mat)
+    card.name = `stackCard${i}`
+    card.position.set(TOWER_X + 1.8, 0.15 + i * 0.3, TOWER_Z - 1.8)
+    card.visible = false
+    card.userData.info = {
+      title: 'Back stack',
+      note: 'Activities stack in a task. Back pops the top one; the last pop leaves the process alive — a warm start next time.',
+    }
+    group.add(card)
+    stackCards.push(card)
+  }
 
   const nameLabel = makeLabel(app, 1)
   nameLabel.position.set(TOWER_X, 8 + FLOOR_H, TOWER_Z)
@@ -275,6 +295,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     wallMesh,
     workerParent,
     workerRoad,
+    stackCards,
     dispose,
   }
 }

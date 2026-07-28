@@ -154,6 +154,11 @@ export function syncCrates(
   }
 }
 
+// One card visible per stacked activity above the root (entry.backStack).
+export function syncStackCards(meshes: WardMeshes, backStack: number): void {
+  meshes.stackCards.forEach((card, i) => { card.visible = i < backStack })
+}
+
 export function syncBench(meshes: WardMeshes, frame: FrameRun | null): void {
   meshes.benchStations.forEach((station, i) => {
     const mat = station.material as THREE.MeshStandardMaterial

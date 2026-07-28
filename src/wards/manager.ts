@@ -3,7 +3,7 @@ import type { Bus } from '../core/bus'
 import type { PacketSystem } from '../scene/packet'
 import { buildWardMeshes, type WardMeshes } from '../scene/ward'
 import { createLooper, post, advance } from '../sim/looper'
-import { createActivity, launch, rotate as rotateActivity, background, foreground, type Phase } from '../sim/lifecycle'
+import { createActivity, launch, rotate as rotateActivity, background, foreground, finish, type Phase } from '../sim/lifecycle'
 import { createHeap, allocate, releaseOldest, gc as gcHeap } from '../sim/heap'
 import type { Priority } from '../sim/processes'
 import { createDb, query, insert, DB_QUERY_MS } from '../sim/roomDb'
@@ -12,7 +12,7 @@ import { DEFAULT_STAGES, startFrame, advanceFrame, withHeavyDraw } from '../sim/
 import { buildWardPanel } from './panel'
 import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import {
-  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars,
+  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards,
   setAppFloorLit, setServiceAnnexLit, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS,
 } from './visualSync'
 import { makeCar } from '../scene/builders'
@@ -27,7 +27,7 @@ export interface WardManager {
   update(dtMs: number): void
   setIdle(enabled: boolean): void
   wards(): readonly WardHandles[]
-  wardStats(): { app: string; plot: number; busy: boolean; anr: boolean; phase: Phase }[]
+  wardStats(): { app: string; plot: number; busy: boolean; anr: boolean; phase: Phase; backStack: number }[]
   wardGroupFor(app: string): THREE.Group | null
   wardAppFromObject(obj: THREE.Object3D): string | null
   panelFor(app: string): HTMLElement | null
@@ -38,6 +38,8 @@ export interface WardManager {
   runHeavyFrame(app: string): void
   goHome(app: string): void
   toggleService(app: string): boolean
+  pushActivity(app: string): void
+  popActivity(app: string): void
 }
 
 export interface WardManagerDeps {
@@ -80,6 +82,7 @@ const HEAVY_DRAW_MS = 20
 const WORKER_CAR_COLOR = 0x8b949e
 const WORKER_CAR_SCALE = 0.3
 const HOT_PULSE_MS = 200
+const MAX_BACK_STACK = 3
 
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
 
@@ -136,6 +139,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       app, pid, plot: result.plot, meshes,
       looper: createLooper(),
       activity: createActivity(),
+      backStack: 0,
       heap: createHeap(HEAP_CAPACITY_KB),
       db: createDb(),
       frame: null,
@@ -275,9 +279,19 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       entry.hotPulseMs = HOT_PULSE_MS
       bus.emit('activity:resumed', { app })
       onStartType?.(app, 'hot')
+    } else if (entry.activity.phase === 'destroyed') {
+      // Finished-root relaunch: pop-at-0 finished the Activity but the process
+      // (and this ward) survived — launcher still lists the app running (it only
+      // markStopped()s on process:killed), so a kiosk tap reaches here instead of
+      // process:forked. launch() recreates the Activity — a real warm start, not
+      // just foreground()'s resume-in-place.
+      entry.activity = launch(entry.activity)
+      setAppPriority?.(app, 'foreground')
+      bus.emit('activity:resumed', { app })
+      onStartType?.(app, 'warm')
     }
-    // Any other phase (created/started/paused/destroyed): no-op — launcherPlaza
-    // only emits this for an app the launcher sim already considers running.
+    // Any other phase (created/started/paused): no-op — launcherPlaza only emits
+    // this for an app the launcher sim already considers running.
   }
 
   bus.on('process:forked', onForked)
@@ -318,6 +332,35 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
     entry.activity = background(entry.activity)
+    setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
+  }
+
+  // Panel 'Open screen' button: pushes a stacked Activity onto the task. Only
+  // meaningful from the foreground (resumed) — capped at 3 (matches the 3
+  // pre-built stackCards in WardMeshes), beyond that a no-op.
+  function pushActivity(app: string): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying || entry.activity.phase !== 'resumed' || entry.backStack >= MAX_BACK_STACK) return
+    entry.backStack += 1
+    bus.emit('activity:pushed', { app, depth: entry.backStack })
+  }
+
+  // Panel 'Back' button: pops the top stacked Activity, or — once the stack is
+  // already empty — finishes the root Activity itself. finish() is the sim's
+  // own no-op guard for an already-destroyed phase, so popping past that point
+  // is simply ignored (nothing left to pop). Finishing the root leaves the
+  // process (and this ward) alive — warm-start material — so foundry priority
+  // drops the same way goHome does (service if running, else cached).
+  function popActivity(app: string): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return
+    if (entry.backStack > 0) {
+      entry.backStack -= 1
+      bus.emit('activity:popped', { app, depth: entry.backStack })
+      return
+    }
+    if (entry.activity.phase === 'destroyed') return
+    entry.activity = finish(entry.activity)
     setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
   }
 
@@ -512,6 +555,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     syncCars(entry.meshes, entry.looper, entry.carPool)
     syncWorkerCars(entry.meshes, entry.workerCars, entry.anrFlashT)
     syncFloors(entry.meshes, entry.activity.phase)
+    syncStackCards(entry.meshes, entry.backStack)
     entry.meshes.viewModelOrb.visible = entry.activity.viewModelValue !== null
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots)
     syncFlashes(entry, entry.looper.anr, entry.anrFlashT)
@@ -529,6 +573,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     wardStats() {
       return [...wards.values()].filter(e => !e.dying).map(e => ({
         app: e.app, plot: e.plot, busy: e.looper.current !== null, anr: e.looper.anr, phase: e.activity.phase,
+        backStack: e.backStack,
       }))
     },
     wardGroupFor(app) {
@@ -549,7 +594,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (!entry.panel) {
         entry.panel = buildWardPanel(
           app,
-          { blockMainThread, rotate: rotateWard, forceGc, refreshData, goHome, toggleService },
+          { blockMainThread, rotate: rotateWard, forceGc, refreshData, goHome, toggleService, pushActivity, popActivity },
           narrationFor(entry),
           entry.serviceRunning,
         )
@@ -563,5 +608,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     runHeavyFrame,
     goHome,
     toggleService,
+    pushActivity,
+    popActivity,
   }
 }

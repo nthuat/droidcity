@@ -9,6 +9,8 @@ export interface WardPanelActions {
   refreshData(app: string): void
   goHome(app: string): void
   toggleService(app: string): boolean
+  pushActivity(app: string): void
+  popActivity(app: string): void
 }
 
 export interface WardPanel extends Panel {
@@ -28,6 +30,8 @@ export function buildWardPanel(
   const panel = makePanel(`${app} — app process`)
   panel.addButton('Block main thread (8s)', () => actions.blockMainThread(app, BLOCK_MAIN_THREAD_MS))
   panel.addButton('Rotate', () => actions.rotate(app))
+  panel.addButton('Open screen', () => actions.pushActivity(app))
+  panel.addButton('Back', () => actions.popActivity(app))
   panel.addButton('Force GC', () => actions.forceGc(app))
   panel.addButton('Refresh data', () => actions.refreshData(app))
   const serviceBtn = panel.addButton(serviceRunning ? 'Stop service' : 'Start service', () => actions.toggleService(app))

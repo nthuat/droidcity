@@ -26,6 +26,7 @@ function fakeMeshes(): WardMeshes {
     wallMesh: {},
     workerParent: { add() {}, remove() {} },
     workerRoad: {},
+    stackCards: [{ visible: false }, { visible: false }, { visible: false }],
     dispose: vi.fn(),
   } as unknown as WardMeshes
 }
@@ -205,6 +206,63 @@ describe('WardManager', () => {
     expect(onStartType).toHaveBeenCalledWith('chat', 'hot')
     // Already foreground — hot path never touches priority.
     expect(setAppPriority).not.toHaveBeenCalled()
+  })
+
+  it('pushActivity stacks up to max 3, emitting activity:pushed with the new depth and updating wardStats().backStack', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // rise completes -> resumed
+
+    const pushed: { app: string; depth: number }[] = []
+    deps.bus.on('activity:pushed', p => pushed.push(p))
+
+    manager.pushActivity('chat')
+    manager.pushActivity('chat')
+
+    expect(pushed).toEqual([{ app: 'chat', depth: 1 }, { app: 'chat', depth: 2 }])
+    expect(manager.wardStats().find(s => s.app === 'chat')?.backStack).toBe(2)
+
+    // Max 3: pushes beyond the 3rd are a no-op.
+    manager.pushActivity('chat')
+    manager.pushActivity('chat')
+    expect(manager.wardStats().find(s => s.app === 'chat')?.backStack).toBe(3)
+    expect(pushed).toHaveLength(3)
+  })
+
+  it('popActivity to 0 then again finishes the root; a later broughtToFront relaunches it (warm relight)', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const onStartType = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority, onStartType })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed
+    manager.pushActivity('chat')
+    manager.pushActivity('chat')
+
+    const popped: { app: string; depth: number }[] = []
+    deps.bus.on('activity:popped', p => popped.push(p))
+
+    manager.popActivity('chat') // depth 2 -> 1
+    manager.popActivity('chat') // depth 1 -> 0
+    expect(popped).toEqual([{ app: 'chat', depth: 1 }, { app: 'chat', depth: 0 }])
+    expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('resumed')
+
+    manager.popActivity('chat') // backStack already 0 -> finish root
+    expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('destroyed')
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'cached')
+    // Finishing the root is a distinct action from popping — no extra activity:popped.
+    expect(popped).toHaveLength(2)
+
+    // Relaunch: ward alive, phase destroyed -> broughtToFront recreates the Activity
+    // (warm start), proving launch()'s destroyed-phase path works from this manager.
+    const resumed: { app: string }[] = []
+    deps.bus.on('activity:resumed', p => resumed.push(p))
+    deps.bus.emit('app:broughtToFront', { app: 'chat' })
+
+    expect(resumed).toEqual([{ app: 'chat' }])
+    expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('resumed')
+    expect(onStartType).toHaveBeenCalledWith('chat', 'warm')
   })
 
   it('broadcast:sent posts onReceive to each living ward, skipping a dying one', () => {

@@ -17,6 +17,9 @@ export interface WardEntry {
   meshes: WardMeshes
   looper: LooperState
   activity: ActivityState
+  // Stacked activities above the root (0 = just the root). Capped at 3 —
+  // matches the 3 pre-built stackCards in WardMeshes.
+  backStack: number
   heap: HeapState
   db: DbState
   frame: FrameRun | null

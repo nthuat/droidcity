@@ -23,6 +23,8 @@ export interface CityEvents {
   'gc:swept': { app: string; freedKb: number }
   'anr': { app: string }
   'memory:trim': Record<string, never>
+  'activity:pushed': { app: string; depth: number }
+  'activity:popped': { app: string; depth: number }
 }
 export type CityEventName = keyof CityEvents
 export interface Bus {
