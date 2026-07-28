@@ -3,6 +3,9 @@ import { createCity } from './scene/city'
 import { buildBoard } from './scene/board'
 import { buildRoutes, pathLength } from './scene/routes'
 import { createPacketSystem } from './scene/packet'
+import { createHud, makeWardLabel } from './ui/hud'
+import { attachZoneLabels, updateHudLines } from './ui/hudWiring'
+import type { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
 import { makeBootRowScenario } from './scenarios/bootRow'
@@ -27,6 +30,8 @@ export const ANCHORS: Record<string, THREE.Vector3> = {
   network: new THREE.Vector3(65, 0, 17),
   launcher: new THREE.Vector3(0, 3, 40),
 }
+
+const WARDS_ANCHOR = new THREE.Vector3(0, 0, -25)
 
 export const PLOT_ANCHORS: THREE.Vector3[] = [
   new THREE.Vector3(-33.75, 0, -25),
@@ -60,10 +65,20 @@ const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
 const bus = createBus()
 const packets = createPacketSystem(city.scene)
+const hud = createHud(city.scene)
+const wardLabels = new Map<string, CSS2DObject>()
 // Constructed before any bus.on() below, so its process:forked handler (which spawns
 // the ward group synchronously) always runs before main.ts's own handlers.
 const wardManager = createWardManager({
   bus, scene: city.scene, packets, anchors: ANCHORS, plotAnchors: PLOT_ANCHORS, routePath: routes.path,
+  onWardSpawned(app, pid, group) {
+    wardLabels.set(app, makeWardLabel(group, `${app} · pid ${pid}`))
+  },
+  onWardKilled(app) {
+    const label = wardLabels.get(app)
+    if (label) label.parent?.remove(label)
+    wardLabels.delete(app)
+  },
 })
 
 // Hides every district (and every live ward) except Boot Row while a boot replay is in
@@ -79,6 +94,7 @@ function setCityDim(dim: boolean): void {
     const g = wardManager.wardGroupFor(w.app)
     if (g) g.visible = !dim
   }
+  hud.setDimmed(dim)
 }
 
 const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
@@ -97,6 +113,12 @@ const scenarios: Scenario[] = [
   networkTower,
   surfaceFlinger,
 ]
+
+attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)
+function refreshHud(): void {
+  updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
+}
+refreshHud()
 
 scenarios.forEach((s, i) => {
   s.group.position.copy(SCENARIO_OFFSETS[i])
@@ -141,6 +163,9 @@ let tweenToPos = OVERVIEW_POS.clone()
 let tweenFromTarget = city.controls.target.clone()
 let tweenToTarget = OVERVIEW_TARGET.clone()
 let tweenT = TWEEN_MS // starts "done" — initial camera is set directly below
+
+const HUD_UPDATE_MS = 500
+let hudAccMs = 0
 
 function smoothstep(t: number): number {
   return t * t * (3 - 2 * t)
@@ -440,6 +465,11 @@ city.start((dtMs) => {
     wardManager.update(dtMs)
   }
   player.update(dtMs)
+  hudAccMs += dtMs
+  if (hudAccMs >= HUD_UPDATE_MS) {
+    hudAccMs -= HUD_UPDATE_MS
+    refreshHud()
+  }
 })
 
 document.querySelector('#intro-close')!.addEventListener('click', () => {

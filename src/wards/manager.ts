@@ -40,6 +40,8 @@ export interface WardManagerDeps {
   plotAnchors: readonly THREE.Vector3[]
   buildMeshes?: (app: string) => WardMeshes
   routePath?: (from: string, to: string) => THREE.Vector3[]
+  onWardSpawned?: (app: string, pid: number, group: THREE.Group) => void
+  onWardKilled?: (app: string) => void
 }
 
 const RISE_MS = 800
@@ -62,7 +64,7 @@ const HEAVY_DRAW_MS = 20
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
 
 export function createWardManager(deps: WardManagerDeps): WardManager {
-  const { bus, scene, packets, anchors, plotAnchors } = deps
+  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled } = deps
   const buildMeshes = deps.buildMeshes ?? buildWardMeshes
   // Default mirrors pre-routes.ts behavior: a straight two-point hop between the
   // named anchors/plot slots. Real routing is wired in from main.ts via routePath.
@@ -134,6 +136,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       panel: null,
     }
     wards.set(app, entry)
+    onWardSpawned?.(app, pid, meshes.group)
     // activity:resumed (+ Binder packet) fires later, when the rise animation
     // completes (see updateWard) — not synchronously here. Firing it immediately
     // let a whole story chapter's event chain (launchRequested→forked→resumed→…)
@@ -251,6 +254,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
         }
         entry.meshes.dispose()
         scene.remove(entry.meshes.group)
+        onWardKilled?.(app)
         plots = releasePlot(plots, app)
         wards.delete(app)
       }

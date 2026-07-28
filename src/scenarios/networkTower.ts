@@ -37,7 +37,7 @@ function makePhaseLabel(initial: string): { sprite: THREE.Sprite; setText(t: str
   return { sprite, setText }
 }
 
-export function makeNetworkTowerScenario(bus: Bus): Scenario {
+export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queue: number; phase: string } } {
   const group = new THREE.Group()
   let queue: QueueEntry[] = []
   let counter = 0
@@ -132,6 +132,12 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario {
     },
     setIdle() {
       // no ambient behavior — network activity is bus/button driven only
+    },
+    stats() {
+      if (queue.length === 0) return { queue: 0, phase: 'idle' }
+      const head = queue[0].req
+      const phase = head.retrying ? 'retry' : head.currentIndex >= 0 ? NET_PHASES[head.currentIndex].name : 'idle'
+      return { queue: queue.length, phase }
     },
   }
 }

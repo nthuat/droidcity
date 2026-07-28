@@ -21,6 +21,7 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   clickKiosk(app: string): void
   kioskMeshes(): THREE.Object3D[]
   resetApps(): void
+  stats(): { running: number }
 } {
   const group = new THREE.Group()
   let state: LauncherState = createLauncher()
@@ -107,5 +108,8 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
     clickKiosk,
     kioskMeshes() { return kiosks.map(k => k.body) },
     resetApps,
+    stats() {
+      return { running: state.running.length }
+    },
   }
 }

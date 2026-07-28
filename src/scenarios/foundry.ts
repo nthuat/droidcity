@@ -11,7 +11,11 @@ const IDLE_RECLAIM_MS = 25000
 const STAMP_MS = 400
 const DEFAULT_NARRATION = 'Zygote forks every app process from a pre-warmed template — this is why app launch is fast. (Wards are the per-app buildings; this district is the factory only.)'
 
-export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void; killApp(app: string): void } {
+export function makeFoundryScenario(bus: Bus): Scenario & {
+  demoteAll(): void
+  killApp(app: string): void
+  stats(): { usedMb: number; capacityMb: number; procs: number }
+} {
   const group = new THREE.Group()
   let state: SystemState = createSystem(CAPACITY_MB)
   let pendingLaunches: string[] = []
@@ -153,5 +157,8 @@ export function makeFoundryScenario(bus: Bus): Scenario & { demoteAll(): void; k
     },
     demoteAll,
     killApp,
+    stats() {
+      return { usedMb: usedMb(state), capacityMb: CAPACITY_MB, procs: state.procs.length }
+    },
   }
 }

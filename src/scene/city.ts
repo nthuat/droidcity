@@ -1,10 +1,12 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 
 export interface City {
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
   renderer: THREE.WebGLRenderer
+  cssRenderer: CSS2DRenderer
   controls: OrbitControls
   start(onFrame: (dtMs: number) => void): void
 }
@@ -22,6 +24,18 @@ export function createCity(container: HTMLElement): City {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
   container.appendChild(renderer.domElement)
 
+  // Second, HTML-based renderer for persistent HUD labels — overlaid on the same
+  // container, sized with the WebGL canvas, ignored by pointer events so orbit
+  // controls / raycasting under it keep working.
+  container.style.position = container.style.position || 'relative'
+  const cssRenderer = new CSS2DRenderer()
+  cssRenderer.setSize(innerWidth, innerHeight)
+  cssRenderer.domElement.style.position = 'absolute'
+  cssRenderer.domElement.style.top = '0'
+  cssRenderer.domElement.style.left = '0'
+  cssRenderer.domElement.style.pointerEvents = 'none'
+  container.appendChild(cssRenderer.domElement)
+
   const controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.target.set(0, 2, 0)
@@ -35,6 +49,7 @@ export function createCity(container: HTMLElement): City {
     camera.aspect = innerWidth / innerHeight
     camera.updateProjectionMatrix()
     renderer.setSize(innerWidth, innerHeight)
+    cssRenderer.setSize(innerWidth, innerHeight)
   })
 
   function start(onFrame: (dtMs: number) => void): void {
@@ -45,8 +60,9 @@ export function createCity(container: HTMLElement): City {
       onFrame(dtMs)
       controls.update()
       renderer.render(scene, camera)
+      cssRenderer.render(scene, camera)
     })
   }
 
-  return { scene, camera, renderer, controls, start }
+  return { scene, camera, renderer, cssRenderer, controls, start }
 }

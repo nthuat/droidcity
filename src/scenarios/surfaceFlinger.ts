@@ -15,8 +15,9 @@ const DEFAULT_NARRATION = 'SurfaceFlinger composites every submitted frame onto 
 interface QueueEntry { readonly app: string; readonly dropped: boolean }
 interface TileState { hasComposited: boolean; killed: boolean; flashT: number; flashRed: boolean }
 
-export function makeSurfaceFlingerScenario(bus: Bus): Scenario {
+export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { composited: number } } {
   const group = new THREE.Group()
+  let totalComposited = 0
 
   const compositor = makeBuilding(5, 6, 5, 0x484f58, 'SurfaceFlinger')
   group.add(compositor)
@@ -102,6 +103,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario {
           const head = queue[0]
           queue = queue.slice(1)
           bus.emit('frame:composited', { app: head.app })
+          totalComposited += 1
           const i = APPS.indexOf(head.app)
           if (i >= 0) {
             tiles[i].hasComposited = true
@@ -119,6 +121,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario {
     reset() {
       queue = []
       busyMs = 0
+      totalComposited = 0
       for (const t of tiles) {
         t.hasComposited = false
         t.killed = false
@@ -129,6 +132,9 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario {
     },
     setIdle() {
       // no ambient behavior — composited frames come only from frame:submitted events
+    },
+    stats() {
+      return { composited: totalComposited }
     },
   }
 }
