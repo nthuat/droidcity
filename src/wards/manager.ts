@@ -361,7 +361,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       return [...wards.values()].map(e => ({ app: e.app, pid: e.pid, plot: e.plot }))
     },
     wardStats() {
-      return [...wards.values()].map(e => ({
+      return [...wards.values()].filter(e => !e.dying).map(e => ({
         app: e.app, plot: e.plot, busy: e.looper.current !== null, anr: e.looper.anr,
       }))
     },

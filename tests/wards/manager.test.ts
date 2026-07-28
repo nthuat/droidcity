@@ -105,4 +105,18 @@ describe('WardManager', () => {
     geoDispose.mockRestore()
     matDispose.mockRestore()
   })
+
+  it('excludes a dying ward from wardStats immediately on process:killed', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.blockMainThread('chat', 5000)
+    manager.update(1) // advance looper so `current` is set (busy)
+    expect(manager.wardStats()).toContainEqual(expect.objectContaining({ app: 'chat', busy: true }))
+
+    deps.bus.emit('process:killed', { app: 'chat', pid: 1 })
+    // Still mid-demolition (600ms), but wardStats must drop it right away —
+    // otherwise its CPU core stays lit/stuck for the whole animation.
+    expect(manager.wardStats().some(s => s.app === 'chat')).toBe(false)
+  })
 })
