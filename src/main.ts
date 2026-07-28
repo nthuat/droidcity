@@ -25,6 +25,7 @@ import { makeCh2 } from './story/chapters/ch2-ward'
 import { makeCh3 } from './story/chapters/ch3-data'
 import { makeCh4 } from './story/chapters/ch4-frame'
 import { makeCh5 } from './story/chapters/ch5-back'
+import { makeCh6 } from './story/chapters/ch6-metal'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(0, 0, -52),
@@ -515,6 +516,7 @@ const storyMenuItems: StoryMenuItem[] = [
   { label: '3 · Getting Data', chapter: makeCh3(storyCtx) },
   { label: '4 · The 16ms Race', chapter: makeCh4(storyCtx) },
   { label: '5 · Coming Back', chapter: makeCh5(storyCtx) },
+  { label: '6 · The Metal', chapter: makeCh6(storyCtx) },
 ]
 
 function focusCamera(focus: string): void {
