@@ -22,6 +22,7 @@ export interface WardEntry {
   frame: FrameRun | null
   dying: boolean
   resumed: boolean
+  restored: boolean
   riseMs: number
   demolishMs: number
   demolishStartScale: number
@@ -58,5 +59,6 @@ export function trimLog(s: ActivityState): ActivityState {
 
 export function narrationFor(entry: WardEntry): string {
   const base = `${entry.activity.phase} · queue ${entry.looper.queue.length} · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB`
-  return entry.looper.anr ? `${base} · ANR! main thread blocked 5s+` : base
+  const line = entry.looper.anr ? `${base} · ANR! main thread blocked 5s+` : base
+  return entry.restored ? `Restored — saved state + ViewModel made this cheap.\n${line}` : line
 }

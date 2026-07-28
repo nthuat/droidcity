@@ -15,6 +15,7 @@ export interface CityEvents {
   'frame:composited': { app: string }
   'gc:swept': { app: string; freedKb: number }
   'anr': { app: string }
+  'memory:trim': Record<string, never>
 }
 export type CityEventName = keyof CityEvents
 export interface Bus {

@@ -50,6 +50,7 @@ export interface WardManagerDeps {
 }
 
 const RISE_MS = 800
+const RESTORE_WINDOW_MS = 60000
 const FRAME_VISUAL_SCALE = 0.02
 const DEMOLISH_MS = 600
 const DATA_REQUEST_MS = 600
@@ -83,6 +84,11 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   const wards = new Map<string, WardEntry>()
   let plots = createPlots(plotAnchors.length)
   let idleEnabled = true
+  // Running sim clock (no Date.now — accumulates from update(dtMs) so it scales
+  // with story-mode's slowed sim time same as everything else). Used only to
+  // decide whether a fresh fork of a just-killed app counts as a "restore".
+  let nowMs = 0
+  const recentlyKilled = new Map<string, number>()
 
   function allocateN(entry: WardEntry, app: string, count: number, sizeKb: number): void {
     for (let i = 0; i < count; i++) {
@@ -112,6 +118,9 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     meshes.group.scale.y = 0
     scene.add(meshes.group)
 
+    const killedAt = recentlyKilled.get(app)
+    const restored = killedAt !== undefined && nowMs - killedAt < RESTORE_WINDOW_MS
+
     const entry: WardEntry = {
       app, pid, plot: result.plot, meshes,
       looper: createLooper(),
@@ -121,6 +130,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       frame: null,
       dying: false,
       resumed: false,
+      restored,
       riseMs: 0,
       demolishMs: 0,
       demolishStartScale: 1,
@@ -153,12 +163,29 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   }
 
   function onKilled({ app }: { app: string; pid: number }): void {
+    recentlyKilled.set(app, nowMs)
     const entry = wards.get(app)
     if (!entry || entry.dying) return
     entry.dying = true
     entry.demolishMs = 0
     entry.demolishStartScale = entry.meshes.group.scale.y
     setAppFloorLit(entry.meshes, false)
+  }
+
+  // onTrimMemory, modeled coarsely: every live ward voluntarily sheds its two
+  // oldest heap objects (they turn grey/garbage, same as a real GC sweep) —
+  // silent (no narration change) because this is cooperative shrink, not a
+  // kill. Reuses the same releaseOldest + sweep-visual + gc:swept path as
+  // forceGc/idle release.
+  function onMemoryTrim(): void {
+    for (const entry of wards.values()) {
+      if (entry.dying) continue
+      const targets = entry.heap.objects.filter(o => o.reachable).slice(0, 2)
+      if (targets.length === 0) continue
+      entry.heap = releaseOldest(entry.heap, 2)
+      entry.sweepMs = SWEEP_MS
+      bus.emit('gc:swept', { app: entry.app, freedKb: targets.reduce((sum, o) => sum + o.sizeKb, 0) })
+    }
   }
 
   // A ward requesting data (auto DATA_REQUEST_MS expiry or a manual refresh —
@@ -226,6 +253,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   bus.on('data:fetched', p => onDataArrived(p.app, true))
   bus.on('ui:messagePosted', onMessagePosted)
   bus.on('frame:composited', onComposited)
+  bus.on('memory:trim', onMemoryTrim)
 
   function blockMainThread(app: string, ms: number): void {
     const entry = wards.get(app)
@@ -264,9 +292,12 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   }
 
   function updateGroupScale(entry: WardEntry, dtMs: number): void {
-    if (entry.riseMs < RISE_MS) {
-      entry.riseMs = Math.min(RISE_MS, entry.riseMs + dtMs)
-      entry.meshes.group.scale.y = entry.riseMs / RISE_MS
+    // A restored ward (re-forked <60s after an LMK kill) rises in half the
+    // time — saved state + ViewModel skip most of the cold-start cost.
+    const riseDuration = entry.restored ? RISE_MS / 2 : RISE_MS
+    if (entry.riseMs < riseDuration) {
+      entry.riseMs = Math.min(riseDuration, entry.riseMs + dtMs)
+      entry.meshes.group.scale.y = entry.riseMs / riseDuration
       return
     }
     if (entry.rebuildMs > 0) {
@@ -382,7 +413,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     // Activity resumes (onCreate/onStart/onResume + Binder packet) once the rise
     // animation finishes — not synchronously on fork — so floors light while the
     // narration reads, and the data-request timer above only starts from here.
-    if (!entry.resumed && entry.riseMs >= RISE_MS) {
+    if (!entry.resumed && entry.riseMs >= (entry.restored ? RISE_MS / 2 : RISE_MS)) {
       entry.resumed = true
       setAppFloorLit(entry.meshes, true)
       entry.activity = launch(entry.activity)
@@ -405,6 +436,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   return {
     update(dtMs) {
+      nowMs += dtMs
       for (const [app, entry] of [...wards]) updateWard(app, entry, dtMs)
     },
     setIdle(enabled) { idleEnabled = enabled },

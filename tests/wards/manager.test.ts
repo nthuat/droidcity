@@ -127,6 +127,23 @@ describe('WardManager', () => {
     matDispose.mockRestore()
   })
 
+  it('sheds the oldest 2 heap objects and emits gc:swept per non-dying ward on memory:trim', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    // 3 allocated heap objects via a fetched response.
+    deps.bus.emit('data:fetched', { app: 'chat', ms: 10 })
+    manager.update(1)
+
+    const swept: { app: string; freedKb: number }[] = []
+    deps.bus.on('gc:swept', (p) => swept.push(p))
+
+    deps.bus.emit('memory:trim', {})
+
+    expect(swept).toHaveLength(1)
+    expect(swept[0].app).toBe('chat')
+  })
+
   it('excludes a dying ward from wardStats immediately on process:killed', () => {
     const deps = makeDeps()
     const manager = createWardManager(deps)

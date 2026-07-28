@@ -22,6 +22,15 @@ const CPU_X = -55
 const RAM_X = 0
 const DISK_X = 55
 
+const PSI_X = RAM_X + 11
+const PSI_BASE_H = 0.4
+const PSI_MAX_H = 4
+const PSI_AMBER_AT = 0.5
+const PSI_RED_AT = 0.8
+const PSI_GREEN = 0x3fb950
+const PSI_AMBER = 0xd29922
+const PSI_RED = 0xf85149
+
 interface CoreState {
   color: number | null
   stuck: boolean
@@ -87,18 +96,34 @@ function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   return ledMat
 }
 
+function buildPsi(group: THREE.Group): { bar: THREE.Mesh; mat: THREE.MeshStandardMaterial } {
+  const mat = new THREE.MeshStandardMaterial({
+    color: PSI_GREEN, emissive: PSI_GREEN, emissiveIntensity: 0.5, roughness: 0.5,
+  })
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.8, PSI_BASE_H, 0.8), mat)
+  bar.position.set(PSI_X, PLATE_TOP + PSI_BASE_H / 2, 0)
+  bar.userData.info = {
+    title: 'PSI — memory pressure',
+    note: 'Stall-based pain signal. lmkd kills on pressure, not on exact fullness.',
+  }
+  group.add(bar)
+  return { bar, mat }
+}
+
 const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each ward’s main thread, RAM segments (center) fill as processes are spawned, and the disk (east) blinks on every Room read/write — the silicon underneath everything else in the city.'
 
 export function makeHardwareRowScenario(): Scenario & {
   setCoreStates(s: CoreState[]): void
   setRamSegments(s: (number | null)[]): void
   diskBlink(write: boolean): void
+  setPressure(frac: number): void
 } {
   const group = new THREE.Group()
 
   const coreMats = buildCpu(group)
   const ramMats = buildRam(group)
   const diskLedMat = buildDisk(group)
+  const { bar: psiBar, mat: psiMat } = buildPsi(group)
 
   let coreStates: CoreState[] = coreMats.map(() => ({ color: null, stuck: false }))
   let elapsedMs = 0
@@ -155,6 +180,15 @@ export function makeHardwareRowScenario(): Scenario & {
       diskLedColor = write ? DISK_WRITE : DISK_READ
       paintDisk()
     },
+    setPressure(frac) {
+      const clamped = THREE.MathUtils.clamp(frac, 0, 1)
+      const h = PSI_BASE_H + clamped * PSI_MAX_H
+      psiBar.scale.y = h / PSI_BASE_H
+      psiBar.position.y = PLATE_TOP + h / 2
+      const color = clamped > PSI_RED_AT ? PSI_RED : clamped > PSI_AMBER_AT ? PSI_AMBER : PSI_GREEN
+      psiMat.color.setHex(color)
+      psiMat.emissive.setHex(color)
+    },
     update(dtMs) {
       elapsedMs += dtMs
       if (coreStates.some(s => s.stuck)) {
@@ -174,6 +208,10 @@ export function makeHardwareRowScenario(): Scenario & {
       ramMats.forEach((_, i) => paintRam(i, null))
       diskLedT = 0
       paintDisk()
+      psiBar.scale.y = 1
+      psiBar.position.y = PLATE_TOP + PSI_BASE_H / 2
+      psiMat.color.setHex(PSI_GREEN)
+      psiMat.emissive.setHex(PSI_GREEN)
       panel.setNarration(DEFAULT_NARRATION)
     },
     setIdle() {

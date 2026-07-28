@@ -39,6 +39,12 @@ export function makeCh4(ctx: StoryCtx): Chapter {
         fire: () => ctx.killApp('chat'),
         waitFor: { ms: 4000 },
       },
+      {
+        narration: 'And when you come back — fork again, saved state restores, as if nothing died. The city breathes.',
+        focus: 'ward:chat',
+        fire: () => ctx.launcher.clickKiosk('chat'),
+        waitFor: { event: 'activity:resumed', app: 'chat' },
+      },
     ],
   }
 }

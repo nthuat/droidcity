@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { createSystem, fork, setPriority, usedMb, type SystemState } from '../sim/processes'
+import { createSystem, fork, setPriority, usedMb, type Priority, type SystemState } from '../sim/processes'
 import { makeBuilding, makeLabel } from '../scene/builders'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
@@ -10,11 +10,15 @@ const IDLE_DEMOTE_MS = 10000
 const IDLE_RECLAIM_MS = 25000
 const STAMP_MS = 400
 const DEFAULT_NARRATION = 'Zygote forks every app process from a pre-warmed template — this is why app launch is fast. (Wards are the per-app buildings; this district is the factory only.)'
+const KILL_NARRATION_SUFFIX = ' — SIGKILL, no callback, onDestroy never ran.'
+
+// AMS's OomAdjuster ladder, collapsed to our 4 coarse priorities.
+const OOM_ADJ: Record<Priority, number> = { foreground: 0, visible: 100, service: 500, cached: 900 }
 
 export function makeFoundryScenario(bus: Bus): Scenario & {
   demoteAll(): void
   killApp(app: string): void
-  stats(): { usedMb: number; capacityMb: number; procs: number; procList: { name: string; memoryMb: number }[] }
+  stats(): { usedMb: number; capacityMb: number; procs: number; procList: { name: string; memoryMb: number; oomAdj: number }[] }
 } {
   const group = new THREE.Group()
   let state: SystemState = createSystem(CAPACITY_MB)
@@ -105,6 +109,9 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     }
     // killedPids is cumulative — diff against what we saw before this fork to find only the new kills.
     const newlyKilled = state.killedPids.filter(pid => !prevKilled.includes(pid))
+    // A fork that had to reclaim memory is exactly the pressure event that
+    // triggers onTrimMemory in real Android — signal it before the kills land.
+    if (newlyKilled.length > 0) bus.emit('memory:trim', {})
     for (const pid of newlyKilled) {
       const proc = preForkProcs.find(p => p.pid === pid)
       if (proc) bus.emit('process:killed', { app: proc.name, pid })
@@ -119,7 +126,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     if (!proc) return
     state = { ...state, procs: state.procs.filter(p => p.pid !== proc.pid) }
     bus.emit('process:killed', { app, pid: proc.pid })
-    panel.setNarration(procTable())
+    panel.setNarration(procTable() + KILL_NARRATION_SUFFIX)
   }
 
   // Models Android's low-memory killer reclaiming cached processes over time —
@@ -127,7 +134,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   // wards) never frees one, and nothing ever re-launches.
   function killOldestCached(): void {
     const cached = state.procs.filter(p => p.priority === 'cached').sort((a, b) => a.pid - b.pid)
-    if (cached.length > 0) killApp(cached[0].name)
+    if (cached.length > 0) {
+      bus.emit('memory:trim', {})
+      killApp(cached[0].name)
+    }
   }
 
   let idleEnabled = true
@@ -191,7 +201,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
         usedMb: usedMb(state),
         capacityMb: CAPACITY_MB,
         procs: state.procs.length,
-        procList: state.procs.map(p => ({ name: p.name, memoryMb: p.memoryMb })),
+        procList: state.procs.map(p => ({ name: p.name, memoryMb: p.memoryMb, oomAdj: OOM_ADJ[p.priority] })),
       }
     },
   }

@@ -50,16 +50,26 @@ export function createHud(scene: THREE.Scene): Hud {
   return { attach, setLine, setDimmed }
 }
 
+export interface WardLabel {
+  readonly obj: CSS2DObject
+  setLine(text: string): void
+}
+
 // Small floating tag for one live ward, attached as a child of its group so it
-// rises/falls/disposes with the building. Caller must remove it from its parent
-// on demolition — CSS2DObject only cleans up its DOM node when explicitly
+// rises/falls/disposes with the building. Caller must remove `obj` from its
+// parent on demolition — CSS2DObject only cleans up its DOM node when explicitly
 // removed from its parent, not when an ancestor further up is removed.
-export function makeWardLabel(group: THREE.Group, text: string): CSS2DObject {
+// Two rows: a static title (app · pid) and a live second line (oom_adj score).
+export function makeWardLabel(group: THREE.Group, title: string): WardLabel {
   const el = document.createElement('div')
   el.className = 'hud-ward-label'
-  el.textContent = text
+  const titleEl = document.createElement('div')
+  titleEl.textContent = title
+  const lineEl = document.createElement('div')
+  el.append(titleEl, lineEl)
+
   const obj = new CSS2DObject(el)
   obj.position.set(0, WARD_LABEL_Y_OFFSET, 0)
   group.add(obj)
-  return obj
+  return { obj, setLine(text) { lineEl.textContent = text } }
 }

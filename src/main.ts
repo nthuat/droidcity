@@ -3,11 +3,10 @@ import { createCity } from './scene/city'
 import { buildBoard } from './scene/board'
 import { buildRoutes, pathLength } from './scene/routes'
 import { createPacketSystem } from './scene/packet'
-import { createHud, makeWardLabel } from './ui/hud'
+import { createHud, makeWardLabel, type WardLabel } from './ui/hud'
 import { createInspector } from './ui/inspector'
 import { attachZoneLabels, updateHudLines } from './ui/hudWiring'
 import { attachHardwareWiring } from './ui/hardwareWiring'
-import type { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
 import { makeBootRowScenario } from './scenarios/bootRow'
@@ -36,6 +35,7 @@ export const ANCHORS: Record<string, THREE.Vector3> = {
 }
 
 const WARDS_ANCHOR = new THREE.Vector3(0, 0, -25)
+const HUD_UPDATE_MS = 500
 
 export const PLOT_ANCHORS: THREE.Vector3[] = [
   new THREE.Vector3(-33.75, 0, -25),
@@ -73,7 +73,7 @@ const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 const bus = createBus()
 const packets = createPacketSystem(city.scene)
 const hud = createHud(city.scene)
-const wardLabels = new Map<string, CSS2DObject>()
+const wardLabels = new Map<string, WardLabel>()
 // Constructed before any bus.on() below, so its process:forked handler (which spawns
 // the ward group synchronously) always runs before main.ts's own handlers.
 const wardManager = createWardManager({
@@ -83,7 +83,7 @@ const wardManager = createWardManager({
   },
   onWardKilled(app) {
     const label = wardLabels.get(app)
-    if (label) label.parent?.remove(label)
+    if (label) label.obj.parent?.remove(label.obj)
     wardLabels.delete(app)
   },
 })
@@ -179,7 +179,13 @@ const hwWiring = attachHardwareWiring(bus, hardwareRow, wardManager, foundry)
 function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
   hwWiring.syncRam()
+  hwWiring.syncPressure(HUD_UPDATE_MS)
   hud.setLine('hardware', hwWiring.label())
+  const procList = foundry.stats().procList
+  for (const w of wardManager.wards()) {
+    const oomAdj = procList.find(p => p.name === w.app)?.oomAdj
+    wardLabels.get(w.app)?.setLine(`oom_adj ${oomAdj ?? '?'}`)
+  }
 }
 refreshHud()
 
@@ -274,7 +280,6 @@ let tweenToTarget = OVERVIEW_TARGET.clone()
 let tweenDurationMs = 0
 let tweenT = 0 // starts "done" (0 >= 0) — initial camera is set directly below
 
-const HUD_UPDATE_MS = 500
 let hudAccMs = 0
 const INSPECTOR_UPDATE_MS = 80
 let inspectorAccMs = 0
