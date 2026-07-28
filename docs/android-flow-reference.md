@@ -159,9 +159,9 @@ The flow above is one path through the system. These are the concepts an Android
 
 **🏙 Binder mechanics** (we use it as "roads via City Hall" but the machine itself): kernel `/dev/binder` driver; **one-copy** transfers via mmap'd receive buffers; each process owns a **binder thread pool** (default max ~16) — incoming calls run on those, not your main thread; `oneway` (async) vs synchronous calls; the **~1MB transaction buffer** shared per process — `TransactionTooLargeException` when a Parcel (e.g. a giant Bundle in `onSaveInstanceState`) blows it; **death recipients** (`linkToDeath`) — how system_server notices an app died; AIDL generates the Parcel marshalling.
 
-**🏙 The four components + Intents**: Activity, **Service** (started vs bound; foreground services with notification), **BroadcastReceiver** (system events; registered vs manifest), **ContentProvider** (data sharing across UIDs; initialized before `Application.onCreate` — startup cost). **Intents**: explicit vs implicit, resolution by PMS against manifest intent-filters. This is THE textbook Android abstraction set and DroidCity models only Activity.
+**🏙 The four components + Intents**: Activity, **Service** (started vs bound; foreground services with notification), **BroadcastReceiver** (system events; registered vs manifest), **ContentProvider** (data sharing across UIDs; initialized before `Application.onCreate` — startup cost). **Intents**: explicit vs implicit, resolution by PMS against manifest intent-filters. This is THE textbook Android abstraction set and DroidCity models only Activity. **v3:** started Services modeled (ward annex, oom_adj 500 keep-alive, LMK survival); broadcasts minimally (City Hall fan-out, BOOT_COMPLETED); Intents named in ch2 narration. BroadcastReceiver/ContentProvider still doc-only.
 
-**🏙 Cold / warm / hot start**: doc's Phase 2 is a **cold** start (fork everything). **Warm** = process alive, Activity recreated (no fork, no Application.onCreate). **Hot** = everything alive, just brought to front. Launcher tap on a cached ward should NOT rebuild the ward — instant hot start would teach why cached processes exist (ties directly into oom_adj 700/900 and LMK).
+**🏙 Cold / warm / hot start**: doc's Phase 2 is a **cold** start (fork everything). **Warm** = process alive, Activity recreated (no fork, no Application.onCreate). **Hot** = everything alive, just brought to front. Launcher tap on a cached ward should NOT rebuild the ward — instant hot start would teach why cached processes exist (ties directly into oom_adj 700/900 and LMK). **v3:** modeled — warm relight, hot pulse, Home button, Chapter 5 ladder.
 
 **🏙 ANR ladder** (we model input-ANR only): input dispatch **5s** · foreground service **20s** · broadcast receiver **10s** (foreground) · JobScheduler jobs. Different timers, same disease: a blocked main looper.
 
@@ -183,7 +183,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 **📖 IPC menu beyond Binder**: ContentProvider (structured data), Messenger (Binder-wrapped Handler), shared memory (`ashmem`/`SharedMemory` for big blobs — how providers pass cursors), Unix sockets (Zygote's own command channel is one).
 
-**Priority for DroidCity v3, if extended:** components+Intents (biggest conceptual hole — Services/broadcasts are half of real apps), then cold/warm/hot starts (cheap, reuses everything), then Binder mechanics beat (thread pool + 1MB limit as narration on City Hall), then ANR ladder (narration-only). The 📖 set stays doc-only — city can't carry everything without becoming noise.
+**Priority for DroidCity v4, if extended:** Binder mechanics beat (thread pool + 1MB limit as narration on City Hall), ANR ladder (narration-only), tasks & back stack (predictive back, launchMode). components+Intents and cold/warm/hot starts shipped in v3. The 📖 set stays doc-only — city can't carry everything without becoming noise.
 
 ---
 
