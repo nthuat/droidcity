@@ -101,7 +101,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   // lights it amber while entry.serviceRunning is true (toggleService).
   const annexGeo = new THREE.BoxGeometry(2, 1.8, 2)
   const annexMat = new THREE.MeshStandardMaterial({
-    color: 0x21262d, roughness: 0.7, emissive: 0xd29922, emissiveIntensity: 0,
+    color: 0x4a5058, roughness: 0.7, emissive: 0xd29922, emissiveIntensity: 0,
   })
   disposables.push(annexGeo, annexMat)
   const serviceAnnex = new THREE.Mesh(annexGeo, annexMat)
@@ -112,6 +112,10 @@ export function buildWardMeshes(app: string): WardMeshes {
     note: 'Runs with no UI. Keeps the process off the kill list — oom_adj 500 instead of 900.',
   }
   group.add(serviceAnnex)
+  const annexLabel = makeLabel('service', 0.35)
+  annexLabel.position.set(TOWER_X - 3.2, 2.4, TOWER_Z)
+  trackLabel(annexLabel)
+  group.add(annexLabel)
 
   // Activity tower: 3 lifecycle floors stacked above the Application floor.
   const floors: THREE.Mesh[] = []
@@ -256,7 +260,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   const rackStartX = THREAD_RACK_CENTER_X - ((THREAD_POST_LABELS.length - 1) * THREAD_POST_GAP) / 2
   THREAD_POST_LABELS.forEach((label, i) => {
     const geo = new THREE.BoxGeometry(THREAD_POST_W, THREAD_POST_H, THREAD_POST_W)
-    const mat = new THREE.MeshStandardMaterial({ color: 0x21262d, roughness: 0.6 })
+    const mat = new THREE.MeshStandardMaterial({ color: 0x4c5763, roughness: 0.6 })
     disposables.push(geo, mat)
     const post = new THREE.Mesh(geo, mat)
     post.name = `threadPost_${label}`
@@ -293,7 +297,7 @@ export function buildWardMeshes(app: string): WardMeshes {
 
   // Room shed with a door plane that flashes on query.
   const shedGeo = new THREE.BoxGeometry(2, 1.5, 2)
-  const shedMat = new THREE.MeshStandardMaterial({ color: 0x30363d, roughness: 0.7 })
+  const shedMat = new THREE.MeshStandardMaterial({ color: 0x525b66, roughness: 0.7 })
   disposables.push(shedGeo, shedMat)
   const shed = new THREE.Mesh(shedGeo, shedMat)
   shed.name = 'roomShed'
@@ -303,6 +307,10 @@ export function buildWardMeshes(app: string): WardMeshes {
     note: 'App-private database. Fast, local, survives process death. The file itself is on the DISK — mmap\'d pages arrive over the storage bus.',
   }
   group.add(shed)
+  const shedLabel = makeLabel('Room DB', 0.35)
+  shedLabel.position.set(6, 2.2, 4)
+  trackLabel(shedLabel)
+  group.add(shedLabel)
 
   const shedGlowGeo = new THREE.PlaneGeometry(0.8, 1.2)
   const shedGlowMat = new THREE.MeshStandardMaterial({
