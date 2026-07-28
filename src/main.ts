@@ -519,14 +519,26 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   const hits = raycaster.intersectObjects(city.scene.children, true)
   for (const hit of hits) {
     const app = wardManager.wardAppFromObject(hit.object)
-    if (!app) continue
-    const g = wardManager.wardGroupFor(app)
-    if (g) {
-      flyTo(g.position.clone().add(WARD_CAMERA_OFFSET), g.position.clone().add(WARD_TARGET_OFFSET))
-      const panel = wardManager.panelFor(app)
-      if (panel) panelEl.replaceChildren(panel)
+    if (app) {
+      const g = wardManager.wardGroupFor(app)
+      if (g) {
+        flyTo(g.position.clone().add(WARD_CAMERA_OFFSET), g.position.clone().add(WARD_TARGET_OFFSET))
+        const panel = wardManager.panelFor(app)
+        if (panel) panelEl.replaceChildren(panel)
+      }
+      return
     }
-    break
+    // District buildings behave like their switcher buttons: clicking City Hall,
+    // the foundry, the tower etc. flies there and opens that district's panel.
+    let o: THREE.Object3D | null = hit.object
+    while (o) {
+      const i = scenarios.findIndex(s => s.group === o)
+      if (i >= 0) {
+        activate(scenarios[i], i)
+        return
+      }
+      o = o.parent
+    }
   }
 })
 
