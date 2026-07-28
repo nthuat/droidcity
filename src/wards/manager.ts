@@ -62,6 +62,7 @@ export interface WardManagerDeps {
 }
 
 const RISE_MS = 800
+const BUSY_GLOW_MS = 400
 const RESTORE_WINDOW_MS = 60000
 const FRAME_VISUAL_SCALE = 0.02
 const DEMOLISH_MS = 600
@@ -172,6 +173,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       dbQueryMs: 0,
       dbPending: false,
       anrFlashT: 0,
+      busyGlowMs: 0,
       shedFlashMs: 0,
       screenFlashMs: 0,
       sweepMs: 0,
@@ -504,8 +506,17 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     }
 
     const wasAnr = entry.looper.anr
+    // Compare last processed id (not length — trimProcessed caps the array at a
+    // fixed size, so length stops changing once full).
+    const lastProcessedBefore = entry.looper.processedIds[entry.looper.processedIds.length - 1]
     entry.looper = trimProcessed(advance(entry.looper, dtMs))
     if (entry.looper.anr && !wasAnr) bus.emit('anr', { app })
+    const lastProcessedAfter = entry.looper.processedIds[entry.looper.processedIds.length - 1]
+    if (entry.looper.current !== null || lastProcessedAfter !== lastProcessedBefore || entry.frame !== null) {
+      entry.busyGlowMs = BUSY_GLOW_MS
+    } else {
+      entry.busyGlowMs = Math.max(0, entry.busyGlowMs - dtMs)
+    }
 
     if (idleEnabled) {
       entry.idleTapMs += dtMs
@@ -602,7 +613,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     },
     wardStats() {
       return [...wards.values()].filter(e => !e.dying).map(e => ({
-        app: e.app, plot: e.plot, busy: e.looper.current !== null, anr: e.looper.anr, phase: e.activity.phase,
+        app: e.app, plot: e.plot, busy: e.busyGlowMs > 0 || e.looper.current !== null, anr: e.looper.anr, phase: e.activity.phase,
         backStack: e.backStack,
       }))
     },

@@ -20,7 +20,7 @@ export function updateHudLines(
   wardCount: number,
   foundry: { stats(): { usedMb: number; capacityMb: number; procs: number } },
   networkTower: { stats(): { queue: number; phase: string } },
-  surfaceFlinger: { stats(): { composited: number } },
+  surfaceFlinger: { stats(): { composited: number; dropped: number } },
   launcherPlaza: { stats(): { running: number } },
 ): void {
   hud.setLine('wards', `${wardCount}/4 running`)

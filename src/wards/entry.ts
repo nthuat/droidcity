@@ -37,6 +37,10 @@ export interface WardEntry {
   dbQueryMs: number
   dbPending: boolean
   anrFlashT: number
+  // Core-activity afterglow: real messages finish inside one frame tick, so the
+  // instantaneous looper.current is almost never observable. Any processed
+  // message (or in-flight frame) keeps the CPU core lit for a visible window.
+  busyGlowMs: number
   shedFlashMs: number
   screenFlashMs: number
   sweepMs: number
