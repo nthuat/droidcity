@@ -81,7 +81,7 @@ export function trimLog(s: ActivityState): ActivityState {
 }
 
 export function narrationFor(entry: WardEntry): string {
-  const base = `${entry.activity.phase} · queue ${entry.looper.queue.length} · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB`
+  const base = `${entry.activity.phase} · main queue ${entry.looper.queue.length} waiting · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB`
   const line = entry.looper.anr ? `${base} · ANR! main thread blocked 5s+` : base
   const withRestored = entry.restored ? `Restored — saved state + ViewModel made this cheap.\n${line}` : line
   const withService = entry.serviceRunning
