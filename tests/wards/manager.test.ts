@@ -466,6 +466,47 @@ describe('WardManager', () => {
     expect(setAppPriority).not.toHaveBeenCalled()
   })
 
+  it('singleTop with an empty back stack pushes a new instance (real Android semantics) and narrates the fallback', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed, backStack still 0
+
+    const pushed: { app: string; depth: number }[] = []
+    deps.bus.on('activity:pushed', p => pushed.push(p))
+
+    // No instance on top to reuse -> falls back to a standard push instead of
+    // a silent no-op, and flags it so the click isn't indistinguishable from
+    // a plain 'Open screen'.
+    manager.pushActivity('chat', 'singleTop')
+
+    expect(pushed).toEqual([{ app: 'chat', depth: 1 }])
+    expect(manager.wardStats().find(s => s.app === 'chat')?.backStack).toBe(1)
+    expect(manager.wardStats().find(s => s.app === 'chat')?.panelMessage)
+      .toBe('singleTop: no instance on top — pushed new one')
+  })
+
+  it('Bind to <target> resolves the next living ward at click time, not once at panel build', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+
+    const bound: { client: string; service: string }[] = []
+    deps.bus.on('service:bound', p => bound.push(p))
+
+    // Only one ward alive -> no target yet, silent no-op is narrated instead.
+    manager.toggleBind('chat')
+    expect(bound).toHaveLength(0)
+    expect(manager.wardStats().find(s => s.app === 'chat')?.panelMessage)
+      .toBe('Bind: no other ward to bind to')
+
+    // A second ward launches later — the same button, clicked again, must
+    // resolve to it live rather than staying stuck on the stale '—' target.
+    deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
+    manager.toggleBind('chat')
+    expect(bound).toEqual([{ client: 'chat', service: 'maps' }])
+  })
+
   it('bindService: a resumed client binding to a backgrounded service promotes it to visible; unbind recomputes back to cached', () => {
     const deps = makeDeps()
     const setAppPriority = vi.fn()

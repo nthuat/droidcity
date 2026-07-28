@@ -30,7 +30,7 @@ export interface WardManager {
   wards(): readonly WardHandles[]
   wardStats(): {
     app: string; plot: number; busy: boolean; anr: boolean; phase: Phase; backStack: number
-    heapUsedKb: number; heapCapacityKb: number
+    heapUsedKb: number; heapCapacityKb: number; panelMessage: string
   }[]
   wardGroupFor(app: string): THREE.Group | null
   wardAppFromObject(obj: THREE.Object3D): string | null
@@ -46,6 +46,7 @@ export interface WardManager {
   popActivity(app: string): void
   bindService(clientApp: string, serviceApp: string): void
   unbindService(clientApp: string): void
+  toggleBind(app: string): void
 }
 
 export interface WardManagerDeps {
@@ -95,6 +96,10 @@ const WORKER_CAR_COLOR = 0x8b949e
 const WORKER_CAR_SCALE = 0.3
 const HOT_PULSE_MS = 200
 const BINDER_PULSE_MS = 300
+// How long a transient panel feedback line (no-op explanation, GC result,
+// etc.) stays up — long enough to actually read, unlike the sim-scale flash
+// constants above.
+const PANEL_MESSAGE_MS = 2500
 const MAX_BACK_STACK = 3
 const TETHER_COLOR = 0xbc8cff
 const TETHER_Y = 2
@@ -169,6 +174,14 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (names.length < 2) return null
     const idx = names.indexOf(app)
     return names[(idx + 1) % names.length]
+  }
+
+  // Sets the transient panel feedback line (see WardEntry.panelMessage) —
+  // used on button no-ops and otherwise-invisible notable results so every
+  // click gives the user something to read.
+  function setPanelMessage(entry: WardEntry, msg: string): void {
+    entry.panelMessage = msg
+    entry.panelMessageMs = PANEL_MESSAGE_MS
   }
 
   function createTether(client: WardEntry, service: WardEntry): THREE.Line {
@@ -296,6 +309,8 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       boundTo: null,
       tether: null,
       binderPulseMs: 0,
+      panelMessage: '',
+      panelMessageMs: 0,
     }
     wards.set(app, entry)
     onWardSpawned?.(app, pid, meshes.group)
@@ -465,11 +480,18 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.heap = gcHeap(entry.heap)
     entry.sweepMs = SWEEP_MS
     bus.emit('gc:swept', { app, freedKb: entry.heap.lastFreedKb })
+    setPanelMessage(entry, entry.heap.lastFreedKb > 0
+      ? `GC — freed ${entry.heap.lastFreedKb}KB`
+      : 'GC — nothing unreachable')
   }
 
   function rotateWard(app: string): void {
     const entry = wards.get(app)
-    if (!entry || entry.dying || entry.activity.phase !== 'resumed') return
+    if (!entry || entry.dying) return
+    if (entry.activity.phase !== 'resumed') {
+      setPanelMessage(entry, 'Rotate: activity not in foreground')
+      return
+    }
     entry.activity = rotateActivity(entry.activity)
     entry.rebuildMs = REBUILD_MS
   }
@@ -481,7 +503,11 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   // already be a phase no-op).
   function goHome(app: string): void {
     const entry = wards.get(app)
-    if (!entry || entry.dying || entry.activity.phase !== 'resumed') return
+    if (!entry || entry.dying) return
+    if (entry.activity.phase !== 'resumed') {
+      setPanelMessage(entry, 'Home: not in foreground')
+      return
+    }
     entry.activity = background(entry.activity)
     entry.binderPulseMs = BINDER_PULSE_MS
     setAppPriority?.(app, backgroundPriority(entry))
@@ -497,7 +523,12 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   // instance instead — no new card, no activity:pushed, just a brief flash.
   function pushActivity(app: string, mode: 'standard' | 'singleTop' = 'standard'): void {
     const entry = wards.get(app)
-    if (!entry || entry.dying || entry.activity.phase !== 'resumed') return
+    if (!entry || entry.dying) return
+    if (entry.activity.phase !== 'resumed') {
+      const label = mode === 'singleTop' ? 'Open (singleTop)' : 'Open screen'
+      setPanelMessage(entry, `${label}: activity not in foreground`)
+      return
+    }
     if (mode === 'singleTop' && entry.backStack > 0) {
       entry.singleTopFlashMs = SINGLE_TOP_FLASH_MS
       return
@@ -505,6 +536,12 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     if (entry.backStack >= MAX_BACK_STACK) return
     entry.backStack += 1
     bus.emit('activity:pushed', { app, depth: entry.backStack })
+    // Real Android singleTop semantics: no existing instance on top of the
+    // task to reuse, so it falls back to a standard push — same as above,
+    // just flagged so the click doesn't look identical to a plain 'Open screen'.
+    if (mode === 'singleTop') {
+      setPanelMessage(entry, 'singleTop: no instance on top — pushed new one')
+    }
   }
 
   // Panel 'Back' button: pops the top stacked Activity, or — once the stack is
@@ -521,7 +558,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       bus.emit('activity:popped', { app, depth: entry.backStack })
       return
     }
-    if (entry.activity.phase === 'destroyed') return
+    if (entry.activity.phase === 'destroyed') {
+      setPanelMessage(entry, 'Back: nothing to close')
+      return
+    }
     entry.activity = finish(entry.activity)
     setAppPriority?.(app, backgroundPriority(entry))
     bus.emit('activity:backgrounded', { app })
@@ -705,6 +745,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.sweepMs = Math.max(0, entry.sweepMs - dtMs)
     entry.singleTopFlashMs = Math.max(0, entry.singleTopFlashMs - dtMs)
     entry.binderPulseMs = Math.max(0, entry.binderPulseMs - dtMs)
+    entry.panelMessageMs = Math.max(0, entry.panelMessageMs - dtMs)
     entry.anrFlashT += dtMs
     updateGroupScale(entry, dtMs)
     if (entry.hotPulseMs > 0) {
@@ -761,7 +802,11 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       return
     }
     const target = nextLivingWard(app)
-    if (target) bindService(app, target)
+    if (target) {
+      bindService(app, target)
+    } else {
+      setPanelMessage(entry, 'Bind: no other ward to bind to')
+    }
   }
 
   return {
@@ -777,6 +822,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       return [...wards.values()].filter(e => !e.dying).map(e => ({
         app: e.app, plot: e.plot, busy: e.busyGlowMs > 0 || e.looper.current !== null, anr: e.looper.anr, phase: e.activity.phase,
         backStack: e.backStack, heapUsedKb: usedKb(e.heap), heapCapacityKb: e.heap.capacityKb,
+        panelMessage: e.panelMessageMs > 0 ? e.panelMessage : '',
       }))
     },
     wardGroupFor(app) {
@@ -815,5 +861,6 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     popActivity,
     bindService,
     unbindService,
+    toggleBind,
   }
 }

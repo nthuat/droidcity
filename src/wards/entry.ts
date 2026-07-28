@@ -68,6 +68,11 @@ export interface WardEntry {
   // ward's process (foreground/background transitions) — set to
   // BINDER_PULSE_MS, decays like the other *Ms flash fields.
   binderPulseMs: number
+  // Transient panel feedback line (a no-op explanation or a notable-but-quiet
+  // result, e.g. "GC — nothing unreachable"). Rendered as the top narration
+  // line while panelMessageMs > 0, decays like the other *Ms flash fields.
+  panelMessage: string
+  panelMessageMs: number
 }
 
 export function trimProcessed(s: LooperState): LooperState {
@@ -92,7 +97,8 @@ export function narrationFor(entry: WardEntry): string {
   const withRotate = entry.rebuildMs > 0
     ? `${withService}\nRotation is just one config change — locale, dark mode, fold state recreate the Activity the same way.`
     : withService
-  return entry.singleTopFlashMs > 0
+  const withSingleTop = entry.singleTopFlashMs > 0
     ? `${withRotate}\nsingleTop: already on top — reused, no new instance.`
     : withRotate
+  return entry.panelMessageMs > 0 ? `${entry.panelMessage}\n${withSingleTop}` : withSingleTop
 }
