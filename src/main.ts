@@ -5,6 +5,7 @@ import { buildRoutes, pathLength } from './scene/routes'
 import { createPacketSystem } from './scene/packet'
 import { createHud, makeWardLabel } from './ui/hud'
 import { attachZoneLabels, updateHudLines } from './ui/hudWiring'
+import { attachHardwareWiring } from './ui/hardwareWiring'
 import type { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
@@ -120,8 +121,14 @@ const scenarios: Scenario[] = [
 ]
 
 attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)
+// Single combined HARDWARE chip (CPU/RAM/DISK on one line) rather than three
+// sub-labels — matches the other zone chips' one-title/one-line shape.
+hud.attach('hardware', ANCHORS.hardware, 'HARDWARE')
+const hwWiring = attachHardwareWiring(bus, hardwareRow, wardManager, foundry)
 function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
+  hwWiring.syncRam()
+  hud.setLine('hardware', hwWiring.label())
 }
 refreshHud()
 
@@ -468,6 +475,7 @@ city.start((dtMs) => {
     packets.update(dtMs)
     for (const s of scenarios) s.update(dtMs)
     wardManager.update(dtMs)
+    hwWiring.syncCores()
   }
   player.update(dtMs)
   hudAccMs += dtMs

@@ -15,7 +15,7 @@ export interface WardMeshes {
   dispose(): void
 }
 
-const APP_COLORS: Record<string, number> = {
+export const APP_COLORS: Record<string, number> = {
   chat: 0x3fb950,
   maps: 0x388bfd,
   camera: 0xd29922,

@@ -14,7 +14,7 @@ const DEFAULT_NARRATION = 'Zygote forks every app process from a pre-warmed temp
 export function makeFoundryScenario(bus: Bus): Scenario & {
   demoteAll(): void
   killApp(app: string): void
-  stats(): { usedMb: number; capacityMb: number; procs: number }
+  stats(): { usedMb: number; capacityMb: number; procs: number; procList: { name: string; memoryMb: number }[] }
 } {
   const group = new THREE.Group()
   let state: SystemState = createSystem(CAPACITY_MB)
@@ -185,7 +185,12 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     demoteAll,
     killApp,
     stats() {
-      return { usedMb: usedMb(state), capacityMb: CAPACITY_MB, procs: state.procs.length }
+      return {
+        usedMb: usedMb(state),
+        capacityMb: CAPACITY_MB,
+        procs: state.procs.length,
+        procList: state.procs.map(p => ({ name: p.name, memoryMb: p.memoryMb })),
+      }
     },
   }
 }

@@ -22,6 +22,7 @@ export interface WardManager {
   update(dtMs: number): void
   setIdle(enabled: boolean): void
   wards(): readonly WardHandles[]
+  wardStats(): { app: string; plot: number; busy: boolean; anr: boolean }[]
   wardGroupFor(app: string): THREE.Group | null
   wardAppFromObject(obj: THREE.Object3D): string | null
   panelFor(app: string): HTMLElement | null
@@ -358,6 +359,11 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     setIdle(enabled) { idleEnabled = enabled },
     wards() {
       return [...wards.values()].map(e => ({ app: e.app, pid: e.pid, plot: e.plot }))
+    },
+    wardStats() {
+      return [...wards.values()].map(e => ({
+        app: e.app, plot: e.plot, busy: e.looper.current !== null, anr: e.looper.anr,
+      }))
     },
     wardGroupFor(app) {
       return wards.get(app)?.meshes.group ?? null
