@@ -18,7 +18,8 @@ export function makeCityHallScenario(bus: Bus): Scenario {
     title: 'system_server',
     note: 'ActivityManager, WindowManager, PackageManager. All Binder calls route here. '
       + 'Intents resolve here — PMS matches them against every app\'s declared filters. '
-      + 'servicemanager is the phone book: every Binder client asks it for handles.',
+      + 'servicemanager is the phone book: every Binder client asks it for handles.'
+      + ' Itself the first process forked from Zygote — function put it at the center, not birthplace.',
   }
   group.add(hall)
 

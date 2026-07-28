@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { InspectorInfo } from '../ui/inspector'
 
 // Physical roads + conveyors tying the board's zones together, plus the waypoint
 // polylines packets fly along. Mirrors main.ts's ANCHORS / PLOT_ANCHORS values
@@ -53,6 +54,7 @@ interface RouteDef {
   // is meshed exactly once in TRUNKS below. Rebuilding it per plot stacked 4
   // coplanar boxes (conveyors with mismatched stripe phases) that z-fought.
   readonly draw?: readonly THREE.Vector3[]
+  readonly info?: InspectorInfo
 }
 
 const ROUTES: RouteDef[] = [
@@ -110,6 +112,16 @@ const ROUTES: RouteDef[] = [
   // network -> off-board east (the INTERNET road): stays on the network plate
   // (0.3) to the board rim at x 85, then steps down off-board.
   { from: 'network', to: 'offboard-east', waypoints: [ANCHORS.network, v(85, PLATE_Y, 17), OFFBOARD_EAST] },
+  // zygote -> cityhall (genealogy: first casting). Conveyor from foundry plate east
+  // along the rim, descends pit's west side to the hall floor.
+  {
+    from: 'zygote', to: 'cityhall', conveyor: true,
+    waypoints: [ANCHORS.zygote, v(-48, PLATE_Y, -10), v(-42, -2, 0), ANCHORS.cityhall],
+    info: {
+      title: 'First casting',
+      note: 'system_server is itself a process — the very first fork out of Zygote at boot. Born in the foundry, resides at the center because every Binder road ends here.',
+    },
+  },
 ]
 
 // Shared trunk legs, each meshed exactly once (see RouteDef.draw above).
@@ -190,7 +202,13 @@ export function buildRoutes(): Routes {
   const group = new THREE.Group()
   group.name = 'routes'
   for (const route of ROUTES) {
-    for (const mesh of buildPolyline(route.draw ?? route.waypoints, route.conveyor)) group.add(mesh)
+    const meshes = buildPolyline(route.draw ?? route.waypoints, route.conveyor)
+    if (route.info) {
+      for (const mesh of meshes) {
+        mesh.userData.info = route.info
+      }
+    }
+    for (const mesh of meshes) group.add(mesh)
   }
   for (const trunk of TRUNKS) {
     for (const mesh of buildPolyline(trunk.points, trunk.conveyor)) group.add(mesh)
