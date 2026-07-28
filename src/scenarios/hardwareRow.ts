@@ -34,9 +34,20 @@ const PSI_RED = 0xf85149
 interface CoreState {
   color: number | null
   stuck: boolean
+  app: string
 }
 
-function buildCpu(group: THREE.Group): THREE.MeshStandardMaterial[] {
+interface RamSegment {
+  color: number
+  app: string
+}
+
+interface Slot {
+  mesh: THREE.Mesh
+  mat: THREE.MeshStandardMaterial
+}
+
+function buildCpu(group: THREE.Group): Slot[] {
   const housing = new THREE.Mesh(
     new THREE.BoxGeometry(14, 2, 8),
     new THREE.MeshStandardMaterial({ color: HOUSING_COLOR, roughness: 0.6 }),
@@ -54,50 +65,49 @@ function buildCpu(group: THREE.Group): THREE.MeshStandardMaterial[] {
     const slot = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.4, 6), mat)
     slot.position.set(CPU_X + dx, slotTop, 0)
     group.add(slot)
-    return mat
+    return { mesh: slot, mat }
   })
 }
 
-function buildRam(group: THREE.Group): THREE.MeshStandardMaterial[] {
+function buildRam(group: THREE.Group): Slot[] {
   const slabXOffsets = [-8.4, -6, -3.6, -1.2, 1.2, 3.6, 6, 8.4]
-  return slabXOffsets.map((dx, i) => {
+  return slabXOffsets.map((dx) => {
     const mat = new THREE.MeshStandardMaterial({
       color: RAM_IDLE, emissive: RAM_IDLE, emissiveIntensity: 0, roughness: 0.5,
     })
     const slab = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 0.8), mat)
     slab.position.set(RAM_X + dx, PLATE_TOP + 1.5, 0)
-    if (i === 0) {
-      slab.userData.info = {
-        title: 'RAM',
-        note: 'Each running app owns segments in its color — physical pages behind every ward\'s heap.',
-      }
-    }
     group.add(slab)
-    return mat
+    return { mesh: slab, mat }
   })
 }
 
 function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
+  // Grouped so the inspector's parent-chain walk-up finds the tooltip from any
+  // platter, the arm, or the LED — not just whichever mesh happened to carry it.
+  const diskGroup = new THREE.Group()
+  diskGroup.userData.info = { title: 'Disk', note: 'Blinks on every Room read/write.' }
+  group.add(diskGroup)
+
   const platterMat = new THREE.MeshStandardMaterial({ color: 0x484f58, roughness: 0.4, metalness: 0.3 })
   for (let i = 0; i < 3; i++) {
     const platter = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.3, 24), platterMat)
     platter.position.set(DISK_X, PLATE_TOP + 0.15 + i * 0.7, 0)
-    if (i === 0) platter.userData.info = { title: 'Disk', note: 'Blinks on every Room read/write.' }
-    group.add(platter)
+    diskGroup.add(platter)
   }
   const arm = new THREE.Mesh(
     new THREE.BoxGeometry(3, 0.2, 0.4),
     new THREE.MeshStandardMaterial({ color: 0x6e7681, roughness: 0.5 }),
   )
   arm.position.set(DISK_X + 2.5, PLATE_TOP + 1.6, 2.6)
-  group.add(arm)
+  diskGroup.add(arm)
 
   const ledMat = new THREE.MeshStandardMaterial({
     color: DISK_IDLE, emissive: DISK_IDLE, emissiveIntensity: 0, roughness: 0.4,
   })
   const led = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8), ledMat)
   led.position.set(DISK_X, PLATE_TOP + 2, 3)
-  group.add(led)
+  diskGroup.add(led)
   return ledMat
 }
 
@@ -119,25 +129,31 @@ const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each ward’
 
 export function makeHardwareRowScenario(): Scenario & {
   setCoreStates(s: CoreState[]): void
-  setRamSegments(s: (number | null)[]): void
+  setRamSegments(s: (RamSegment | null)[]): void
   diskBlink(write: boolean): void
   setPressure(frac: number): void
 } {
   const group = new THREE.Group()
 
-  const coreMats = buildCpu(group)
-  const ramMats = buildRam(group)
+  const coreSlots = buildCpu(group)
+  const ramSlots = buildRam(group)
   const diskLedMat = buildDisk(group)
   const { bar: psiBar, mat: psiMat } = buildPsi(group)
 
-  let coreStates: CoreState[] = coreMats.map(() => ({ color: null, stuck: false }))
+  let coreStates: CoreState[] = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
   let elapsedMs = 0
   let diskLedT = 0
   let diskLedColor = DISK_READ
 
   function paintCore(i: number): void {
-    const mat = coreMats[i]
+    const { mesh, mat } = coreSlots[i]
     const s = coreStates[i]
+    mesh.userData.info = s.color !== null
+      ? {
+          title: `Core — running ${s.app}`,
+          note: s.stuck ? 'Main thread blocked >5s — ANR territory.' : 'Executing this ward\'s main-thread messages.',
+        }
+      : { title: 'Core — idle', note: 'No ward is executing right now.' }
     if (s.stuck) {
       mat.color.setHex(CORE_STUCK)
       mat.emissive.setHex(CORE_STUCK)
@@ -149,12 +165,18 @@ export function makeHardwareRowScenario(): Scenario & {
     mat.emissiveIntensity = s.color !== null ? 0.7 : 0
   }
 
-  function paintRam(i: number, color: number | null): void {
-    const mat = ramMats[i]
-    const hex = color ?? RAM_IDLE
+  function paintRam(i: number, seg: RamSegment | null): void {
+    const { mesh, mat } = ramSlots[i]
+    const hex = seg?.color ?? RAM_IDLE
     mat.color.setHex(hex)
     mat.emissive.setHex(hex)
-    mat.emissiveIntensity = color !== null ? 0.6 : 0
+    mat.emissiveIntensity = seg !== null ? 0.6 : 0
+    mesh.userData.info = seg
+      ? {
+          title: `RAM — ${seg.app}'s pages`,
+          note: '150MB of physical memory behind that ward\'s heap. Freed only when the process dies.',
+        }
+      : { title: 'RAM — free', note: 'Unclaimed physical pages.' }
   }
 
   function paintDisk(): void {
@@ -178,7 +200,7 @@ export function makeHardwareRowScenario(): Scenario & {
       coreStates.forEach((_, i) => paintCore(i))
     },
     setRamSegments(s) {
-      s.forEach((color, i) => paintRam(i, color))
+      s.forEach((seg, i) => paintRam(i, seg))
     },
     diskBlink(write) {
       diskLedT = DISK_DECAY_MS
@@ -199,7 +221,7 @@ export function makeHardwareRowScenario(): Scenario & {
       if (coreStates.some(s => s.stuck)) {
         const pulse = 0.5 + 0.4 * Math.sin(elapsedMs * CORE_PULSE_HZ)
         coreStates.forEach((s, i) => {
-          if (s.stuck) coreMats[i].emissiveIntensity = pulse
+          if (s.stuck) coreSlots[i].mat.emissiveIntensity = pulse
         })
       }
       if (diskLedT > 0) {
@@ -208,9 +230,9 @@ export function makeHardwareRowScenario(): Scenario & {
       }
     },
     reset() {
-      coreStates = coreMats.map(() => ({ color: null, stuck: false }))
+      coreStates = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
       coreStates.forEach((_, i) => paintCore(i))
-      ramMats.forEach((_, i) => paintRam(i, null))
+      ramSlots.forEach((_, i) => paintRam(i, null))
       diskLedT = 0
       paintDisk()
       psiBar.scale.y = 1

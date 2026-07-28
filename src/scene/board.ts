@@ -61,13 +61,15 @@ function makeSlope(color: number, from: THREE.Vector3, to: THREE.Vector3, thickn
 }
 
 // Flat canvas-texture "silk-screen" plane, laid on top of the board facing up.
-function makeEdgeText(text: string, width: number, depth: number, x: number, y: number, z: number): THREE.Mesh {
+function makeEdgeText(
+  text: string, width: number, depth: number, x: number, y: number, z: number, color = '#8b98a5',
+): THREE.Mesh {
   const canvas = document.createElement('canvas')
   canvas.width = 1024
   canvas.height = 128
   const ctx = canvas.getContext('2d')!
   ctx.font = 'bold 56px system-ui, sans-serif'
-  ctx.fillStyle = '#8b98a5'
+  ctx.fillStyle = color
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(text, canvas.width / 2, canvas.height / 2)
@@ -135,6 +137,14 @@ export function buildBoard(): THREE.Group {
   group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
   group.add(makeEdgeText('INTERNET →', 16, 6, 76, 0.36, 17))
   group.add(makeEdgeText('HARDWARE', 30, 6, 0, -0.44, -73)) // on the hardware plate (top -0.5)
+
+  // Silk-screen sub-labels under each hardware block — dimmer than the section
+  // title above, x's mirror hardwareRow.ts's CPU_X/RAM_X/DISK_X (and PSI_X).
+  const HW_LABEL_DIM = '#4d5560'
+  group.add(makeEdgeText('CPU', 8, 1.6, -55, -0.44, -62, HW_LABEL_DIM))
+  group.add(makeEdgeText('RAM BANK', 8, 1.6, 0, -0.44, -62, HW_LABEL_DIM))
+  group.add(makeEdgeText('PSI', 8, 1.6, 11, -0.44, -62, HW_LABEL_DIM))
+  group.add(makeEdgeText('DISK', 8, 1.6, 55, -0.44, -62, HW_LABEL_DIM))
 
   // Board corners: 2 vents each. Back corners (z -57) sit on the recessed boot strip
   // (plate top -0.2); front corners (z 57) sit on bare board (no plate reaches there).

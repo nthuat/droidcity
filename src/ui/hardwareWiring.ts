@@ -12,8 +12,8 @@ const PRESSURE_SPIKE_FRAC = 0.25
 const PRESSURE_SPIKE_DECAY_MS = 2000
 
 interface HardwareRow {
-  setCoreStates(s: { color: number | null; stuck: boolean }[]): void
-  setRamSegments(s: (number | null)[]): void
+  setCoreStates(s: { color: number | null; stuck: boolean; app: string }[]): void
+  setRamSegments(s: ({ color: number; app: string } | null)[]): void
   diskBlink(write: boolean): void
   setPressure(frac: number): void
 }
@@ -54,20 +54,20 @@ export function attachHardwareWiring(
     const stats = wardManager.wardStats()
     const cores = Array.from({ length: CORE_COUNT }, (_, plot) => {
       const w = stats.find(s => s.plot === plot)
-      if (!w) return { color: null, stuck: false }
-      return { color: w.busy ? (APP_COLORS[w.app] ?? 0x6e7681) : null, stuck: w.anr }
+      if (!w) return { color: null, stuck: false, app: '' }
+      return { color: w.busy ? (APP_COLORS[w.app] ?? 0x6e7681) : null, stuck: w.anr, app: w.app }
     })
     hardwareRow.setCoreStates(cores)
     cores.forEach((c, plot) => setCpuTraceGlow(plot, c.stuck ? CORE_STUCK_GLOW : c.color))
   }
 
   function syncRam(): void {
-    const segments: (number | null)[] = new Array(RAM_SEGMENTS).fill(null)
+    const segments: ({ color: number; app: string } | null)[] = new Array(RAM_SEGMENTS).fill(null)
     let i = 0
     for (const proc of foundry.stats().procList) {
       const color = APP_COLORS[proc.name] ?? 0x6e7681
       const count = Math.ceil(proc.memoryMb / MB_PER_SEGMENT)
-      for (let n = 0; n < count && i < RAM_SEGMENTS; n++, i++) segments[i] = color
+      for (let n = 0; n < count && i < RAM_SEGMENTS; n++, i++) segments[i] = { color, app: proc.name }
     }
     hardwareRow.setRamSegments(segments)
   }
