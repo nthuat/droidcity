@@ -206,6 +206,9 @@ export function syncFlashes(state: FlashState, anrOn: boolean, anrFlashT: number
 
   const anrMat = state.meshes.anrOverlay.material as THREE.MeshBasicMaterial
   anrMat.opacity = anrOn ? 0.25 + 0.2 * Math.sin(anrFlashT / 120) : 0
+  // Actually hide it when idle: opacity 0 still raycasts, so the ward-sized box
+  // otherwise swallows every hover and its ANR tooltip shadows all inner meshes.
+  state.meshes.anrOverlay.visible = anrOn
 
   if (state.sweepMs > 0) {
     if (!state.sweepMesh) {
