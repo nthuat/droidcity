@@ -109,10 +109,10 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Real thing | DroidCity | Status |
 |---|---|---|
 | Launcher startActivity via Binder to AMS | kiosk → `app:launchRequested` → packet via City Hall | ✅ (Binder two-hop) |
-| **Starting window / splash** | — | ❌ good teaching beat: why cold starts *look* fast |
+| **Starting window / splash** | ghost splash on plot from fork until first composite | ✅ (fixed) |
 | Zygote socket + fork | Foundry stamp | ✅ |
 | ActivityThread.main / Looper created at process start | Ward spawns with road pre-built | ⚠️ fine |
-| attach → bindApplication → **Application.onCreate** | — | ❌ ward rise jumps straight to Activity; App-vs-Activity distinction matters (ContentProvider init cost) |
+| attach → bindApplication → **Application.onCreate** | Application base floor lights at rise-complete, before lifecycle floors | ✅ (fixed) |
 | Activity onCreate/onStart/onResume | Tower floors | ✅ |
 | ViewRootImpl + window registered with WMS | — | ❌ City Hall has a WMS wing label only |
 | Surface allocated from SF | implicit | ⚠️ |
@@ -121,9 +121,9 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 ### Tap → data → pixel
 | Real thing | DroidCity | Status |
 |---|---|---|
-| InputReader/InputDispatcher in system_server → InputChannel | — | ❌ ch4 injects `ui:messagePosted` directly; input's *system-side* trip (kernel → City Hall → ward) untold — bench "input" stage is app-side only |
+| InputReader/InputDispatcher in system_server → InputChannel | ch4 + kiosk taps fly hardware → City Hall → ward input packets | ✅ (fixed) |
 | Click runs as main-Looper message | road cars | ✅ |
-| **Work moves OFF main thread for IO** (coroutines/executors) | ward has ONE road; DB/network requests leave from it directly | ❌ biggest conceptual gap: real apps hop main → worker → main; DroidCity implies main thread does IO — the exact anti-pattern the ANR beat warns about |
+| **Work moves OFF main thread for IO** (coroutines/executors) | worker pool lane in each ward; worker cars per in-flight request | ✅ (fixed) |
 | Room query, app-private file | Room shed + DISK blink | ✅ |
 | Cache-then-network + Flow re-emission | ch3 stale-then-fresh | ✅ (mechanism ⚠️ — Room invalidation/Flow not named) |
 | OkHttp phases + retry/backoff | Network Tower phases | ✅ |
@@ -143,10 +143,10 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | OOM = leak (all reachable) | gc OOM narration says exactly this | ✅ |
 | **oom_adj score ladder** (0/100/200/500/600/700/900) | 4 coarse priorities (foreground/visible/service/cached) | ⚠️ ladder + HOME/PREVIOUS special slots would teach more; ward panel could show live score |
 | **lmkd as its own daemon; SIGKILL, no callback** | foundry does the killing itself; no "no goodbye" beat | ⚠️ narration: onDestroy never guaranteed |
-| **PSI pressure signals driving kills** | kills trigger on hard RAM-full arithmetic | ❌ RAM bank could show a pressure gauge (stall %, not just fullness) — kills fire from pressure, not exact fullness |
+| **PSI pressure signals driving kills** | PSI gauge on RAM bank + HUD %, fork-spike decay | ✅ (fixed; kill trigger itself still fullness-based ⚠️) |
 | zram/kswapd reclaim before killing | — | ❌ minor |
-| onTrimMemory cooperative shrink | — | ❌ good beat: wards voluntarily dropping crates under pressure BEFORE lmkd reaches for the crane |
-| Silent kill → savedInstanceState restore | LMK demolition exists; restore untold | ❌ ch4 finale could relaunch the killed app and restore instantly |
+| onTrimMemory cooperative shrink | memory:trim event — wards shed crates + sweep on pressure | ✅ (fixed) |
+| Silent kill → savedInstanceState restore | ch4 finale relaunches; restored wards rise 2x fast + panel badge | ✅ (fixed) |
 
 ### Not modeled at all (out of scope so far, fine for v-next list)
 Services / broadcasts / ContentProviders · JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window · process death + saved-state restore (LMK kills exist, but restore story untold).
