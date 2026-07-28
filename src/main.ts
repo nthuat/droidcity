@@ -209,10 +209,17 @@ bus.on('process:forked', ({ app }) => {
   if (dimmed && g) g.visible = false
   const plotKey = plotKeyFor(app)
   if (plotKey) flyRoute(routes.path('zygote', plotKey), 0x3fb950)
-  spawnGhost(app)
+  // A re-fork landing while the old instance is still demolishing gets its plot
+  // request dropped by the manager (old entry stays in its map under the same
+  // app key, still `dying`) — wardStats() excludes dying entries, so this only
+  // spawns a ghost for a fork that actually produced a live ward.
+  if (wardManager.wardStats().some(w => w.app === app)) spawnGhost(app)
 })
 // First composited frame only — updateGhosts flips `fading` once, so later
 // frame:composited events for the same app are no-ops (ghost already gone).
+// (SurfaceFlinger's own submit queue isn't purged on kill either, so a killed
+// app's already-queued frame can still composite late — harmless here since
+// disposeGhost already ran via process:killed below, making this a no-op.)
 bus.on('frame:composited', ({ app }) => {
   const ghost = startingGhosts.get(app)
   if (ghost) ghost.fading = true
@@ -231,16 +238,32 @@ bus.on('data:fetched', ({ app }) => {
 })
 
 // Input's system-side trip: a tap starts at hardware and is dispatched by
-// system_server's InputDispatcher before an app ever sees it. Flies that packet
-// first, then posts the app-side message ~1.2s later (browser-layer timer — story
-// logic itself stays event-driven, no Date-dependent timers there).
+// system_server's InputDispatcher before an app ever sees it. Flies that leg
+// immediately, then — after a browser-layer delay (story logic itself stays
+// event-driven, no Date-dependent timers there) — flies the dispatcher→ward leg
+// (only once the ward's plot is known; a cold run can fire this in the same
+// tick as the launch, before the fork lands) and posts the app-side message.
+// Two-stage flight matches reality: dispatcher hop, then app hop.
 const INJECT_TAP_DELAY_MS = 1200
+// Single-slot pending timer: cleared before arming a new one, and by every
+// story stop/start/restart path (see stopStory/startStory/restartBtn) so a
+// stray late-firing timer from a closed or replayed chapter can't inject a
+// ui:messagePosted that pre-satisfies a *different* session's buffered wait.
+let injectTapTimer: ReturnType<typeof window.setTimeout> | undefined
+function clearInjectTapTimer(): void {
+  if (injectTapTimer === undefined) return
+  window.clearTimeout(injectTapTimer)
+  injectTapTimer = undefined
+}
 function injectTap(app: string): void {
-  const plotKey = plotKeyFor(app)
-  const toCityhall = routes.path('hardware', 'cityhall')
-  const path = plotKey ? [...toCityhall, ...routes.path('cityhall', plotKey).slice(1)] : toCityhall
-  flyRoute(path, 0xf2cc60)
-  window.setTimeout(() => bus.emit('ui:messagePosted', { app, label: 'tap' }), INJECT_TAP_DELAY_MS)
+  flyRoute(routes.path('hardware', 'cityhall'), 0xf2cc60)
+  clearInjectTapTimer()
+  injectTapTimer = window.setTimeout(() => {
+    injectTapTimer = undefined
+    const plotKey = plotKeyFor(app)
+    if (plotKey) flyRoute(routes.path('cityhall', plotKey), 0xf2cc60)
+    bus.emit('ui:messagePosted', { app, label: 'tap' })
+  }, INJECT_TAP_DELAY_MS)
 }
 
 // Camera fly-to tween state (position + orbit target, eased over tweenDurationMs).
@@ -466,7 +489,12 @@ let storyPaused = false
 const STORY_SIM_SCALE = 0.35
 let storySpeed: 1 | 2 = 1
 
-const restartBtn = mkStoryButton('⏮', () => player.restartChapter())
+// restartChapter() calls the player directly (bypasses startStory/stopStory
+// below), so the pending injectTap timer needs its own explicit clear here too.
+const restartBtn = mkStoryButton('⏮', () => {
+  clearInjectTapTimer()
+  player.restartChapter()
+})
 const playPauseBtn = mkStoryButton('⏸', () => {
   if (playPauseBtn.textContent === '⏸') {
     player.pause()
@@ -490,6 +518,7 @@ storyControlsEl.append(restartBtn, playPauseBtn, nextBtn, speedBtn, closeBtn)
 storyCardEl.append(storyTitleEl, storyNarrationEl, storyProgressEl, storyControlsEl)
 
 function stopStory(): void {
+  clearInjectTapTimer()
   player.stop()
   playAllMode = false
   storyActive = false
@@ -502,6 +531,7 @@ function stopStory(): void {
 }
 
 function startStory(chapter: Chapter): void {
+  clearInjectTapTimer()
   storyActive = true
   storyPaused = false
   launcherPlaza.setIdle(false)
