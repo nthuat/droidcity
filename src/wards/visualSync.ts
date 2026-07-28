@@ -3,6 +3,7 @@ import type { WardMeshes } from '../scene/ward'
 import type { LooperState } from '../sim/looper'
 import type { Phase } from '../sim/lifecycle'
 import type { HeapState } from '../sim/heap'
+import type { FrameRun } from '../sim/framePipeline'
 import { makeCar } from '../scene/builders'
 
 // Ported at mini scale from the retired v1 scenarios (mainThread/lifecycle/gc).
@@ -15,6 +16,9 @@ const CAR_SCALE = 0.3
 const CAR_SPACING = 0.9
 const GRID = 4
 const CRATE_SPACING = 1.4
+const CRATE_REACHABLE = 0xb08d57
+const CRATE_GARBAGE = 0x6e7681
+const BENCH_ACTIVE = 0x76e3ea
 
 export function disposeMesh(mesh: THREE.Mesh): void {
   mesh.geometry.dispose()
@@ -106,7 +110,9 @@ export function syncCrates(
     }
     crate.position.copy(crateSlotPosition(slots.get(obj.id)!))
     const mat = crate.material as THREE.MeshStandardMaterial
-    mat.color.setHex(obj.reachable ? 0x3fb950 : 0x6e7681)
+    // Neutral crate tan — distinct from every app color so heap objects never
+    // read as part of the (app-colored) Activity tower.
+    mat.color.setHex(obj.reachable ? CRATE_REACHABLE : CRATE_GARBAGE)
     mat.opacity = obj.reachable ? 1 : 0.4
   }
   for (const [id, crate] of cratePool) {
@@ -117,6 +123,15 @@ export function syncCrates(
       slots.delete(id)
     }
   }
+}
+
+export function syncBench(meshes: WardMeshes, frame: FrameRun | null): void {
+  meshes.benchStations.forEach((station, i) => {
+    const mat = station.material as THREE.MeshStandardMaterial
+    const active = frame !== null && !frame.done && frame.currentStageIndex === i
+    mat.emissive.setHex(active ? BENCH_ACTIVE : 0x000000)
+    mat.emissiveIntensity = active ? 0.6 : 0
+  })
 }
 
 export interface FlashState {

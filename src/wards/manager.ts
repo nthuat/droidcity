@@ -10,7 +10,7 @@ import { createPlots, allocatePlot, releasePlot } from '../sim/wardPlots'
 import { DEFAULT_STAGES, startFrame, advanceFrame, withHeavyDraw } from '../sim/framePipeline'
 import { buildWardPanel } from './panel'
 import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
-import { syncCars, syncFloors, syncCrates, syncFlashes, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS } from './visualSync'
+import { syncCars, syncFloors, syncCrates, syncFlashes, syncBench, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS } from './visualSync'
 
 export interface WardHandles {
   readonly app: string
@@ -46,6 +46,7 @@ export interface WardManagerDeps {
 }
 
 const RISE_MS = 800
+const FRAME_VISUAL_SCALE = 0.02
 const DEMOLISH_MS = 600
 const DATA_REQUEST_MS = 600
 const IDLE_TAP_MS = 2000
@@ -315,11 +316,16 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     }
 
     if (entry.frame) {
-      entry.frame = advanceFrame(entry.frame, dtMs)
+      // Frame sim-time is stretched (a 9ms frame plays over ~450ms real) so the
+      // render bench visibly lights stage by stage; `dropped` is computed from
+      // sim totals at startFrame, so the stretch never changes verdicts.
+      entry.frame = advanceFrame(entry.frame, dtMs * FRAME_VISUAL_SCALE)
+      syncBench(entry.meshes, entry.frame)
       if (entry.frame.done) {
         bus.emit('frame:submitted', { app, dropped: entry.frame.dropped })
         packets.fly(routePath(`plot${entry.plot}`, 'surfaceflinger'), { arcHeight: 1 })
         entry.frame = null
+        syncBench(entry.meshes, null)
       }
     }
 
