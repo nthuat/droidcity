@@ -17,7 +17,8 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   hall.userData.info = {
     title: 'system_server',
     note: 'ActivityManager, WindowManager, PackageManager. All Binder calls route here. '
-      + 'Intents resolve here — PMS matches them against every app\'s declared filters.',
+      + 'Intents resolve here — PMS matches them against every app\'s declared filters. '
+      + 'servicemanager is the phone book: every Binder client asks it for handles.',
   }
   group.add(hall)
 
@@ -25,6 +26,12 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   const wings = wingNames.map((name, i) => {
     const w = makeBuilding(3, 3, 3, LIT, name)
     w.position.set((i - 1) * 6, 0, 7)
+    if (i === 0) { // AMS wing gets Binder tooltip
+      w.userData.info = {
+        title: 'Binder',
+        note: 'One-copy IPC via mmap. Each process runs a ~16-thread binder pool; transactions share a ~1MB buffer — blow it and you get TransactionTooLargeException.',
+      }
+    }
     group.add(w)
     return w
   })
@@ -76,6 +83,10 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   })
   bus.on('activity:resumed', () => {
     pulseT = PULSE_MS
+  })
+  bus.on('process:killed', () => {
+    pulseT = PULSE_MS
+    panel.setNarration('Death recipient fired — system_server noticed the process die (linkToDeath).')
   })
 
   const panel = makePanel('City Hall — system_server')

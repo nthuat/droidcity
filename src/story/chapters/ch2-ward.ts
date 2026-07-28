@@ -24,7 +24,7 @@ export function makeCh2(ctx: StoryCtx): Chapter {
         waitFor: { event: 'process:forked', app: 'chat' },
       },
       {
-        narration: 'A new ward rises — its own process, own memory, own main road. The walls are the sandbox: no other app can reach inside. A splash — the starting window — covered the wait; that\'s why launches feel instant.',
+        narration: 'A new ward rises — its own process, own memory, own main road. The walls are the sandbox: no other app can reach inside. A splash — the starting window — covered the wait; that\'s why launches feel instant. That hop was a Binder call — one copy, straight into system_server\'s thread pool.',
         focus: 'ward:chat',
         waitFor: { event: 'activity:resumed', app: 'chat' },
       },

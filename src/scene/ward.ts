@@ -239,6 +239,10 @@ export function buildWardMeshes(app: string): WardMeshes {
   const anrOverlay = new THREE.Mesh(anrGeo, anrMat)
   anrOverlay.name = 'anrOverlay'
   anrOverlay.position.y = 6
+  anrOverlay.userData.info = {
+    title: 'ANR',
+    note: 'Blocked main looper. Timers: input 5s · foreground service 20s · broadcast 10s (60s background).',
+  }
   group.add(anrOverlay)
 
   // Sandbox wall: translucent border marking the ward footprint, used for picking.
