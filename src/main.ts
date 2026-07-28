@@ -480,7 +480,7 @@ city.start((dtMs) => {
     const t = smoothstep(tweenT / tweenDurationMs)
     city.camera.position.lerpVectors(tweenFromPos, tweenToPos, t)
     city.controls.target.lerpVectors(tweenFromTarget, tweenToTarget, t)
-  } else if (inOverview && !driftStopped) {
+  } else if (inOverview && !driftStopped && !storyActive) {
     driftAngle += dtMs * 0.00005
     city.camera.position.set(
       OVERVIEW_TARGET.x + driftRadius * Math.sin(driftAngle),
