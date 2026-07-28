@@ -8,10 +8,10 @@ import type { Scenario } from './types'
 // later task — this file just exposes the paint API).
 
 const PLATE_TOP = -0.5
-const HOUSING_COLOR = 0x2c333d
-const CORE_IDLE = 0x39434e
+const HOUSING_COLOR = 0x46505c
+const CORE_IDLE = 0x4c5763
 const CORE_STUCK = 0xf85149
-const RAM_SHELL_COLOR = 0x454c56
+const RAM_SHELL_COLOR = 0x5a636e
 const RAM_SHARED_COLOR = 0x9aa7b8
 const RAM_FILL_MARGIN = 0.2 // top/bottom inset so the fill visibly sits inside the shell
 const RAM_FILL_MAX_H = 3 - RAM_FILL_MARGIN * 2
@@ -149,7 +149,7 @@ function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   }
   group.add(diskGroup)
 
-  const platterMat = new THREE.MeshStandardMaterial({ color: 0x69727c, roughness: 0.4, metalness: 0.3 })
+  const platterMat = new THREE.MeshStandardMaterial({ color: 0x828c96, roughness: 0.4, metalness: 0.3 })
   for (let i = 0; i < 3; i++) {
     const platter = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.3, 24), platterMat)
     platter.position.set(DISK_X, PLATE_TOP + 0.15 + i * 0.7, 0)

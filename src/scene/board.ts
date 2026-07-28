@@ -153,6 +153,13 @@ export function buildBoard(): THREE.Group {
 
   group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
   group.add(makeEdgeText('INTERNET →', 16, 6, 76, 0.36, 17))
+  // The hardware strip sits at the board's far edge in a recess — the scene's
+  // single directional light grazes past it and the ambient alone leaves it
+  // unreadably dark. A dedicated soft overhead light keeps the metal legible.
+  const stripLight = new THREE.PointLight(0xaec6dd, 900, 70, 1.8)
+  stripLight.position.set(0, 14, -67)
+  group.add(stripLight)
+
   group.add(makeEdgeText('HARDWARE', 30, 6, 0, -0.44, -73)) // on the hardware plate (top -0.5)
 
   // Silk-screen sub-labels under each hardware block — dimmer than the section
