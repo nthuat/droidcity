@@ -5,19 +5,24 @@ import * as THREE from 'three'
 // (duplicated, not imported, to avoid a main.ts <-> routes.ts import cycle — the
 // board layout is fixed by the machine-board plan, low risk of drift).
 
+// board.ts's foundry/wards/surfaceflinger/network plates all share topY 0.3 (only
+// the pit floor -2, boot strip -0.2, and launcher platform 3 differ) — anchors and
+// waypoints that rest on one of those four plates use PLATE_Y, not board-base 0.
+const PLATE_Y = 0.3
+
 const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(0, 0, -52),
-  zygote: new THREE.Vector3(-65, 0, -20),
+  zygote: new THREE.Vector3(-65, PLATE_Y, -20),
   cityhall: new THREE.Vector3(0, -2, 10),
-  surfaceflinger: new THREE.Vector3(65, 0, -22),
-  network: new THREE.Vector3(65, 0, 17),
+  surfaceflinger: new THREE.Vector3(65, PLATE_Y, -22),
+  network: new THREE.Vector3(65, PLATE_Y, 17),
   launcher: new THREE.Vector3(0, 3, 40),
 }
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -25
-const PLOT_ANCHORS = PLOT_X.map(x => new THREE.Vector3(x, 0, PLOT_Z))
+const PLOT_ANCHORS = PLOT_X.map(x => new THREE.Vector3(x, PLATE_Y, PLOT_Z))
 const OFFBOARD_EAST = new THREE.Vector3(95, 0, 17)
-const DISPLAY_WALL = new THREE.Vector3(82, 0, -22)
+const DISPLAY_WALL = new THREE.Vector3(82, PLATE_Y, -22)
 
 const ROAD_COLOR = 0x455a64
 const EDGE_COLOR = 0x76e3ea
@@ -25,6 +30,7 @@ const ROAD_W = 1.6
 const ROAD_H = 0.15
 const EDGE_W = 0.15
 const EDGE_H = 0.05
+const ROAD_RAISE = 0.05 // clears the plate top so road/stripes don't z-fight
 const CONVEYOR_RAISE = 0.4
 const CONVEYOR_COLORS = [0x455a64, 0x37474f]
 const CONVEYOR_SEGMENT_LEN = 3
@@ -45,19 +51,23 @@ const ROUTES: RouteDef[] = [
   // foundry -> each ward plot (conveyor along z -25)
   ...PLOT_X.map((x, n): RouteDef => ({
     from: 'zygote', to: `plot${n}`, conveyor: true,
-    waypoints: [ANCHORS.zygote, v(ANCHORS.zygote.x, 0, PLOT_Z), v(x, 0, PLOT_Z)],
+    waypoints: [ANCHORS.zygote, v(ANCHORS.zygote.x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, PLOT_Z)],
   })),
-  // each ward plot -> cityhall (Binder road, radiating south into the pit)
+  // each ward plot -> cityhall (Binder road, radiating south into the pit). The
+  // (x,0,-5) point is the pit rim's own board-level top (board.ts's north rim slope
+  // starts at y 0, not the wards plate's 0.3) — an existing plate/rim seam, not this
+  // fix's concern.
   ...PLOT_X.map((x, n): RouteDef => ({
     from: `plot${n}`, to: 'cityhall',
-    waypoints: [v(x, 0, PLOT_Z), v(x, 0, -5), v(x, -2, -2), ANCHORS.cityhall],
+    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, 0, -5), v(x, -2, -2), ANCHORS.cityhall],
   })),
   // cityhall -> launcher ramp base
   { from: 'cityhall', to: 'launcher', waypoints: [ANCHORS.cityhall, v(0, -2, 22), v(0, 0, 25), ANCHORS.launcher] },
-  // each ward plot -> surfaceflinger (east corridor along z -22)
+  // each ward plot -> surfaceflinger (east corridor along z -22, still on the wards/
+  // surfaceflinger plates throughout)
   ...PLOT_X.map((x, n): RouteDef => ({
     from: `plot${n}`, to: 'surfaceflinger',
-    waypoints: [v(x, 0, PLOT_Z), v(x, 0, -22), ANCHORS.surfaceflinger],
+    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -22), ANCHORS.surfaceflinger],
   })),
   // surfaceflinger -> display wall (visual connector only, no named "to" key)
   { from: 'surfaceflinger', to: 'displaywall', waypoints: [ANCHORS.surfaceflinger, DISPLAY_WALL] },
@@ -66,10 +76,12 @@ const ROUTES: RouteDef[] = [
     from: 'launcher', to: 'zygote',
     waypoints: [ANCHORS.launcher, v(0, 3, 30), v(-30, 3, 30), v(-30, 0, 30), v(ANCHORS.zygote.x, 0, 30), ANCHORS.zygote],
   },
-  // network -> each ward plot (corridor along z 0, crossing the pit's east rim)
+  // network -> each ward plot (corridor along z 0, crossing the pit's east rim — the
+  // z 0 midpoints ride through the pit's own footprint, not the flat 0.3 plates, so
+  // they stay at board-base y like the pit-crossing route above)
   ...PLOT_X.map((x, n): RouteDef => ({
     from: 'network', to: `plot${n}`,
-    waypoints: [ANCHORS.network, v(45, 0, 0), v(x, 0, 0), v(x, 0, PLOT_Z)],
+    waypoints: [ANCHORS.network, v(45, 0, 0), v(x, 0, 0), v(x, PLATE_Y, PLOT_Z)],
   })),
   // network -> off-board east (the INTERNET road)
   { from: 'network', to: 'offboard-east', waypoints: [ANCHORS.network, OFFBOARD_EAST] },
@@ -131,7 +143,7 @@ function buildRouteMesh(route: RouteDef): THREE.Object3D[] {
     const a = route.waypoints[i]
     const b = route.waypoints[i + 1]
     if (route.conveyor) meshes.push(...conveyorLeg(a, b))
-    else meshes.push(roadSegment(ROAD_COLOR, a, b, 0))
+    else meshes.push(roadSegment(ROAD_COLOR, a, b, ROAD_RAISE))
   }
   return meshes
 }
