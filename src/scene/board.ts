@@ -122,8 +122,11 @@ export function buildBoard(): THREE.Group {
   // floating inside an opaque box — their shared z-boundaries render as the visible
   // step/cliff walls (BoxGeometry side faces render by default, no extra work needed).
   group.add(makeSlab(-85, 85, -45, 60, 0)) // main slab — all front zones, unchanged look
-  group.add(makeSlab(-85, 85, -60, -45, -0.2)) // boot segment, recessed
-  group.add(makeSlab(-85, 85, -80, -60, -0.5)) // hardware segment, deeper recess
+  // Recessed slabs sit one PLATE_H below their plate tops so the plates rest ON
+  // the slab instead of embedding flush in it — coplanar top faces z-fight (visible
+  // as shimmering scanline flicker across the strip).
+  group.add(makeSlab(-85, 85, -60, -45, -0.2 - PLATE_H)) // boot segment, recessed
+  group.add(makeSlab(-85, 85, -80, -60, -0.5 - PLATE_H)) // hardware segment, deeper recess
 
   group.add(makePlate(COLORS.boot, -85, 85, -60, -45, -0.2)) // recessed back strip
   group.add(makePlate(COLORS.hardware, -85, 85, -75, -60, -0.5)) // hardware/kernel strip, deeper recess
