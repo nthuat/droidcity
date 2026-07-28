@@ -30,6 +30,22 @@ interface ProcListSource {
 // red as the core slot it feeds when that ward's main thread is ANR'd.
 const CORE_STUCK_GLOW = 0xf85149
 
+// Pure edge-trigger: fires once (true) when v crosses hi upward, then stays
+// silent (false) until v drops to lo or below, re-arming for the next cross.
+// Hysteresis (hi > lo) is what prevents kill-spam from a value oscillating
+// right at the threshold.
+export function createEdgeTrigger(hi: number, lo: number): (v: number) => boolean {
+  let armed = true
+  return (v: number): boolean => {
+    if (armed && v >= hi) {
+      armed = false
+      return true
+    }
+    if (!armed && v <= lo) armed = true
+    return false
+  }
+}
+
 // Live wiring for the hardware row: colors CPU core slots (and their motherboard
 // traces) per-frame from ward looper state, fills RAM segments from foundry's proc
 // list, and blinks the disk LED on Room read/write bus events. Read-only — never
@@ -40,7 +56,7 @@ export function attachHardwareWiring(
   wardManager: WardStatsSource,
   foundry: ProcListSource,
   setCpuTraceGlow: (plot: number, color: number | null) => void,
-): { syncCores(): void; syncRam(): void; syncPressure(dtMs: number): void; label(): string } {
+): { syncCores(): void; syncRam(): void; syncPressure(dtMs: number): void; getPressure(): number; label(): string } {
   let reads = 0
   let writes = 0
   let smoothedFrac = 0
@@ -85,8 +101,11 @@ export function attachHardwareWiring(
   function label(): string {
     const busy = wardManager.wardStats().filter(s => s.busy).length
     const f = foundry.stats()
-    return `CPU ${busy}/${CORE_COUNT} busy · RAM ${f.usedMb}/${f.capacityMb}MB · DISK r:${reads} w:${writes} · PSI ${Math.round(pressureFrac * 100)}%`
+    const psi = `PSI ${Math.round(pressureFrac * 100)}%${pressureFrac >= 0.85 ? '!' : ''}`
+    return `CPU ${busy}/${CORE_COUNT} busy · RAM ${f.usedMb}/${f.capacityMb}MB · DISK r:${reads} w:${writes} · ${psi}`
   }
 
-  return { syncCores, syncRam, syncPressure, label }
+  function getPressure(): number { return pressureFrac }
+
+  return { syncCores, syncRam, syncPressure, getPressure, label }
 }

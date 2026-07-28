@@ -7,7 +7,7 @@ import { createPacketSystem } from './scene/packet'
 import { createHud, makeWardLabel, type WardLabel } from './ui/hud'
 import { createInspector } from './ui/inspector'
 import { attachZoneLabels, updateHudLines } from './ui/hudWiring'
-import { attachHardwareWiring } from './ui/hardwareWiring'
+import { attachHardwareWiring, createEdgeTrigger } from './ui/hardwareWiring'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
 import { makeBootRowScenario } from './scenarios/bootRow'
@@ -215,10 +215,14 @@ attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)
 // sub-labels — matches the other zone chips' one-title/one-line shape.
 hud.attach('hardware', ANCHORS.hardware, 'HARDWARE')
 const hwWiring = attachHardwareWiring(bus, hardwareRow, wardManager, foundry, traces.setCpuTraceGlow)
+// PSI-driven LMK: crossing 0.85 upward (edge-triggered, rearms below 0.7) fires
+// memory:pressure — foundry reclaims a cached process in response.
+const pressureTrigger = createEdgeTrigger(0.85, 0.7)
 function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
   hwWiring.syncRam()
   hwWiring.syncPressure(HUD_UPDATE_MS)
+  if (pressureTrigger(hwWiring.getPressure())) bus.emit('memory:pressure', {})
   hud.setLine('hardware', hwWiring.label())
   const procList = foundry.stats().procList
   const now = Date.now()

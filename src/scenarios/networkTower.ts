@@ -13,7 +13,13 @@ const DEFAULT_NARRATION = 'Every network call walks dns → connect → tls → 
 // reads as a change — NetRequest itself starts at currentIndex 0, so diffing against the raw
 // req would miss dns's own emission. -1 is already taken (retrying's "no phase" index).
 const NOT_STARTED = -2
-interface QueueEntry { readonly req: NetRequest; readonly app: string; readonly lastPhaseIndex: number }
+interface QueueEntry { readonly req: NetRequest; readonly app: string; readonly lastPhaseIndex: number; readonly pooled: boolean }
+
+// A completed request keeps its app's connection "warm" for 30s of scenario
+// clock — the next request skips dns/connect/tls straight to ttfb, mirroring
+// HTTP connection pooling/keep-alive.
+const POOL_MS = 30_000
+const POOL_SKIP_MS = 500 // dns(100) + connect(150) + tls(250) — lands exactly at ttfb
 
 // Small dynamic-text sprite — the shared makeLabel() bakes text once, but the tower-top
 // readout needs to change every phase transition, so this keeps its own canvas/texture.
@@ -43,10 +49,12 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   let queue: QueueEntry[] = []
   let counter = 0
   let forceFailNext = false
+  let clock = 0 // scenario-accumulated sim clock (ms) — never Date.now, so reset()/story-speed stay in control
+  let pooledUntil: Record<string, number> = {}
 
   const tower = makeBuilding(3, 10, 3, 0x388bfd, 'Network')
   tower.position.y = 0.3
-  tower.userData.info = { title: 'Radio/ISP edge', note: 'dns → connect → tls → ttfb → download.' }
+  tower.userData.info = { title: 'Radio/ISP edge', note: 'dns → connect → tls → ttfb → download. Warm connections skip DNS/connect/TLS — pooling.' }
   group.add(tower)
 
   const arch = new THREE.Mesh(
@@ -101,7 +109,12 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
     counter += 1
     const failAt = forceFailNext || counter % 3 === 0 ? 'ttfb' : undefined
     forceFailNext = false
-    queue = [...queue, { req: startRequest(failAt ? { failAt } : undefined), app, lastPhaseIndex: NOT_STARTED }]
+    const pooled = !failAt && (pooledUntil[app] ?? -Infinity) > clock
+    const req = pooled ? advanceRequest(startRequest(), POOL_SKIP_MS) : startRequest(failAt ? { failAt } : undefined)
+    queue = [...queue, { req, app, lastPhaseIndex: NOT_STARTED, pooled }]
+    // Synthetic phase, emitted once at enqueue (not a real NET_PHASES entry) so
+    // HUD/story listeners see the pooled skip even before the queue reaches it.
+    if (pooled) bus.emit('net:phase', { app, phase: 'pooled' })
   }
 
   bus.on('data:requested', ({ app, source }) => {
@@ -125,23 +138,28 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
     cameraPos: new THREE.Vector3(8, 10, 18),
     cameraTarget: new THREE.Vector3(0, 4, 0),
     update(dtMs) {
+      clock += dtMs
       if (queue.length > 0) {
         const head = queue[0]
         const next = advanceRequest(head.req, dtMs)
         // next.currentIndex is -1 both while retrying and once done — comparing against the
         // sentinel-seeded lastPhaseIndex (not the raw previous req) is what catches dns's entry.
+        // For a pooled (pre-advanced) entry this sentinel still does the right thing: its
+        // first observed index is ttfb (3), not dns — no spurious dns/connect/tls emission.
         const phaseChanged = next.currentIndex !== head.lastPhaseIndex
-        queue = [{ req: next, app: head.app, lastPhaseIndex: next.currentIndex }, ...queue.slice(1)]
+        queue = [{ req: next, app: head.app, lastPhaseIndex: next.currentIndex, pooled: head.pooled }, ...queue.slice(1)]
         if (phaseChanged) {
           const phase = next.retrying ? 'retry' : next.currentIndex >= 0 ? NET_PHASES[next.currentIndex].name : null
           if (phase) {
             bus.emit('net:phase', { app: head.app, phase })
-            phaseLabel.setText(phase)
-            panel.setNarration(`${head.app}: ${phase}${next.retrying ? ' (retrying after ttfb failure)' : ''}`)
+            const label = head.pooled ? `pooled·${phase}` : phase
+            phaseLabel.setText(label)
+            panel.setNarration(`${head.app}: ${label}${next.retrying ? ' (retrying after ttfb failure)' : ''}`)
           }
         }
         if (next.done) {
           bus.emit('data:fetched', { app: head.app, ms: next.totalMs })
+          pooledUntil = { ...pooledUntil, [head.app]: clock + POOL_MS }
           queue = queue.slice(1)
           phaseLabel.setText(queue.length > 0 ? queue[0].app : 'idle')
           panel.setNarration(queue.length > 0 ? DEFAULT_NARRATION : `${head.app} fetched in ${next.totalMs.toFixed(0)}ms.`)
@@ -157,6 +175,8 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
       queue = []
       counter = 0
       forceFailNext = false
+      clock = 0
+      pooledUntil = {}
       blinkT = 0
       phaseLabel.setText('idle')
       panel.setNarration(DEFAULT_NARRATION)

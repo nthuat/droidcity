@@ -132,6 +132,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   }
 
   bus.on('app:launchRequested', ({ app }) => { pendingLaunches.push(app) })
+  // PSI crossed 0.85 (main.ts's edge-trigger) — react like real LMK: reclaim a
+  // cached process. killOldestCached already no-ops (and skips memory:trim) when
+  // nothing cached is available.
+  bus.on('memory:pressure', () => killOldestCached())
 
   function killApp(app: string): void {
     const proc = state.procs.find(p => p.name === app)
