@@ -63,6 +63,12 @@ Two independent layers: **GC works inside one process's heap; lmkd kills whole p
 5. **Reference types** — soft (cleared under pressure), weak (cleared at next GC), phantom (post-mortem cleanup); finalizers/Cleaner run on a dedicated thread — slow finalizers delay reclamation.
 6. **OutOfMemoryError** — thrown when the heap can't grow past its limit even after full GC; almost always a leak (something still reachable — Activity held by a static, listener never unregistered).
 
+### Virtual memory under the heap
+- Every process gets a private VIRTUAL address space; page tables translate to physical pages. The ward's heap is the virtual view; the RAM bank is physical.
+- **Zygote COW**: fork() copies page TABLES, not pages — framework pages stay shared read-only until written (copy-on-write). One physical copy serves every app. This is why per-process memory is reported as **PSS** (proportional share of shared pages), not raw RSS.
+- **mmap / file-backed pages**: APK, dex/oat, libraries are memory-mapped from flash — paged in on demand (page fault → read), evictable for free (clean pages have a backing file). Anonymous pages (heap) have no file — under pressure they go to zram instead.
+- **Demand paging**: nothing is resident until touched; cold-start page faults are part of why first launches cost more.
+
 ### System memory pressure: PSI → lmkd → kill
 7. **Before killing:** kernel reclaims — drops clean file pages, and swaps anonymous pages to **zram** (compressed RAM swap — Android's "swap" is usually RAM squeezing itself). `kswapd` does this in background.
 8. **PSI (Pressure Stall Information)** — `/proc/pressure/memory` reports what % of time tasks stalled waiting for memory (`some` = at least one task, `full` = all). This measures actual pain, not free-byte counts. Modern **lmkd is PSI-driven**: it registers epoll listeners on PSI thresholds (e.g. partial stall over a 1s window) instead of the legacy minfree watermarks.
@@ -147,6 +153,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | zram/kswapd reclaim before killing | — | ❌ minor |
 | onTrimMemory cooperative shrink | memory:trim event — wards shed crates + sweep on pressure | ✅ (fixed) |
 | Silent kill → savedInstanceState restore | ch4 finale relaunches; restored wards rise 2x fast + panel badge | ✅ (fixed) |
+| Virtual memory: COW shared framework pages, mmap, PSS | shared slabs in RAM bank + tooltips | ✅ (v3.1; demand paging doc-only) |
 
 ### Not modeled at all (out of scope so far, fine for v-next list)
 Services / broadcasts / ContentProviders · JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window · process death + saved-state restore (LMK kills exist, but restore story untold).

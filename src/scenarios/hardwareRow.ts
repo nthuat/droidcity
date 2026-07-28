@@ -12,6 +12,7 @@ const HOUSING_COLOR = 0x161b22
 const CORE_IDLE = 0x1c2128
 const CORE_STUCK = 0xf85149
 const RAM_IDLE = 0x2a2f36
+const RAM_SHARED_COLOR = 0x9aa7b8
 const DISK_IDLE = 0x30363d
 const DISK_READ = 0x76e3ea
 const DISK_WRITE = 0xd29922
@@ -69,8 +70,30 @@ function buildCpu(group: THREE.Group): Slot[] {
   })
 }
 
+// 2 static slabs for the Zygote's shared framework pages — permanently occupied,
+// not part of setRamSegments (which only ever addresses the 8 dynamic app slabs).
+// Sit left of the app slabs, so the latter's offsets shift +2.4 to make room —
+// combined footprint stays centered on RAM_X, so the "RAM BANK" silk label needs
+// no change.
+function buildRamShared(group: THREE.Group): void {
+  const sharedXOffsets = [-10.8, -8.4]
+  for (const dx of sharedXOffsets) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: RAM_SHARED_COLOR, emissive: RAM_SHARED_COLOR, emissiveIntensity: 0.15, roughness: 0.5,
+    })
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(2, 3.4, 0.8), mat)
+    slab.position.set(RAM_X + dx, PLATE_TOP + 1.7, 0)
+    slab.userData.info = {
+      title: 'Shared framework pages — Zygote',
+      note: 'One physical copy of the preloaded framework, mapped copy-on-write into EVERY app process. Why fork is cheap and why per-app memory is counted as PSS.',
+    }
+    group.add(slab)
+  }
+}
+
 function buildRam(group: THREE.Group): Slot[] {
-  const slabXOffsets = [-8.4, -6, -3.6, -1.2, 1.2, 3.6, 6, 8.4]
+  buildRamShared(group)
+  const slabXOffsets = [-6, -3.6, -1.2, 1.2, 3.6, 6, 8.4, 10.8]
   return slabXOffsets.map((dx) => {
     const mat = new THREE.MeshStandardMaterial({
       color: RAM_IDLE, emissive: RAM_IDLE, emissiveIntensity: 0, roughness: 0.5,
@@ -86,7 +109,10 @@ function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   // Grouped so the inspector's parent-chain walk-up finds the tooltip from any
   // platter, the arm, or the LED — not just whichever mesh happened to carry it.
   const diskGroup = new THREE.Group()
-  diskGroup.userData.info = { title: 'Disk', note: 'Blinks on every Room read/write.' }
+  diskGroup.userData.info = {
+    title: 'Disk',
+    note: 'Blinks on every Room read/write. APK and dex are mmap\'d from here — paged into RAM on demand, evicted without write-back.',
+  }
   group.add(diskGroup)
 
   const platterMat = new THREE.MeshStandardMaterial({ color: 0x484f58, roughness: 0.4, metalness: 0.3 })

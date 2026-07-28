@@ -185,7 +185,10 @@ export function buildWardMeshes(app: string): WardMeshes {
   const cratesParent = new THREE.Group()
   cratesParent.name = 'cratesParent'
   cratesParent.position.set(5, 0, -5)
-  cratesParent.userData.info = { title: 'Heap', note: 'Allocated objects. Tan = reachable, grey = garbage until GC sweeps.' }
+  cratesParent.userData.info = {
+    title: 'Heap',
+    note: 'Allocated objects in this process\'s PRIVATE virtual address space. Tan = reachable, grey = garbage until GC sweeps. Page tables map it onto the RAM bank below.',
+  }
   group.add(cratesParent)
 
   // Room shed with a door plane that flashes on query.

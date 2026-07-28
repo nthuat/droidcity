@@ -27,7 +27,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
 
   const factory = makeBuilding(8, 5, 6, 0x484f58, 'Zygote Foundry')
   factory.position.y = 0.3
-  factory.userData.info = { title: 'Zygote', note: 'Every app process is forked from this warm template.' }
+  factory.userData.info = {
+    title: 'Zygote',
+    note: 'Every app process is forked from this warm template. The fork shares Zygote\'s pages copy-on-write.',
+  }
   group.add(factory)
 
   const meter = new THREE.Mesh(
