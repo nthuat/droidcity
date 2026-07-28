@@ -184,7 +184,7 @@ const THREAD_MAIN = 0x3fb950
 const THREAD_RENDER = 0x76e3ea
 const THREAD_BINDER = 0xbc8cff
 const THREAD_WORKER = 0x8b949e
-const THREAD_DIM = 0x21262d
+const THREAD_DIM = 0x555f6b
 const THREAD_LIT_INTENSITY = 0.6
 
 function setThreadPostLit(post: THREE.Mesh, litColor: number, on: boolean): void {
