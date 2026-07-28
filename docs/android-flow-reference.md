@@ -51,9 +51,41 @@ Order that matters: init → **Zygote → system_server** (system_server is fork
 12. **SurfaceFlinger** (own process) latches ready buffers at its vsync offset, composites every visible app's surface (HWC does overlay composition in hardware when it can) → scanout.
 13. **Jank** = the app-side work (9-10) missing the vsync train → frame shown twice. **ANR** = main thread's Looper blocked ≥5s for input (different failure: not slow drawing, but a blocked queue).
 
-**Memory (continuous background):**
-14. ART GC — generational, mostly **concurrent** (sub-ms pauses), triggered by allocation pressure.
-15. **lmkd** — kills whole processes under memory pressure by `oom_adj` score (foreground 0 … cached 900+). Cached apps die first, oldest first-ish. Saved state means a killed app can restore.
+## Phase 4 — Memory management (continuous)
+
+Two independent layers: **GC works inside one process's heap; lmkd kills whole processes.** Different tools, different scales, often confused.
+
+### ART garbage collector (per-process)
+1. **Allocation** — objects land in region-based heap via thread-local allocation buffers (TLABs) — allocation is normally just a pointer bump, no lock.
+2. **Collector** — since Android 8: **Concurrent Copying (CC)** collector, generational since Android 10 — most collections are **young-generation** (recently allocated objects die young; sweep is cheap). Full-heap CC runs rarer; compacts regions to fight fragmentation.
+3. **Pauses** — CC is concurrent with the app; stop-the-world pauses are sub-ms (a far cry from Dalvik's tens of ms). GC almost never causes jank on modern Android; blaming GC for jank is usually wrong post-Oreo.
+4. **Triggers** — allocation pressure (heap grows toward its limit: `dalvik.vm.heapgrowthlimit`, raised by `android:largeHeap`), app going background (compacting GC to shrink footprint), explicit `System.gc()` (a hint).
+5. **Reference types** — soft (cleared under pressure), weak (cleared at next GC), phantom (post-mortem cleanup); finalizers/Cleaner run on a dedicated thread — slow finalizers delay reclamation.
+6. **OutOfMemoryError** — thrown when the heap can't grow past its limit even after full GC; almost always a leak (something still reachable — Activity held by a static, listener never unregistered).
+
+### System memory pressure: PSI → lmkd → kill
+7. **Before killing:** kernel reclaims — drops clean file pages, and swaps anonymous pages to **zram** (compressed RAM swap — Android's "swap" is usually RAM squeezing itself). `kswapd` does this in background.
+8. **PSI (Pressure Stall Information)** — `/proc/pressure/memory` reports what % of time tasks stalled waiting for memory (`some` = at least one task, `full` = all). This measures actual pain, not free-byte counts. Modern **lmkd is PSI-driven**: it registers epoll listeners on PSI thresholds (e.g. partial stall over a 1s window) instead of the legacy minfree watermarks.
+9. **oom_adj scores** — AMS's `OomAdjuster` continuously computes each process's importance and writes `/proc/<pid>/oom_score_adj` (-1000…1000). The standard ladder:
+
+| Score | Constant | Meaning |
+|---|---|---|
+| -1000 | NATIVE_ADJ | native daemons — untouchable by lmkd |
+| -900 | SYSTEM_ADJ | system_server |
+| -800 | PERSISTENT_PROC_ADJ | persistent apps (phone, systemui) |
+| 0 | FOREGROUND_APP_ADJ | the app you're looking at |
+| 100 | VISIBLE_APP_ADJ | visible but not focused (dialog behind) |
+| 200 | PERCEPTIBLE_APP_ADJ | perceptible — foreground service, playing audio |
+| 300 | BACKUP_APP_ADJ | mid-backup |
+| 500 | SERVICE_ADJ | running a started service |
+| 600 | HOME_APP_ADJ | the launcher (kept warm — going home must be instant) |
+| 700 | PREVIOUS_APP_ADJ | the app you just left (back-switch is common) |
+| 800 | SERVICE_B_ADJ | old/long-running services |
+| 900-999 | CACHED_APP_MIN…MAX | cached/empty processes — kill fodder, LRU-ordered within |
+
+10. **The kill** — on a PSI event, lmkd walks from the highest score down, picks the victim (largest RSS as tiebreak within a bucket), **SIGKILL** — no callback, no goodbye. This is why `onDestroy` is never guaranteed and why saved instance state / persistence matter: a cached app's death is silent and routine.
+11. **Cooperative layer** — before/alongside kills, AMS sends `onTrimMemory(level)` (ComponentCallbacks2: TRIM_MEMORY_RUNNING_LOW … TRIM_MEMORY_COMPLETE) so apps can drop caches voluntarily; well-behaved apps shrink instead of dying.
+12. **Restore** — user returns to a killed app: AMS cold-starts the process again (Zygote fork), Activity gets its `savedInstanceState` Bundle back; with ViewModel + SavedStateHandle + Room, a good app resumes as if nothing happened.
 
 ---
 
@@ -101,8 +133,20 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | BufferQueue / triple buffering | — | ❌ minor (plan's known simplification) |
 | SF + HWC composition | SF district | ✅ (HWC ❌ minor) |
 | Jank (missed vsync) vs ANR (blocked looper) | ch4 shows both distinctly | ✅ |
-| ART concurrent GC | ward GC sweep; narration hedges stop-the-world | ✅ |
-| lmkd oom_adj tiers | 4 priorities, cached-first kills | ⚠️ good enough |
+
+### Memory management
+| Real thing | DroidCity | Status |
+|---|---|---|
+| GC per-process, reachable vs garbage, sweep | ward heap yard + sweep plane | ✅ |
+| Generational / concurrent copying detail | GC narration hedges "ART keeps pauses sub-ms" | ⚠️ fine at this depth |
+| GC on background transition, largeHeap, soft/weak refs | — | ❌ minor |
+| OOM = leak (all reachable) | gc OOM narration says exactly this | ✅ |
+| **oom_adj score ladder** (0/100/200/500/600/700/900) | 4 coarse priorities (foreground/visible/service/cached) | ⚠️ ladder + HOME/PREVIOUS special slots would teach more; ward panel could show live score |
+| **lmkd as its own daemon; SIGKILL, no callback** | foundry does the killing itself; no "no goodbye" beat | ⚠️ narration: onDestroy never guaranteed |
+| **PSI pressure signals driving kills** | kills trigger on hard RAM-full arithmetic | ❌ RAM bank could show a pressure gauge (stall %, not just fullness) — kills fire from pressure, not exact fullness |
+| zram/kswapd reclaim before killing | — | ❌ minor |
+| onTrimMemory cooperative shrink | — | ❌ good beat: wards voluntarily dropping crates under pressure BEFORE lmkd reaches for the crane |
+| Silent kill → savedInstanceState restore | LMK demolition exists; restore untold | ❌ ch4 finale could relaunch the killed app and restore instantly |
 
 ### Not modeled at all (out of scope so far, fine for v-next list)
 Services / broadcasts / ContentProviders · JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window · process death + saved-state restore (LMK kills exist, but restore story untold).
@@ -118,4 +162,8 @@ Services / broadcasts / ContentProviders · JobScheduler/WorkManager/Doze · per
 5. **Boot order narration fix** — ch1: "init starts Zygote; the foundry's first casting is system_server itself." One line, free. Also light SF district during boot.
 6. **Vsync mention** — bench tooltip + ch4 narration: name Choreographer/vsync. Free.
 
-Items 5-6 are narration-only. 1-4 touch code.
+7. **PSI pressure gauge + oom_adj ladder** — RAM bank gets a pressure needle (stall-based, twitching before kills); ward labels/panels show live oom_adj score climbing as the app is demoted (0 → 700 → 900) so the kill order is visibly earned, not arbitrary. Foundry kill narration: "SIGKILL — no callback, onDestroy never ran." Medium effort.
+8. **onTrimMemory beat** — under pressure, wards voluntarily shed grey crates (cooperative trim) before lmkd's crane moves. Low effort (bus event + ward reaction).
+9. **Kill → restore loop** — after an LMK demolition, relaunching the same app restores instantly (ViewModel orb + saved state framing). Closes the "why persistence matters" arc. Low-medium.
+
+Items 5-6 are narration-only. 1-4, 7-9 touch code.
