@@ -424,6 +424,34 @@ scenarios.forEach((s, i) => {
   switcherEl.appendChild(b)
 })
 
+// Population controls: watch one app's flow in an empty city, then grow it
+// manually. Manual mode only touches launcher/foundry idle (auto-launch,
+// auto-reclaim) — per-ward idle and every event flow are untouched.
+let cityManual = false
+const divider = document.createElement('span')
+divider.className = 'switcher-divider'
+switcherEl.appendChild(divider)
+
+const cityModeBtn = document.createElement('button')
+cityModeBtn.textContent = 'City: auto'
+cityModeBtn.title = 'Manual: nothing launches or dies on its own — you drive every event'
+cityModeBtn.addEventListener('click', () => {
+  cityManual = !cityManual
+  cityModeBtn.textContent = cityManual ? 'City: manual' : 'City: auto'
+  launcherPlaza.setIdle(!cityManual)
+  foundry.setIdle(!cityManual)
+})
+switcherEl.appendChild(cityModeBtn)
+
+const resetCityBtn = document.createElement('button')
+resetCityBtn.textContent = 'Reset city'
+resetCityBtn.title = 'SIGKILL every ward — empty plots, fresh start'
+resetCityBtn.addEventListener('click', () => {
+  if (storyActive) return // also .disabled via setSwitcherLocked while a story is open
+  for (const p of foundry.stats().procList) foundry.killApp(p.name)
+})
+switcherEl.appendChild(resetCityBtn)
+
 // Start in Overview: camera set directly (no tween needed pre-intro).
 setActiveButton(overviewBtn)
 panelEl.replaceChildren(overviewPanel())
@@ -608,9 +636,11 @@ function stopStory(): void {
   playAllMode = false
   storyActive = false
   storyPaused = false
-  launcherPlaza.setIdle(true)
+  if (!cityManual) {
+    launcherPlaza.setIdle(true)
+    foundry.setIdle(true)
+  }
   wardManager.setIdle(true)
-  foundry.setIdle(true)
   storyCardEl.classList.remove('open')
   panelEl.style.display = ''
   setSwitcherLocked(false)
