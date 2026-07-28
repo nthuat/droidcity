@@ -29,6 +29,18 @@ function plateMaterial(color: number): THREE.MeshStandardMaterial {
   })
 }
 
+// A board slab segment: matte box whose top face sits at `topY`, footprint [x0,x1] x [z0,z1].
+// Real geometry (not a thin overlay) so the recessed z-segments actually step down —
+// their side faces render as the visible "cliff" between segments.
+function makeSlab(x0: number, x1: number, z0: number, z1: number, topY: number): THREE.Mesh {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(x1 - x0, 1, z1 - z0),
+    new THREE.MeshStandardMaterial({ color: BOARD_COLOR, roughness: 0.9 }),
+  )
+  mesh.position.set((x0 + x1) / 2, topY - 0.5, (z0 + z1) / 2)
+  return mesh
+}
+
 // A flat zone plate: box top face sits at `topY`, footprint is [x0,x1] x [z0,z1].
 function makePlate(color: number, x0: number, x1: number, z0: number, z1: number, topY: number): THREE.Mesh {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, PLATE_H, z1 - z0), plateMaterial(color))
@@ -102,13 +114,14 @@ export function buildBoard(): THREE.Group {
   group.name = 'board'
 
   // Depth 120→140, extending only off the back edge (front stays at z=60 so every
-  // existing plate/zone coordinate below is untouched) — box re-centers to z=-10.
-  const board = new THREE.Mesh(
-    new THREE.BoxGeometry(170, 1, 140),
-    new THREE.MeshStandardMaterial({ color: BOARD_COLOR, roughness: 0.9 }),
-  )
-  board.position.set(0, -0.5, -10)
-  group.add(board)
+  // existing plate/zone coordinate below is untouched). The slab is 3 z-segments,
+  // not one solid box: boot (-60..-45) and hardware (-80..-60) each sit at their
+  // own lower top-face y so the recess is real geometry, not just a thin plate
+  // floating inside an opaque box — their shared z-boundaries render as the visible
+  // step/cliff walls (BoxGeometry side faces render by default, no extra work needed).
+  group.add(makeSlab(-85, 85, -45, 60, 0)) // main slab — all front zones, unchanged look
+  group.add(makeSlab(-85, 85, -60, -45, -0.2)) // boot segment, recessed
+  group.add(makeSlab(-85, 85, -80, -60, -0.5)) // hardware segment, deeper recess
 
   group.add(makePlate(COLORS.boot, -85, 85, -60, -45, -0.2)) // recessed back strip
   group.add(makePlate(COLORS.hardware, -85, 85, -75, -60, -0.5)) // hardware/kernel strip, deeper recess
