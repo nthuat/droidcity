@@ -396,6 +396,76 @@ describe('WardManager', () => {
     expect(pushed).toHaveLength(0)
   })
 
+  it('kill→retap race: a fork landing while the old ward still holds its plot fires onSpawnDropped', () => {
+    const deps = makeDeps()
+    const onSpawnDropped = vi.fn()
+    const manager = createWardManager({ ...deps, onSpawnDropped })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    deps.bus.emit('process:killed', { app: 'chat', pid: 1 })
+    // Retap lands mid-demolition (600ms): plot still held by the dying entry —
+    // spawn dropped, dep must fire so main.ts can kill the orphan proc.
+    deps.bus.emit('process:forked', { app: 'chat', pid: 2 })
+    expect(onSpawnDropped).toHaveBeenCalledWith('chat', 2)
+
+    // After demolition completes the plot frees and a fresh fork spawns normally.
+    manager.update(700)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 3 })
+    expect(manager.wards()).toHaveLength(1)
+    expect(manager.wards()[0]).toMatchObject({ app: 'chat', pid: 3 })
+    expect(onSpawnDropped).toHaveBeenCalledTimes(1)
+  })
+
+  it('backgrounding a bound client recomputes the service ward back to cached (no stale visible)', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority })
+
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // chat resumed
+    manager.goHome('chat') // chat backgrounded -> cached
+    deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
+    manager.update(800) // maps resumed (foreground)
+    manager.bindService('maps', 'chat')
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'visible')
+
+    manager.goHome('maps') // client leaves foreground -> chat must drop visible
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'cached')
+  })
+
+  it('killing a bound client recomputes the service ward priority', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority })
+
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800)
+    manager.goHome('chat') // backgrounded -> cached
+    deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
+    manager.update(800) // maps foreground
+    manager.bindService('maps', 'chat')
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'visible')
+
+    deps.bus.emit('process:killed', { app: 'maps', pid: 2 })
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'cached')
+  })
+
+  it('goHome on an already-backgrounded ward is a no-op (no duplicate activity:backgrounded)', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed
+
+    const backgrounded: { app: string }[] = []
+    deps.bus.on('activity:backgrounded', p => backgrounded.push(p))
+
+    manager.goHome('chat')
+    setAppPriority.mockClear()
+    manager.goHome('chat') // second press: phase already 'stopped'
+    expect(backgrounded).toEqual([{ app: 'chat' }])
+    expect(setAppPriority).not.toHaveBeenCalled()
+  })
+
   it('bindService: a resumed client binding to a backgrounded service promotes it to visible; unbind recomputes back to cached', () => {
     const deps = makeDeps()
     const setAppPriority = vi.fn()

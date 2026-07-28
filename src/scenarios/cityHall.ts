@@ -107,13 +107,6 @@ export function makeCityHallScenario(bus: Bus): Scenario {
         paint()
       }
     },
-    reset() {
-      stagesSeen = 0
-      litFrac = 1
-      pulseT = 0
-      paint()
-      panel.setNarration(DEFAULT_NARRATION)
-    },
     setIdle() {
       // visual only — no ambient behavior beyond the bus-driven boot/pulse reactions
     },

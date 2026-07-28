@@ -90,12 +90,6 @@ export function makeBootRowScenario(bus: Bus, onReplayStart: () => void): Scenar
         panel.setNarration('Boot complete — system_server is up, city hall lights on.')
       }
     },
-    reset() {
-      state = PRE_BOOTED
-      replaying = false
-      paint()
-      panel.setNarration(DEFAULT_NARRATION)
-    },
     setIdle() {
       // no ambient behavior — boot only runs on demand via replayBoot()
     },

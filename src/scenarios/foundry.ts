@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { createSystem, fork, setPriority, usedMb, type Priority, type SystemState } from '../sim/processes'
-import { makeBuilding, makeLabel } from '../scene/builders'
+import { makeBuilding } from '../scene/builders'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
@@ -15,7 +15,6 @@ const KILL_NARRATION_SUFFIX = ' — SIGKILL, no callback, onDestroy never ran.'
 const OOM_ADJ: Record<Priority, number> = { foreground: 0, visible: 100, service: 500, cached: 900 }
 
 export function makeFoundryScenario(bus: Bus): Scenario & {
-  demoteAll(): void
   killApp(app: string): void
   setAppPriority(app: string, priority: Priority): void
   stats(): { usedMb: number; capacityMb: number; procs: number; procList: { name: string; memoryMb: number; oomAdj: number }[] }
@@ -71,13 +70,6 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   pistonTower.position.set(-10, 0.3, -8)
   group.add(pistonTower)
 
-  function demoteAll(): void {
-    state = state.procs.reduce(
-      (acc, p) => (p.priority === 'foreground' ? setPriority(acc, p.pid, 'cached') : acc),
-      state,
-    )
-  }
-
   // WardManager calls this on warm/hot brought-to-front and on Home — named-proc
   // lookup, no-op if the app hasn't forked (or already died).
   function setAppPriority(app: string, priority: Priority): void {
@@ -92,10 +84,6 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   }
 
   const panel = makePanel('Zygote Foundry — every app forks from here')
-  panel.addButton('Demote all to cached', () => {
-    demoteAll()
-    panel.setNarration(procTable())
-  })
   panel.setNarration(DEFAULT_NARRATION)
 
   // Forking one hop per frame (instead of synchronously in the event handler) keeps
@@ -187,18 +175,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
         stamp.position.z = 3
       }
     },
-    reset() {
-      state = createSystem(CAPACITY_MB)
-      pendingLaunches = []
-      idleReclaimT = 0
-      stampT = 0
-      panel.setNarration(DEFAULT_NARRATION)
-    },
     setIdle(enabled) {
       idleEnabled = enabled
       idleReclaimT = 0
     },
-    demoteAll,
     killApp,
     setAppPriority,
     stats() {

@@ -65,6 +65,11 @@ export interface WardManagerDeps {
   // Fired once per spawn ('cold') and once per app:broughtToFront resolution
   // ('warm' | 'hot') — main.ts flashes the ward label's third line with it.
   onStartType?: (app: string, type: 'cold' | 'warm' | 'hot') => void
+  // Fired when a process:forked lands but no ward can spawn (plot still held by
+  // a demolishing predecessor, or no free plot). Without a listener the forked
+  // proc lives on with no ward and the launcher stays 'launching' forever —
+  // main.ts wires this to foundry.killApp so the whole flow unwinds.
+  onSpawnDropped?: (app: string, pid: number) => void
 }
 
 const RISE_MS = 800
@@ -97,7 +102,7 @@ const TETHER_Y = 2
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
 
 export function createWardManager(deps: WardManagerDeps): WardManager {
-  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled, setAppPriority, onStartType } = deps
+  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled, setAppPriority, onStartType, onSpawnDropped } = deps
   const buildMeshes = deps.buildMeshes ?? buildWardMeshes
   // Default mirrors pre-routes.ts behavior: a straight two-point hop between the
   // named anchors/plot slots. Real routing is wired in from main.ts via routePath.
@@ -130,6 +135,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     prevEntry.binderPulseMs = BINDER_PULSE_MS
     bus.emit('activity:backgrounded', { app: previous })
     setAppPriority?.(previous, backgroundPriority(prevEntry))
+    if (prevEntry.boundTo) recomputeServicePriority(prevEntry.boundTo)
   }
 
   // The priority a backgrounded ward should hold: normally 'service' while its
@@ -144,11 +150,15 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     return entry.serviceRunning ? 'service' : 'cached'
   }
 
-  // Only meaningful while the target isn't itself foreground (that priority is
-  // owned by the resume/foreground path, not this one). Called right after a
-  // bind/unbind changes what backgroundPriority(target) would return.
-  function recomputeBackgroundPriority(entry: WardEntry): void {
-    if (entry.dying || entry.activity.phase === 'resumed') return
+  // Re-derives a service ward's foundry priority from its binding clients'
+  // current states. Only meaningful while the target isn't itself foreground
+  // (that priority is owned by the resume/foreground path, not this one).
+  // Called after bind/unbind AND whenever a bound client stops being foreground
+  // (backgrounded, finished, killed) — else the service ward keeps a stale
+  // 'visible' inherited from a client that's no longer on screen.
+  function recomputeServicePriority(serviceApp: string): void {
+    const entry = wards.get(serviceApp)
+    if (!entry || entry.dying || entry.activity.phase === 'resumed') return
     setAppPriority?.(entry.app, backgroundPriority(entry))
   }
 
@@ -197,7 +207,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     client.boundTo = serviceApp
     client.tether = createTether(client, service)
     bus.emit('service:bound', { client: clientApp, service: serviceApp })
-    recomputeBackgroundPriority(service)
+    recomputeServicePriority(serviceApp)
   }
 
   function unbindService(clientApp: string): void {
@@ -207,8 +217,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     disposeTether(client)
     client.boundTo = null
     bus.emit('service:unbound', { client: clientApp })
-    const service = wards.get(serviceApp)
-    if (service) recomputeBackgroundPriority(service)
+    recomputeServicePriority(serviceApp)
   }
 
   function allocateN(entry: WardEntry, app: string, count: number, sizeKb: number): void {
@@ -230,8 +239,13 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const result = allocatePlot(plots, app)
     // duplicate app (incl. a re-fork landing while the old instance is still
     // demolishing — its plot isn't released until demolition completes), or no
-    // free plot (LMK race) — dropped by design, no queueing/retry.
-    if (result.plot === -1) return
+    // free plot (LMK race) — dropped by design, no queueing/retry. The forked
+    // proc still exists though, so tell main.ts to kill it (else: launcher
+    // stuck 'launching', unkillable foreground proc, dead kiosk).
+    if (result.plot === -1) {
+      onSpawnDropped?.(app, pid)
+      return
+    }
     plots = result.state
 
     const meshes = buildMeshes(app)
@@ -303,7 +317,13 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     setProviderSlabLit(entry.meshes, false)
     // Tether never outlives either end: drop this ward's own outgoing bind,
     // and any other living client's tether that pointed at this (now-dead) ward.
-    if (entry.boundTo) { disposeTether(entry); entry.boundTo = null }
+    if (entry.boundTo) {
+      const serviceApp = entry.boundTo
+      disposeTether(entry)
+      entry.boundTo = null
+      // Dead client no longer lends 'visible' — service drops to service/cached.
+      recomputeServicePriority(serviceApp)
+    }
     for (const other of wards.values()) {
       if (other.boundTo === app) { disposeTether(other); other.boundTo = null }
     }
@@ -456,13 +476,17 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   // Panel 'Home' button: backgrounds the Activity (floors dim to 1) and drops
   // foundry priority to service (if the ward's service is on) or cached.
+  // No-op unless actually resumed — a second Home press must not re-emit
+  // activity:backgrounded or re-touch priority (background() itself would
+  // already be a phase no-op).
   function goHome(app: string): void {
     const entry = wards.get(app)
-    if (!entry || entry.dying) return
+    if (!entry || entry.dying || entry.activity.phase !== 'resumed') return
     entry.activity = background(entry.activity)
     entry.binderPulseMs = BINDER_PULSE_MS
     setAppPriority?.(app, backgroundPriority(entry))
     bus.emit('activity:backgrounded', { app })
+    if (entry.boundTo) recomputeServicePriority(entry.boundTo)
     if (foregroundApp === app) foregroundApp = null
   }
 
@@ -501,6 +525,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.activity = finish(entry.activity)
     setAppPriority?.(app, backgroundPriority(entry))
     bus.emit('activity:backgrounded', { app })
+    if (entry.boundTo) recomputeServicePriority(entry.boundTo)
     if (foregroundApp === app) foregroundApp = null
   }
 

@@ -126,10 +126,6 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
       }
       paint()
     },
-    reset() {
-      resetApps()
-      idleT = 0
-    },
     setIdle(enabled) {
       idleEnabled = enabled
       idleT = 0

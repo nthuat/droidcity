@@ -7,6 +7,5 @@ export interface Scenario {
   readonly cameraPos: THREE.Vector3
   readonly cameraTarget: THREE.Vector3
   update(dtMs: number): void
-  reset(): void
   setIdle(enabled: boolean): void
 }

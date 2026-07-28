@@ -305,19 +305,6 @@ export function makeHardwareRowScenario(): Scenario & {
         slot.fillMat.emissiveIntensity = RAM_FILL_EMISSIVE + (1 - RAM_FILL_EMISSIVE) * t
       })
     },
-    reset() {
-      coreStates = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
-      coreStates.forEach((_, i) => paintCore(i))
-      ramSlots.forEach((_, i) => paintRam(i, null))
-      ramSlots.forEach((slot) => { slot.pulseT = 0 })
-      diskLedT = 0
-      paintDisk()
-      psiBar.scale.y = 1
-      psiBar.position.y = PLATE_TOP + PSI_BASE_H / 2
-      psiMat.color.setHex(PSI_GREEN)
-      psiMat.emissive.setHex(PSI_GREEN)
-      panel.setNarration(DEFAULT_NARRATION)
-    },
     setIdle() {
       // visual only — no ambient behavior; state is driven entirely by the setters
     },

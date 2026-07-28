@@ -177,19 +177,6 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
       }
       paint()
     },
-    reset() {
-      queue = []
-      busyMs = 0
-      totalComposited = 0
-      totalDropped = 0
-      brightApp = null
-      for (const t of tiles) {
-        t.state = 'dark'
-        t.flashT = 0
-        t.flashRed = false
-      }
-      panel.setNarration(DEFAULT_NARRATION)
-    },
     setIdle() {
       // no ambient behavior — composited frames come only from frame:submitted events
     },

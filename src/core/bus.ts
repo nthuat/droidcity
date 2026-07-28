@@ -10,6 +10,7 @@ export interface CityEvents {
   // type via the onStartType dep callback. (Plan drafted a `start` field on this
   // payload; dropped as unreliable since the only producer can't know the truth.)
   'app:broughtToFront': { app: string }
+  // Forward hooks — emitted for future consumers; panels currently sync per-frame.
   'service:changed': { app: string; running: boolean }
   'broadcast:sent': { action: string }
   'data:requested': { app: string; source: 'db' | 'network' }
@@ -24,6 +25,7 @@ export interface CityEvents {
   'anr': { app: string }
   'memory:trim': Record<string, never>
   'memory:pressure': Record<string, never>
+  // Forward hooks — emitted for future consumers; panels currently sync per-frame.
   'activity:pushed': { app: string; depth: number }
   'activity:popped': { app: string; depth: number }
   // Fired whenever an Activity leaves the foreground while the process survives

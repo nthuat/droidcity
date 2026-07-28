@@ -49,7 +49,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   let queue: QueueEntry[] = []
   let counter = 0
   let forceFailNext = false
-  let clock = 0 // scenario-accumulated sim clock (ms) — never Date.now, so reset()/story-speed stay in control
+  let clock = 0 // scenario-accumulated sim clock (ms) — never Date.now, so story-speed stays in control
   let pooledUntil: Record<string, number> = {}
 
   const tower = makeBuilding(3, 10, 3, 0x388bfd, 'Network')
@@ -185,16 +185,6 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
       blinkT += dtMs
       const retrying = queue.length > 0 && queue[0].req.retrying
       ;(retryLight.material as THREE.MeshStandardMaterial).emissiveIntensity = retrying ? 0.4 + 0.4 * Math.sin(blinkT / 100) : 0
-    },
-    reset() {
-      queue = []
-      counter = 0
-      forceFailNext = false
-      clock = 0
-      pooledUntil = {}
-      blinkT = 0
-      phaseLabel.setText('idle')
-      panel.setNarration(DEFAULT_NARRATION)
     },
     setIdle() {
       // no ambient behavior — network activity is bus/button driven only

@@ -88,6 +88,11 @@ const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
 const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
 const bus = createBus()
+// Tracks "a story is on screen" independent of player.playing — the player goes
+// idle (playing=false) as soon as the last step's wait resolves, but the card
+// stays up showing "Chapter done"; ✕ and Esc must both be able to dismiss it.
+// Declared early: refreshHud (called before story mode is set up) reads it.
+let storyActive = false
 const packets = createPacketSystem(city.scene)
 const hud = createHud(city.scene)
 const wardLabels = new Map<string, WardLabel>()
@@ -103,6 +108,10 @@ const foundry = makeFoundryScenario(bus)
 const wardManager = createWardManager({
   bus, scene: city.scene, packets, anchors: ANCHORS, plotAnchors: PLOT_ANCHORS, routePath: routes.path,
   setAppPriority: foundry.setAppPriority,
+  // Kill→retap race: a fork that lands while the old ward still holds its plot
+  // gets its ward spawn dropped — kill the orphan proc so process:killed flows
+  // (launcher markStopped revives the kiosk, foundry frees RAM/PSI).
+  onSpawnDropped(app) { foundry.killApp(app) },
   onStartType(app, type) {
     wardLabels.get(app)?.setStartLine(`${type} start`)
     startTypeExpiry.set(app, Date.now() + START_TYPE_FLASH_MS)
@@ -186,6 +195,9 @@ const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
 const hardwareRow = makeHardwareRowScenario()
 const cityHall = makeCityHallScenario(bus)
 const launcherPlaza = makeLauncherPlazaScenario(bus)
+// Subscription order matters: wardManager (constructed above) gets data:requested
+// first — the worker car must exist before a full queue's nested, synchronous
+// data:dropped tries to remove it.
 const networkTower = makeNetworkTowerScenario(bus)
 const surfaceFlinger = makeSurfaceFlingerScenario(bus)
 bus.on('boot:complete', () => setCityDim(false))
@@ -216,6 +228,9 @@ attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)
 // Single combined HARDWARE chip (CPU/RAM/DISK on one line) rather than three
 // sub-labels — matches the other zone chips' one-title/one-line shape.
 hud.attach('hardware', ANCHORS.hardware, 'HARDWARE')
+// Subscription order matters: hwWiring's process:forked handler looks up the
+// app's plot via wardStats(), so wardManager's onForked (subscribed at
+// construction, above) must have spawned the ward first.
 const hwWiring = attachHardwareWiring(
   bus, hardwareRow, wardManager, foundry,
   traces.setCpuTraceGlow, traces.setRamTraceGlow, traces.setDiskTraceGlow, traces.setCpuRamBusGlow, traces.setRamDiskBusGlow,
@@ -227,7 +242,10 @@ function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
   hwWiring.syncRam()
   hwWiring.syncPressure(HUD_UPDATE_MS)
-  if (pressureTrigger(hwWiring.getPressure())) bus.emit('memory:pressure', {})
+  // Gated while a story is open (paused implies storyActive too): an ambient
+  // PSI kill mid-chapter would pre-consume a chapter's process:killed wait.
+  // ch6's own explicit ctx.bus.emit('memory:pressure') is unaffected.
+  if (!storyActive && pressureTrigger(hwWiring.getPressure())) bus.emit('memory:pressure', {})
   hud.setLine('hardware', hwWiring.label())
   const procList = foundry.stats().procList
   const now = Date.now()
@@ -286,6 +304,9 @@ bus.on('frame:composited', ({ app }) => {
   const ghost = startingGhosts.get(app)
   if (ghost) ghost.fading = true
 })
+// Edge case: app backgrounded before its first frame ever composited — no
+// composite will come while stopped, so the ghost would stand forever.
+bus.on('activity:backgrounded', ({ app }) => disposeGhost(app))
 // Edge case: app killed before its first frame ever composited — the fade trigger
 // above never fires, so drop the ghost immediately instead of leaving it stuck.
 bus.on('process:killed', ({ app }) => {
@@ -588,10 +609,7 @@ function mkStoryButton(label: string, onClick: () => void): HTMLButtonElement {
 let playAllMode = false
 let playAllQueue: Chapter[] = []
 let playAllIdx = 0
-// Tracks "a story is on screen" independent of player.playing — the player goes
-// idle (playing=false) as soon as the last step's wait resolves, but the card
-// stays up showing "Chapter done"; ✕ and Esc must both be able to dismiss it.
-let storyActive = false
+// (storyActive is declared near the top of the file — refreshHud needs it.)
 // True while the story card's ⏸ is showing — freezes the city sim (scenarios,
 // wards, packets) so paused time can't outrun the player, which only arms one
 // event wait at a time; events firing while paused would be lost forever.
