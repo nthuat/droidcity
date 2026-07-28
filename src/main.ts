@@ -362,6 +362,12 @@ let storyActive = false
 // wards, packets) so paused time can't outrun the player, which only arms one
 // event wait at a time; events firing while paused would be lost forever.
 let storyPaused = false
+// Story steps hold ≥3.5s for readability but chained sim events (fork→rise→
+// resume→data→frame) finish in ~4s of realtime — resolving mid-dwell and
+// leaving later steps narrating action that already happened. Slow the sim
+// during chapters so it takes roughly as long as the narration.
+const STORY_SIM_SCALE = 0.35
+let storySpeed: 1 | 2 = 1
 
 const restartBtn = mkStoryButton('⏮', () => player.restartChapter())
 const playPauseBtn = mkStoryButton('⏸', () => {
@@ -379,6 +385,7 @@ const nextBtn = mkStoryButton('⏭', () => player.next())
 const speedBtn = mkStoryButton('1x', () => {
   const next: 1 | 2 = speedBtn.textContent === '1x' ? 2 : 1
   player.setSpeed(next)
+  storySpeed = next
   speedBtn.textContent = `${next}x`
 })
 const closeBtn = mkStoryButton('✕', () => stopStory())
@@ -482,9 +489,10 @@ city.start((dtMs) => {
     )
   }
   if (!storyPaused) {
-    packets.update(dtMs)
-    for (const s of scenarios) s.update(dtMs)
-    wardManager.update(dtMs)
+    const simDt = storyActive ? dtMs * STORY_SIM_SCALE * storySpeed : dtMs
+    packets.update(simDt)
+    for (const s of scenarios) s.update(simDt)
+    wardManager.update(simDt)
     hwWiring.syncCores()
   }
   player.update(dtMs)
