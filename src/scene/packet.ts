@@ -15,6 +15,11 @@ interface ActivePacket {
   arcHeight: number
 }
 
+const PACKET_INFO = {
+  title: 'In flight',
+  note: 'Data or a Binder transaction moving between processes.',
+}
+
 export function createPacketSystem(scene: THREE.Scene): PacketSystem {
   const geometry = new THREE.SphereGeometry(0.6)
   const active: ActivePacket[] = []
@@ -27,6 +32,7 @@ export function createPacketSystem(scene: THREE.Scene): PacketSystem {
         emissiveIntensity: 0.8,
       })
       const mesh = new THREE.Mesh(geometry, material)
+      mesh.userData.info = PACKET_INFO
       mesh.position.copy(path[0])
       scene.add(mesh)
       active.push({

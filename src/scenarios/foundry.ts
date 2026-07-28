@@ -20,6 +20,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   stats(): { usedMb: number; capacityMb: number; procs: number; procList: { name: string; memoryMb: number; oomAdj: number }[] }
 } {
   const group = new THREE.Group()
+  group.userData.info = {
+    title: 'Zygote Foundry',
+    note: 'Warm process template — apps fork from here, not from scratch.',
+  }
   let state: SystemState = createSystem(CAPACITY_MB)
   let pendingLaunches: string[] = []
 
@@ -37,6 +41,10 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     new THREE.MeshStandardMaterial({ color: 0xd29922 }),
   )
   stamp.position.set(0, 2.5, 3)
+  stamp.userData.info = {
+    title: 'Fork press',
+    note: 'One slam = one clone() — a new process stamped from the warm template.',
+  }
   group.add(stamp)
   let stampT = 0
 

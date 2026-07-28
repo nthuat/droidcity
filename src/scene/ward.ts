@@ -58,6 +58,10 @@ export function buildWardMeshes(app: string): WardMeshes {
   const group = new THREE.Group()
   group.name = 'ward'
   group.userData.app = app
+  // Group-level fallback: covers untagged children (labels/sprites, shedGlow).
+  // The inspector's wall-yield logic keys on mesh name 'wardWall', and the wall
+  // carries its own info — this fallback never masks either.
+  group.userData.info = { title: 'App ward', note: 'One app, one process, one sandbox.' }
 
   // ContentProvider slab: plinth ring under the Application floor. Providers are
   // instantiated before Application.onCreate — the classic hidden startup tax —
@@ -196,6 +200,10 @@ export function buildWardMeshes(app: string): WardMeshes {
   const carsParent = new THREE.Group()
   carsParent.name = 'carsParent'
   carsParent.position.set(0, 0, 7)
+  carsParent.userData.info = {
+    title: 'Main-thread message',
+    note: 'One car per Looper message — the road drains them one at a time.',
+  }
   group.add(carsParent)
 
   // Worker pool: a second, narrower road parallel to the main road — real IO
@@ -216,6 +224,10 @@ export function buildWardMeshes(app: string): WardMeshes {
   const workerParent = new THREE.Group()
   workerParent.name = 'workerParent'
   workerParent.position.set(1, 0, 7)
+  workerParent.userData.info = {
+    title: 'Worker job',
+    note: 'IO riding the worker pool, not the main road.',
+  }
   group.add(workerParent)
 
   const workerLabel = makeLabel('workers', 0.35)
@@ -280,19 +292,21 @@ export function buildWardMeshes(app: string): WardMeshes {
   const heapGeo = new THREE.PlaneGeometry(6, 6)
   const heapMat = new THREE.MeshStandardMaterial({ color: 0x0d1117 })
   disposables.push(heapGeo, heapMat)
+  const heapInfo = {
+    title: 'Heap',
+    note: 'Allocated objects in this process\'s PRIVATE virtual address space. Tan = reachable, grey = garbage until GC sweeps. Page tables map it onto the RAM bank below.',
+  }
   const heapYard = new THREE.Mesh(heapGeo, heapMat)
   heapYard.name = 'heapYard'
   heapYard.rotation.x = -Math.PI / 2
   heapYard.position.set(5, 0.01, -5)
+  heapYard.userData.info = heapInfo
   group.add(heapYard)
 
   const cratesParent = new THREE.Group()
   cratesParent.name = 'cratesParent'
   cratesParent.position.set(5, 0, -5)
-  cratesParent.userData.info = {
-    title: 'Heap',
-    note: 'Allocated objects in this process\'s PRIVATE virtual address space. Tan = reachable, grey = garbage until GC sweeps. Page tables map it onto the RAM bank below.',
-  }
+  cratesParent.userData.info = heapInfo
   group.add(cratesParent)
 
   // Room shed with a door plane that flashes on query.

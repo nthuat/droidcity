@@ -12,6 +12,10 @@ const DEFAULT_NARRATION = 'system_server hosts AMS (Activity Manager), WMS (Wind
 
 export function makeCityHallScenario(bus: Bus): Scenario {
   const group = new THREE.Group()
+  group.userData.info = {
+    title: 'system_server',
+    note: 'One process, ~100 services — the operating system\'s civil service.',
+  }
 
   const hall = makeBuilding(14, 6, 8, LIT, 'system_server')
   hall.userData.info = {

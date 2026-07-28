@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { makeVent } from './props'
+import type { InspectorInfo } from '../ui/inspector'
 
 // Static machine-board geometry: one contiguous plate-tiled floor replacing the old
 // ground+grid. Built once and added to the scene from main.ts — no disposal needed,
@@ -41,10 +42,33 @@ function makeSlab(x0: number, x1: number, z0: number, z1: number, topY: number):
   return mesh
 }
 
+// Hover tooltips: per-zone plates get their own info; everything untagged on the
+// board (slabs, rims, silk texts, deck, ramp) falls back to the group-level info
+// via the inspector's parent-chain walk.
+const PLATE_INFO: Record<string, InspectorInfo> = {
+  wards: { title: 'Ward plots', note: 'Four app plots — one sandboxed process each.' },
+  boot: { title: 'Boot strip', note: 'Recessed on purpose — bootloader/kernel/init run before userspace exists.' },
+  hardware: { title: 'Hardware strip', note: 'The silicon. Framework never touches it directly — HALs and drivers sit between.' },
+  foundry: { title: 'Foundry plate', note: 'Zygote district — process factory floor.' },
+  cityhall: { title: 'City Hall pit', note: 'Recessed civic district — every Binder road descends here.' },
+  surfaceflinger: { title: 'Compositor plate', note: 'SurfaceFlinger district — every frame\'s last stop before glass.' },
+  network: { title: 'Network plate', note: 'Radio edge district — every fetch leaves the board from here.' },
+  launcher: { title: 'Launcher deck', note: 'Elevated plaza — the home screen is just an app with a view.' },
+}
+const BOARD_INFO: InspectorInfo = {
+  title: 'The device',
+  note: 'One machine board — everything above this PCB is software.',
+}
+
 // A flat zone plate: box top face sits at `topY`, footprint is [x0,x1] x [z0,z1].
 function makePlate(color: number, x0: number, x1: number, z0: number, z1: number, topY: number): THREE.Mesh {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, PLATE_H, z1 - z0), plateMaterial(color))
   mesh.position.set((x0 + x1) / 2, topY - PLATE_H / 2, (z0 + z1) / 2)
+  return mesh
+}
+
+function tagged(mesh: THREE.Mesh, info: InspectorInfo): THREE.Mesh {
+  mesh.userData.info = info
   return mesh
 }
 
@@ -91,7 +115,7 @@ function buildPit(): THREE.Object3D[] {
   const fx0 = x0 + RIM, fx1 = x1 - RIM, fz0 = z0 + RIM, fz1 = z1 - RIM
   const midZ = (fz0 + fz1) / 2
   return [
-    makePlate(COLORS.cityhall, fx0, fx1, fz0, fz1, floorY),
+    tagged(makePlate(COLORS.cityhall, fx0, fx1, fz0, fz1, floorY), PLATE_INFO.cityhall),
     makeSlope(COLORS.cityhall, new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, floorY, fz0), x1 - x0), // north rim
     makeSlope(COLORS.cityhall, new THREE.Vector3(0, 0, z1), new THREE.Vector3(0, floorY, fz1), x1 - x0), // south rim
     makeSlope(COLORS.cityhall, new THREE.Vector3(x0, 0, midZ), new THREE.Vector3(fx0, floorY, midZ), fz1 - fz0), // west rim
@@ -112,6 +136,7 @@ function buildLauncherPlatform(): THREE.Object3D[] {
     plateMaterial(COLORS.launcher),
   )
   deck.position.set((x0 + x1) / 2, topY / 2, (rampZ1 + z1) / 2)
+  deck.userData.info = PLATE_INFO.launcher
   return [
     deck,
     makeSlope(COLORS.launcher, new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, topY, rampZ1), x1 - x0),
@@ -121,6 +146,7 @@ function buildLauncherPlatform(): THREE.Object3D[] {
 export function buildBoard(): THREE.Group {
   const group = new THREE.Group()
   group.name = 'board'
+  group.userData.info = BOARD_INFO
 
   // Depth 120→140, extending only off the back edge (front stays at z=60 so every
   // existing plate/zone coordinate below is untouched). The slab is 3 z-segments,
@@ -142,12 +168,12 @@ export function buildBoard(): THREE.Group {
   group.add(makeSlab(-85, 85, -60, -45, -0.2 - PLATE_H)) // boot segment, recessed
   group.add(makeSlab(-85, 85, -80, -60, -0.5 - PLATE_H)) // hardware segment, deeper recess
 
-  group.add(makePlate(COLORS.boot, -85, 85, -60, -45, -0.2)) // recessed back strip
-  group.add(makePlate(COLORS.hardware, -85, 85, -75, -60, -0.5)) // hardware/kernel strip, deeper recess
-  group.add(makePlate(COLORS.foundry, -85, -45, -45, 5, 0.3))
-  group.add(makePlate(COLORS.wards, -45, 45, -45, -5, 0.3))
-  group.add(makePlate(COLORS.surfaceflinger, 45, 85, -45, 0, 0.3))
-  group.add(makePlate(COLORS.network, 45, 85, 0, 35, 0.3))
+  group.add(tagged(makePlate(COLORS.boot, -85, 85, -60, -45, -0.2), PLATE_INFO.boot)) // recessed back strip
+  group.add(tagged(makePlate(COLORS.hardware, -85, 85, -75, -60, -0.5), PLATE_INFO.hardware)) // hardware/kernel strip, deeper recess
+  group.add(tagged(makePlate(COLORS.foundry, -85, -45, -45, 5, 0.3), PLATE_INFO.foundry))
+  group.add(tagged(makePlate(COLORS.wards, -45, 45, -45, -5, 0.3), PLATE_INFO.wards))
+  group.add(tagged(makePlate(COLORS.surfaceflinger, 45, 85, -45, 0, 0.3), PLATE_INFO.surfaceflinger))
+  group.add(tagged(makePlate(COLORS.network, 45, 85, 0, 35, 0.3), PLATE_INFO.network))
   for (const o of buildPit()) group.add(o)
   for (const o of buildLauncherPlatform()) group.add(o)
 

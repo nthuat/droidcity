@@ -46,6 +46,10 @@ function makePhaseLabel(initial: string): { sprite: THREE.Sprite; setText(t: str
 
 export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queue: number; phase: string } } {
   const group = new THREE.Group()
+  group.userData.info = {
+    title: 'Network edge',
+    note: 'Radio → ISP → internet. Every fetch leaves the device here.',
+  }
   let queue: QueueEntry[] = []
   let counter = 0
   let forceFailNext = false
@@ -99,6 +103,10 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
     new THREE.MeshStandardMaterial({ color: 0xf85149, emissive: 0xf85149, emissiveIntensity: 0 }),
   )
   retryLight.position.set(0, 10.5, 1.8)
+  retryLight.userData.info = {
+    title: 'Retry beacon',
+    note: 'Blinks during exponential backoff after a failed request.',
+  }
   group.add(retryLight)
 
   function enqueue(app: string): void {

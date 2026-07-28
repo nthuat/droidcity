@@ -10,6 +10,13 @@ const GREY_B = 0x455a64
 const GREY_C = 0x546e7a
 const ACCENT = 0x76e3ea
 
+// Hover tooltips, tagged on each builder's root group so every caller (board
+// corners, boot strip, network masts, …) is covered without per-site tagging.
+const VENT_INFO = { title: 'Cooling vent', note: 'Thermal headroom is a real scheduler input — hot silicon throttles.' }
+const TANK_INFO = { title: 'Power cell', note: 'The battery — the budget every wakelock spends.' }
+const PIPE_INFO = { title: 'Power/clock lines', note: 'Board plumbing — clocks and rails the SoC lives on.' }
+const ANTENNA_INFO = { title: 'Antenna', note: 'Radio hardware — cellular/Wi-Fi PHY.' }
+
 const matA = new THREE.MeshStandardMaterial({ color: GREY_A, roughness: 0.7 })
 const matB = new THREE.MeshStandardMaterial({ color: GREY_B, roughness: 0.7 })
 const matC = new THREE.MeshStandardMaterial({ color: GREY_C, roughness: 0.6 })
@@ -24,6 +31,7 @@ const ventGrateGeo = new THREE.BoxGeometry(0.7, 0.08, 0.7)
 
 export function makeVent(): THREE.Group {
   const g = new THREE.Group()
+  g.userData.info = VENT_INFO
   const plinth = new THREE.Mesh(ventPlinthGeo, matA)
   plinth.position.y = 0.075
   const grate = new THREE.Mesh(ventGrateGeo, matC)
@@ -38,6 +46,7 @@ const pipeLegGeo = new THREE.BoxGeometry(0.18, 0.3, 0.18)
 
 export function makePipeRun(length: number): THREE.Group {
   const g = new THREE.Group()
+  g.userData.info = PIPE_INFO
   const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, length, 10), matB)
   pipe.rotation.z = Math.PI / 2
   pipe.position.y = 0.45
@@ -58,6 +67,7 @@ const tankBandGeo = new THREE.CylinderGeometry(0.92, 0.92, 0.15, 16)
 
 export function makeTank(): THREE.Group {
   const g = new THREE.Group()
+  g.userData.info = TANK_INFO
   const body = new THREE.Mesh(tankBodyGeo, matA)
   body.position.y = 1.1
   const cap = new THREE.Mesh(tankCapGeo, matC)
@@ -75,6 +85,7 @@ const antennaTipGeo = new THREE.SphereGeometry(0.14, 10, 8)
 
 export function makeAntenna(): THREE.Group {
   const g = new THREE.Group()
+  g.userData.info = ANTENNA_INFO
   const pole = new THREE.Mesh(antennaPoleGeo, matB)
   pole.position.y = 2
   g.add(pole)

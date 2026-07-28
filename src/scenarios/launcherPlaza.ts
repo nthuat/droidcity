@@ -25,6 +25,10 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   stats(): { running: number }
 } {
   const group = new THREE.Group()
+  group.userData.info = {
+    title: 'Launcher Plaza',
+    note: 'The launcher is just an app with a privileged view of PMS.',
+  }
   let state: LauncherState = createLauncher()
   let rotationIdx = 0
   let idleEnabled = true

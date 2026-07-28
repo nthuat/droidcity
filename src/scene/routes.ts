@@ -40,6 +40,17 @@ const CONVEYOR_COLORS = [0x455a64, 0x37474f]
 const CONVEYOR_SEGMENT_LEN = 3
 const WAYPOINT_LIFT = 0.5
 
+// Default hover tooltips by segment kind — routes with an explicit `info`
+// (First casting) overwrite these in buildRoutes; TRUNKS get the defaults too.
+const ROAD_INFO: InspectorInfo = {
+  title: 'Binder road',
+  note: 'Every packet crossing process walls is a Binder transaction.',
+}
+const CONVEYOR_INFO: InspectorInfo = {
+  title: 'Fork conveyor',
+  note: 'Carries freshly forked processes from Zygote to their plots.',
+}
+
 function v(x: number, y: number, z: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z)
 }
@@ -184,6 +195,7 @@ function buildPolyline(points: readonly THREE.Vector3[], conveyor: boolean | und
     if (conveyor) meshes.push(...conveyorLeg(points[i], points[i + 1]))
     else meshes.push(roadSegment(ROAD_COLOR, points[i], points[i + 1], ROAD_RAISE))
   }
+  for (const mesh of meshes) mesh.userData.info = conveyor ? CONVEYOR_INFO : ROAD_INFO
   return meshes
 }
 

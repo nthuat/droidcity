@@ -45,6 +45,7 @@ const DISK_LANE_OFFSET = 1.6
 // lane = x 5.6) cut through the 'init' boot station (x ~5..9 on the boot strip).
 // Max here is 3.6 + 0.8 = 4.4 — clear of the station's west face.
 const RAM_FAN_OFFSETS = [-3.6, -1.2, 1.2, 3.6]
+const CPU_TRACE_INFO = { title: 'CPU trace', note: 'Lights while this ward\'s main thread holds a core.' }
 const RAM_TRACE_INFO = { title: 'Memory bus', note: 'Lights when this ward allocates or GC runs — pages moving between heap and physical RAM.' }
 const DISK_TRACE_INFO = { title: 'Storage bus', note: 'Lights on Room reads and write-backs — the ward\'s private DB lives on this flash.' }
 
@@ -104,7 +105,7 @@ function climbPoints(x: number, srcZ: number): THREE.Vector3[] {
 // same 4 lane offsets CPU uses (mirrors hardwareRow.ts's slot/slab spread),
 // shifted sideways by laneOffsetX and tagged with a hover tooltip. Mirrors the
 // CPU per-plot loop in buildTraces below — kept separate (not shared with CPU)
-// since CPU has no tooltip and predates this lane-offset shape.
+// since CPU predates this lane-offset shape.
 function buildPlotFamily(
   sourceX: number, fanOffsets: readonly number[], laneOffsetX: number, info: { title: string; note: string },
 ): { mats: THREE.MeshStandardMaterial[]; meshes: THREE.Mesh[] } {
@@ -144,7 +145,10 @@ export function buildTraces(): Traces {
     const mat = traceMaterial()
     cpuMats.push(mat)
     const points = [...climbPoints(CPU_X + CORE_OFFSETS[n], HW_Z), v(plotX, Y_PLATE, PLOT_Z)]
-    for (const m of ribbon(mat, points)) group.add(m)
+    for (const m of ribbon(mat, points)) {
+      m.userData.info = CPU_TRACE_INFO
+      group.add(m)
+    }
   })
 
   // CPU ↔ RAM bus: wide flat ribbon along the hardware strip surface.
@@ -175,14 +179,23 @@ export function buildTraces(): Traces {
   const ramMat = traceMaterial()
   const ramClimb = climbPoints(RAM_X, HW_Z)
   const ramExit = ramClimb[ramClimb.length - 1]
-  for (const m of ribbon(ramMat, ramClimb)) group.add(m)
-  for (const m of ribbon(ramMat, [ramExit, ZYGOTE])) group.add(m)
-  for (const m of ribbon(ramMat, [ramExit, WARD_TRUNK])) group.add(m)
+  const ramRibbons = [
+    ...ribbon(ramMat, ramClimb),
+    ...ribbon(ramMat, [ramExit, ZYGOTE]),
+    ...ribbon(ramMat, [ramExit, WARD_TRUNK]),
+  ]
+  for (const m of ramRibbons) {
+    m.userData.info = RAM_TRACE_INFO
+    group.add(m)
+  }
 
   // DISK -> east corridor toward the network district (see NETWORK comment above).
   const diskMat = traceMaterial()
   const diskPoints = [...climbPoints(DISK_X, HW_Z), NETWORK]
-  for (const m of ribbon(diskMat, diskPoints)) group.add(m)
+  for (const m of ribbon(diskMat, diskPoints)) {
+    m.userData.info = DISK_TRACE_INFO
+    group.add(m)
+  }
 
   // Per-plot RAM and DISK traces, parallel to the CPU family above.
   const ramFamily = buildPlotFamily(RAM_X, RAM_FAN_OFFSETS, RAM_LANE_OFFSET, RAM_TRACE_INFO)

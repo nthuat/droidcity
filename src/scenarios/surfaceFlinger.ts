@@ -22,8 +22,17 @@ interface TileState { state: TileVisualState; flashT: number; flashRed: boolean 
 const BRIGHT_INTENSITY = 0.45
 const FAINT_INTENSITY = 0.04
 
+const TILE_INFO = {
+  title: 'App layer',
+  note: 'One BufferQueue per app. Bright = on screen; faint = alive behind it, drawing nothing.',
+}
+
 export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { composited: number; dropped: number } } {
   const group = new THREE.Group()
+  group.userData.info = {
+    title: 'SurfaceFlinger district',
+    note: 'Frames queue here as buffers before compositing.',
+  }
   let totalComposited = 0
   let totalDropped = 0
 
@@ -61,6 +70,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
       new THREE.MeshStandardMaterial({ color: DARK }),
     )
     tile.position.set(WALL_X - 0.5, WALL_BASE_Y + WALL_H / 2, (i - 1.5) * 2.4)
+    tile.userData.info = TILE_INFO
     group.add(tile)
     const lbl = makeLabel(app, 0.4)
     lbl.position.set(WALL_X - 0.5, WALL_BASE_Y + WALL_H / 2 + 1.4, (i - 1.5) * 2.4)
