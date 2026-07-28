@@ -9,10 +9,10 @@ Written for checking coverage — each numbered item is a checkable unit.
 
 1. **Boot ROM** — SoC-internal code; verifies + loads the bootloader from fixed storage. (Microseconds; usually skipped in diagrams.)
 2. **Bootloader** (ABL/LK/U-Boot) — initializes minimal hardware, verifies (AVB) and loads the kernel + ramdisk. Fastboot lives here.
-3. **Kernel** — Linux boots: CPU/memory init, drivers (storage, display, input, radio), mounts ramdisk, starts PID 0/kernel threads. Android-specific bits: binder driver, ashmem, lmkd hooks, SELinux policy load begins.
+3. **Kernel** — Linux boots: CPU/memory init, drivers (storage, display, input, radio), mounts ramdisk, starts PID 0/kernel threads. Android-specific bits: binder driver, ashmem, PSI accounting (what lmkd will listen to), SELinux policy load begins.
 4. **init (PID 1)** — first userspace process. Parses `init.rc`: mounts partitions, applies SELinux, starts core daemons:
    - `ueventd` (device nodes), `logd`, `servicemanager` (**Binder name service** — the phone book every Binder client asks), `vold` (storage), HALs (camera, audio, radio…), `surfaceflinger` (yes — SF starts at init stage, not later), `netd`, `zygote`.
-5. **Zygote** — started by init. Loads ART, **preloads ~thousands of framework classes + shared resources** into memory, then opens a socket and waits. Every app process will be a `fork()` of this warm template — copy-on-write shares the framework pages.
+5. **Zygote** — started by init (usually twice: `zygote64` + `zygote` for 32-bit ABIs). Loads ART, **preloads ~thousands of framework classes + shared resources** into memory, then opens a socket and waits (modern Android also keeps a small **USAP pool** of pre-forked blanks to skip even the fork on hot launch paths). Every app process will be a `fork()` of this warm template — copy-on-write shares the framework pages.
 6. **system_server** — the **first fork of Zygote**. Hosts ~100 system services in one process: ActivityManagerService (AMS)/ActivityTaskManager, WindowManagerService (WMS), PackageManagerService (PMS — scans installed APKs at boot), PowerManager, InputManagerService (InputReader + InputDispatcher threads), JobScheduler, ConnectivityService…
 7. **Launcher** — AMS is ready → fires `Intent.CATEGORY_HOME` → the launcher app (itself just an app, forked from Zygote like any other) starts and draws the home screen.
 8. **`ACTION_BOOT_COMPLETED`** broadcast → apps with receivers wake up.
@@ -104,11 +104,11 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 |---|---|---|
 | Bootloader → kernel → init | Boot Row stations 1-3 | ✅ |
 | Zygote preloading (warm template) | Foundry narration + fork behavior | ✅ |
-| **init forks Zygote; system_server forked FROM Zygote** | Boot Row shows init → system_server as sequential stations; Zygote "already warm" beside it | ⚠️ order blurred — ch1 narration could fix free (ledger noted) |
+| **init forks Zygote; system_server forked FROM Zygote** | ch1: init "warms the foundry"; system_server "the foundry's first casting" | ✅ (fixed) |
 | servicemanager / Binder name service | — | ❌ (fold into City Hall note?) |
-| SurfaceFlinger starts at init stage | SF district exists; boot ch1 doesn't light it | ⚠️ |
+| SurfaceFlinger starts at init stage | SF district un-dims at init stage during boot replay | ✅ (fixed) |
 | PMS APK scan at boot | — | ❌ minor |
-| BOOT_COMPLETED broadcast | — | ❌ minor |
+| BOOT_COMPLETED broadcast | broadcast fan-out fires on boot:complete (v3) | ✅ |
 | HALs / drivers | Hardware row (CPU/RAM/DISK) | ⚠️ radio HAL missing; network tower implies it |
 
 ### App launch
@@ -134,7 +134,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Cache-then-network + Flow re-emission | ch3 stale-then-fresh | ✅ (mechanism ⚠️ — Room invalidation/Flow not named) |
 | OkHttp phases + retry/backoff | Network Tower phases | ✅ |
 | Connection pooling (warm skips dns/tls) | every request runs all phases | ⚠️ |
-| Choreographer + vsync scheduling | frames start on message arrival | ⚠️ vsync never mentioned — the "16ms train" narration implies it |
+| Choreographer + vsync scheduling | named in ch4 narration + input-stage tooltip (frame start still message-driven ⚠️) | ✅ (fixed) |
 | RenderThread off main | bench station | ✅ |
 | BufferQueue / triple buffering | — | ❌ minor (plan's known simplification) |
 | SF + HWC composition | SF district | ✅ (HWC ❌ minor) |
@@ -147,8 +147,8 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Generational / concurrent copying detail | GC narration hedges "ART keeps pauses sub-ms" | ⚠️ fine at this depth |
 | GC on background transition, largeHeap, soft/weak refs | — | ❌ minor |
 | OOM = leak (all reachable) | gc OOM narration says exactly this | ✅ |
-| **oom_adj score ladder** (0/100/200/500/600/700/900) | 4 coarse priorities (foreground/visible/service/cached) | ⚠️ ladder + HOME/PREVIOUS special slots would teach more; ward panel could show live score |
-| **lmkd as its own daemon; SIGKILL, no callback** | foundry does the killing itself; no "no goodbye" beat | ⚠️ narration: onDestroy never guaranteed |
+| **oom_adj score ladder** (0/100/200/500/600/700/900) | live oom_adj on ward labels (0/100/500/900 via priorities); HOME/PREVIOUS slots unmodeled | ✅ (fixed, partial ladder ⚠️) |
+| **lmkd as its own daemon; SIGKILL, no callback** | kill narration: "SIGKILL — no callback, onDestroy never ran" (foundry still plays both AMS and lmkd roles ⚠️) | ✅ (fixed) |
 | **PSI pressure signals driving kills** | PSI gauge on RAM bank + HUD %, fork-spike decay | ✅ (fixed; kill trigger itself still fullness-based ⚠️) |
 | zram/kswapd reclaim before killing | — | ❌ minor |
 | onTrimMemory cooperative shrink | memory:trim event — wards shed crates + sweep on pressure | ✅ (fixed) |
@@ -156,7 +156,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Virtual memory: COW shared framework pages, mmap, PSS | shared slabs in RAM bank + tooltips | ✅ (v3.1; demand paging doc-only) |
 
 ### Not modeled at all (out of scope so far, fine for v-next list)
-Services / broadcasts / ContentProviders · JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window · process death + saved-state restore (LMK kills exist, but restore story untold).
+BroadcastReceivers-as-components / bound services / ContentProviders · JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window. (Started services, broadcasts-minimal, and kill→restore shipped in v3.)
 
 ---
 
@@ -170,7 +170,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 **🏙 Cold / warm / hot start**: doc's Phase 2 is a **cold** start (fork everything). **Warm** = process alive, Activity recreated (no fork, no Application.onCreate). **Hot** = everything alive, just brought to front. Launcher tap on a cached ward should NOT rebuild the ward — instant hot start would teach why cached processes exist (ties directly into oom_adj 700/900 and LMK). **v3:** modeled — warm relight, hot pulse, Home button, Chapter 5 ladder.
 
-**🏙 ANR ladder** (we model input-ANR only): input dispatch **5s** · foreground service **20s** · broadcast receiver **10s** (foreground) · JobScheduler jobs. Different timers, same disease: a blocked main looper.
+**🏙 ANR ladder** (we model input-ANR only): input dispatch **5s** · foreground service **20s** (background 200s) · broadcast receiver **10s** foreground / **60s** background · JobScheduler jobs. Different timers, same disease: a blocked main looper.
 
 **🏙 Tasks & back stack**: tasks (Recents entries), back stack of activities, `launchMode` (standard / singleTop / singleTask / singleInstance), task affinity, predictive back. Explains what "back" actually does — a stack of floors/rooms metaphor fits the tower naturally.
 
@@ -194,17 +194,18 @@ The flow above is one path through the system. These are the concepts an Android
 
 ---
 
-## Priority recommendations (highest teaching value ÷ effort)
+## Priority recommendations — ALL SHIPPED (v3.1)
 
-1. **Worker-thread lane in the ward** — second small road ("worker pool") beside the main road; data requests hop main → worker (packet), IO happens from the worker lane, result hops back to main. Kills the "main thread does IO" misread; makes the ANR beat land harder ("this is what happens when you DON'T hop"). Medium effort.
-2. **Input's system-side trip** — ch4 step 1 & free-mode: tap starts at hardware row (touch) → City Hall (InputDispatcher) → ward road. Reuses packets + existing districts. Low effort.
-3. **Starting window beat in ch2** — when kiosk tapped, ward plot shows a ghost/outline "splash" instantly, real ward rises under it, ghost fades at first frame:composited. Explains why launches feel fast. Low-medium.
-4. **Application vs Activity floor** — 4th tower floor at base labeled `Application` lighting before the lifecycle floors (bindApplication). Low effort, fixes a real interview distinction.
-5. **Boot order narration fix** — ch1: "init starts Zygote; the foundry's first casting is system_server itself." One line, free. Also light SF district during boot.
-6. **Vsync mention** — bench tooltip + ch4 narration: name Choreographer/vsync. Free.
+Items 1-9 below were implemented and deployed; kept as a changelog of what each fixed.
 
-7. **PSI pressure gauge + oom_adj ladder** — RAM bank gets a pressure needle (stall-based, twitching before kills); ward labels/panels show live oom_adj score climbing as the app is demoted (0 → 700 → 900) so the kill order is visibly earned, not arbitrary. Foundry kill narration: "SIGKILL — no callback, onDestroy never ran." Medium effort.
-8. **onTrimMemory beat** — under pressure, wards voluntarily shed grey crates (cooperative trim) before lmkd's crane moves. Low effort (bus event + ward reaction).
-9. **Kill → restore loop** — after an LMK demolition, relaunching the same app restores instantly (ViewModel orb + saved state framing). Closes the "why persistence matters" arc. Low-medium.
+1. ✅ Worker-thread lane in the ward (worker pool road, IO never on main)
+2. ✅ Input's system-side trip (touchscreen → City Hall/InputDispatcher → ward packets)
+3. ✅ Starting window ghost (splash from launch request to first composite)
+4. ✅ Application vs Activity floor (bindApplication base floor)
+5. ✅ Boot-order narration + SF lit at init
+6. ✅ Vsync/Choreographer named
+7. ✅ PSI gauge + live oom_adj ward labels + SIGKILL narration
+8. ✅ onTrimMemory cooperative shed (memory:trim)
+9. ✅ Kill → restore arc (ch4 finale + fast-rise restore badge; expanded by ch5)
 
-Items 5-6 are narration-only. 1-4, 7-9 touch code.
+**Open backlog (v4):** Binder mechanics beats (thread pool, 1MB buffer, death recipients as City Hall narration) · ANR ladder timers · tasks & back stack · servicemanager note · HWC/BufferQueue · connection pooling warm-skip · PSI-driven (not fullness-driven) kill trigger.
