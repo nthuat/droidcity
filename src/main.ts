@@ -214,7 +214,10 @@ attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)
 // Single combined HARDWARE chip (CPU/RAM/DISK on one line) rather than three
 // sub-labels — matches the other zone chips' one-title/one-line shape.
 hud.attach('hardware', ANCHORS.hardware, 'HARDWARE')
-const hwWiring = attachHardwareWiring(bus, hardwareRow, wardManager, foundry, traces.setCpuTraceGlow)
+const hwWiring = attachHardwareWiring(
+  bus, hardwareRow, wardManager, foundry,
+  traces.setCpuTraceGlow, traces.setRamTraceGlow, traces.setDiskTraceGlow,
+)
 // PSI-driven LMK: crossing 0.85 upward (edge-triggered, rearms below 0.7) fires
 // memory:pressure — foundry reclaims a cached process in response.
 const pressureTrigger = createEdgeTrigger(0.85, 0.7)
@@ -700,7 +703,7 @@ city.start((dtMs) => {
     packets.update(simDt)
     for (const s of scenarios) s.update(simDt)
     wardManager.update(simDt)
-    hwWiring.syncCores()
+    hwWiring.syncCores(simDt)
     updateGhosts(simDt)
   }
   player.update(dtMs)

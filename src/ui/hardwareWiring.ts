@@ -4,6 +4,7 @@ import { APP_COLORS } from '../scene/ward'
 const CORE_COUNT = 4
 const RAM_SEGMENTS = 8
 const MB_PER_SEGMENT = 150
+const TRACE_PULSE_MS = 500
 // A ward that's still forked in foundry but whose WardManager entry has already
 // been torn down (a brief race during kill/demolish) reads as "barely there"
 // rather than snapping the tank back to full or vanishing outright.
@@ -61,28 +62,71 @@ export function attachHardwareWiring(
   wardManager: WardStatsSource,
   foundry: ProcListSource,
   setCpuTraceGlow: (plot: number, color: number | null) => void,
-): { syncCores(): void; syncRam(): void; syncPressure(dtMs: number): void; getPressure(): number; label(): string } {
+  setRamTraceGlow: (plot: number, color: number | null) => void,
+  setDiskTraceGlow: (plot: number, color: number | null) => void,
+): { syncCores(dtMs: number): void; syncRam(): void; syncPressure(dtMs: number): void; getPressure(): number; label(): string } {
   let reads = 0
   let writes = 0
   let smoothedFrac = 0
   let spikeT = 0
   let pressureFrac = 0
-  bus.on('data:cacheHit', () => { reads++; hardwareRow.diskBlink(false) })
-  bus.on('data:fetched', () => { writes++; hardwareRow.diskBlink(true) })
-  bus.on('process:forked', () => { spikeT = PRESSURE_SPIKE_DECAY_MS })
+  // Per-plot pulse timers for the RAM/DISK bus traces, decayed every syncCores
+  // call (the existing per-frame path core-glow already runs on) rather than a
+  // separate tick — one frame hook, not two.
+  const ramPulse: number[] = new Array(CORE_COUNT).fill(0)
+  const diskPulse: number[] = new Array(CORE_COUNT).fill(0)
+
+  function plotForApp(app: string): number | null {
+    return wardManager.wardStats().find(s => s.app === app)?.plot ?? null
+  }
+
+  bus.on('data:cacheHit', ({ app }) => {
+    reads++
+    hardwareRow.diskBlink(false)
+    const plot = plotForApp(app)
+    if (plot !== null) diskPulse[plot] = TRACE_PULSE_MS
+  })
+  bus.on('data:fetched', ({ app }) => {
+    writes++
+    hardwareRow.diskBlink(true)
+    const plot = plotForApp(app)
+    if (plot !== null) diskPulse[plot] = TRACE_PULSE_MS
+  })
+  bus.on('process:forked', ({ app }) => {
+    spikeT = PRESSURE_SPIKE_DECAY_MS
+    const plot = plotForApp(app)
+    if (plot !== null) ramPulse[plot] = TRACE_PULSE_MS
+  })
   // GC↔RAM beat: a sweep visibly brightens the app's slabs for a moment before
   // the drained fill level (read on the next syncRam) settles in.
-  bus.on('gc:swept', ({ app }) => { hardwareRow.pulseRam(app) })
+  bus.on('gc:swept', ({ app }) => {
+    hardwareRow.pulseRam(app)
+    const plot = plotForApp(app)
+    if (plot !== null) ramPulse[plot] = TRACE_PULSE_MS
+  })
+  // Trim has no app payload — every living ward is reclaiming pages, so pulse them all.
+  bus.on('memory:trim', () => {
+    for (const w of wardManager.wardStats()) ramPulse[w.plot] = TRACE_PULSE_MS
+  })
 
-  function syncCores(): void {
+  function syncCores(dtMs: number): void {
     const stats = wardManager.wardStats()
+    const byPlot = new Map(stats.map(w => [w.plot, w]))
     const cores = Array.from({ length: CORE_COUNT }, (_, plot) => {
-      const w = stats.find(s => s.plot === plot)
+      const w = byPlot.get(plot)
       if (!w) return { color: null, stuck: false, app: '' }
       return { color: w.busy ? (APP_COLORS[w.app] ?? 0x6e7681) : null, stuck: w.anr, app: w.app }
     })
     hardwareRow.setCoreStates(cores)
     cores.forEach((c, plot) => setCpuTraceGlow(plot, c.stuck ? CORE_STUCK_GLOW : c.color))
+
+    for (let plot = 0; plot < CORE_COUNT; plot++) {
+      ramPulse[plot] = Math.max(0, ramPulse[plot] - dtMs)
+      diskPulse[plot] = Math.max(0, diskPulse[plot] - dtMs)
+      const color = APP_COLORS[byPlot.get(plot)?.app ?? ''] ?? 0x6e7681
+      setRamTraceGlow(plot, ramPulse[plot] > 0 ? color : null)
+      setDiskTraceGlow(plot, diskPulse[plot] > 0 ? color : null)
+    }
   }
 
   function syncRam(): void {

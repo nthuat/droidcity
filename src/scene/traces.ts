@@ -30,6 +30,17 @@ const RAM_X = 0
 const DISK_X = 55
 const CORE_OFFSETS = [-4.8, -1.6, 1.6, 4.8] // mirrors hardwareRow.ts's CPU slotXOffsets
 
+// RAM and DISK per-plot trace families run the exact same fan-per-plot shape as
+// CPU's (below), just shifted sideways by these lane offsets so the three
+// families run in parallel instead of converging on the identical x at each
+// plot's ward-trunk point (z-fighting). Small relative to plot spacing (22.5
+// apart) and within each block's real footprint (RAM ~21.6 wide, disk ~5 wide),
+// so each family still reads as landing on the right plot.
+const RAM_LANE_OFFSET = 0.8
+const DISK_LANE_OFFSET = 1.6
+const RAM_TRACE_INFO = { title: 'Memory bus', note: 'Lights when this ward allocates or GC runs — pages moving between heap and physical RAM.' }
+const DISK_TRACE_INFO = { title: 'Storage bus', note: 'Lights on Room reads and write-backs — the ward\'s private DB lives on this flash.' }
+
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -25
 const WARD_TRUNK = new THREE.Vector3(0, Y_PLATE, PLOT_Z) // ward-strip center, no specific plot
@@ -82,9 +93,36 @@ function climbPoints(x: number, srcZ: number): THREE.Vector3[] {
   ]
 }
 
+// One ribbon per plot from a hardware-strip source block, fanned across the
+// same 4 lane offsets CPU uses (mirrors hardwareRow.ts's slot/slab spread),
+// shifted sideways by laneOffsetX and tagged with a hover tooltip. Mirrors the
+// CPU per-plot loop in buildTraces below — kept separate (not shared with CPU)
+// since CPU has no tooltip and predates this lane-offset shape.
+function buildPlotFamily(
+  sourceX: number, laneOffsetX: number, info: { title: string; note: string },
+): { mats: THREE.MeshStandardMaterial[]; meshes: THREE.Mesh[] } {
+  const mats: THREE.MeshStandardMaterial[] = []
+  const meshes: THREE.Mesh[] = []
+  PLOT_X.forEach((plotX, n) => {
+    const mat = traceMaterial()
+    mats.push(mat)
+    const points = [
+      ...climbPoints(sourceX + CORE_OFFSETS[n] + laneOffsetX, HW_Z),
+      v(plotX + laneOffsetX, Y_PLATE, PLOT_Z),
+    ]
+    for (const m of ribbon(mat, points)) {
+      m.userData.info = info
+      meshes.push(m)
+    }
+  })
+  return { mats, meshes }
+}
+
 export interface Traces {
   readonly group: THREE.Group
   setCpuTraceGlow(plot: number, color: number | null): void
+  setRamTraceGlow(plot: number, color: number | null): void
+  setDiskTraceGlow(plot: number, color: number | null): void
 }
 
 export function buildTraces(): Traces {
@@ -113,13 +151,23 @@ export function buildTraces(): Traces {
   const diskPoints = [...climbPoints(DISK_X, HW_Z), NETWORK]
   for (const m of ribbon(diskMat, diskPoints)) group.add(m)
 
+  // Per-plot RAM and DISK traces, parallel to the CPU family above.
+  const ramFamily = buildPlotFamily(RAM_X, RAM_LANE_OFFSET, RAM_TRACE_INFO)
+  for (const m of ramFamily.meshes) group.add(m)
+  const diskFamily = buildPlotFamily(DISK_X, DISK_LANE_OFFSET, DISK_TRACE_INFO)
+  for (const m of diskFamily.meshes) group.add(m)
+
+  function setFamilyGlow(mats: THREE.MeshStandardMaterial[], plot: number, color: number | null): void {
+    const mat = mats[plot]
+    if (!mat) return
+    mat.emissive.setHex(color ?? 0x000000)
+    mat.emissiveIntensity = color !== null ? 0.5 : 0
+  }
+
   return {
     group,
-    setCpuTraceGlow(plot, color) {
-      const mat = cpuMats[plot]
-      if (!mat) return
-      mat.emissive.setHex(color ?? 0x000000)
-      mat.emissiveIntensity = color !== null ? 0.5 : 0
-    },
+    setCpuTraceGlow(plot, color) { setFamilyGlow(cpuMats, plot, color) },
+    setRamTraceGlow(plot, color) { setFamilyGlow(ramFamily.mats, plot, color) },
+    setDiskTraceGlow(plot, color) { setFamilyGlow(diskFamily.mats, plot, color) },
   }
 }
