@@ -711,7 +711,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     syncSingleTopFlash(entry.meshes, entry.backStack, entry.singleTopFlashMs)
     entry.meshes.viewModelOrb.visible = entry.activity.viewModelValue !== null
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots)
-    syncFlashes(entry, entry.looper.anr, entry.anrFlashT)
+    syncFlashes(entry, entry.looper.anr, entry.anrFlashT, entry.app === foregroundApp && entry.activity.phase === 'resumed')
   }
 
   // Panel 'Bind to <next app>' / 'Unbind' button: toggles a bind to the next

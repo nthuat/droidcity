@@ -197,12 +197,18 @@ export interface FlashState {
   sweepMesh: THREE.Mesh | null
 }
 
-export function syncFlashes(state: FlashState, anrOn: boolean, anrFlashT: number): void {
+const SCREEN_FOREGROUND_GLOW = 0.3
+
+export function syncFlashes(state: FlashState, anrOn: boolean, anrFlashT: number, isForeground = false): void {
   const shedMat = state.meshes.shedGlow.material as THREE.MeshStandardMaterial
   shedMat.emissiveIntensity = state.shedFlashMs > 0 ? state.shedFlashMs / SHED_FLASH_MS : 0
 
   const screenMat = state.meshes.screenPanel.material as THREE.MeshStandardMaterial
-  screenMat.emissiveIntensity = state.screenFlashMs > 0 ? state.screenFlashMs / SCREEN_FLASH_MS : 0
+  // Foreground apps' surfaces show content continuously — steady glow while on
+  // screen; the composite flash brightens on top of it. Backgrounded = dark.
+  const base = isForeground ? SCREEN_FOREGROUND_GLOW : 0
+  const flash = state.screenFlashMs > 0 ? state.screenFlashMs / SCREEN_FLASH_MS : 0
+  screenMat.emissiveIntensity = Math.max(base, flash)
 
   const anrMat = state.meshes.anrOverlay.material as THREE.MeshBasicMaterial
   anrMat.opacity = anrOn ? 0.25 + 0.2 * Math.sin(anrFlashT / 120) : 0
