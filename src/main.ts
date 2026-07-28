@@ -610,6 +610,7 @@ function stopStory(): void {
   storyPaused = false
   launcherPlaza.setIdle(true)
   wardManager.setIdle(true)
+  foundry.setIdle(true)
   storyCardEl.classList.remove('open')
   panelEl.style.display = ''
   setSwitcherLocked(false)
@@ -621,6 +622,9 @@ function startStory(chapter: Chapter): void {
   storyPaused = false
   launcherPlaza.setIdle(false)
   wardManager.setIdle(false)
+  // foundry idle too — its 25s cached-reclaim would otherwise fire mid-chapter,
+  // pre-consuming ch6's process:killed wait with a kill the narration didn't cause.
+  foundry.setIdle(false)
   panelEl.style.display = 'none'
   storyCardEl.classList.add('open')
   setSwitcherLocked(true)
