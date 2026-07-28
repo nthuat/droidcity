@@ -65,6 +65,7 @@ export function attachHardwareWiring(
   setRamTraceGlow: (plot: number, color: number | null) => void,
   setDiskTraceGlow: (plot: number, color: number | null) => void,
   setCpuRamBusGlow: (color: number | null) => void,
+  setRamDiskBusGlow: (color: number | null) => void,
 ): { syncCores(dtMs: number): void; syncRam(): void; syncPressure(dtMs: number): void; getPressure(): number; label(): string } {
   let reads = 0
   let writes = 0
@@ -76,6 +77,9 @@ export function attachHardwareWiring(
   // separate tick — one frame hook, not two.
   const ramPulse: number[] = new Array(CORE_COUNT).fill(0)
   const diskPulse: number[] = new Array(CORE_COUNT).fill(0)
+  // RAM↔DISK storage bus pulse: single timer + color, latest event wins on overlap.
+  let ramDiskPulseT = 0
+  let ramDiskPulseColor = 0x000000
 
   function plotForApp(app: string): number | null {
     return wardManager.wardStats().find(s => s.app === app)?.plot ?? null
@@ -86,17 +90,26 @@ export function attachHardwareWiring(
     hardwareRow.diskBlink(false)
     const plot = plotForApp(app)
     if (plot !== null) diskPulse[plot] = TRACE_PULSE_MS
+    // RAM↔DISK bus pulse: page in (cyan)
+    ramDiskPulseT = TRACE_PULSE_MS
+    ramDiskPulseColor = 0x76e3ea
   })
   bus.on('data:fetched', ({ app }) => {
     writes++
     hardwareRow.diskBlink(true)
     const plot = plotForApp(app)
     if (plot !== null) diskPulse[plot] = TRACE_PULSE_MS
+    // RAM↔DISK bus pulse: write-back (orange)
+    ramDiskPulseT = TRACE_PULSE_MS
+    ramDiskPulseColor = 0xdb6d28
   })
   bus.on('process:forked', ({ app }) => {
     spikeT = PRESSURE_SPIKE_DECAY_MS
     const plot = plotForApp(app)
     if (plot !== null) ramPulse[plot] = TRACE_PULSE_MS
+    // RAM↔DISK bus pulse: dex page-in (pale)
+    ramDiskPulseT = TRACE_PULSE_MS
+    ramDiskPulseColor = 0x9aa7b8
   })
   // GC↔RAM beat: a sweep visibly brightens the app's slabs for a moment before
   // the drained fill level (read on the next syncRam) settles in.
@@ -140,6 +153,10 @@ export function attachHardwareWiring(
       busColor = 0xffffff
     }
     setCpuRamBusGlow(busColor)
+
+    // Decay RAM↔DISK bus pulse timer
+    ramDiskPulseT = Math.max(0, ramDiskPulseT - dtMs)
+    setRamDiskBusGlow(ramDiskPulseT > 0 ? ramDiskPulseColor : null)
 
     for (let plot = 0; plot < CORE_COUNT; plot++) {
       ramPulse[plot] = Math.max(0, ramPulse[plot] - dtMs)

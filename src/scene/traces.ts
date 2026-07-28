@@ -18,6 +18,7 @@ const TRACE_COLOR = 0x2a3038
 const TRACE_RAISE = 0.02 // clears the plate top so the ribbon's visible face doesn't z-fight
 const BUS_W = 1.2 // CPU-RAM bus wider than per-plot traces
 const CPU_RAM_BUS_INFO = { title: 'Memory bus (CPU ↔ RAM)', note: 'Every instruction and object the CPU touches streams over this bus. Caches hide most trips — a miss stalls the core.' }
+const RAM_DISK_BUS_INFO = { title: 'Storage bus (RAM ↔ DISK)', note: 'Pages move here: Room reads and mmap\'d dex page IN, write-backs and evictions page OUT. DMA — the CPU doesn\'t carry the bytes.' }
 
 const Y_HW = -0.5
 const Y_BOOT = -0.2
@@ -126,6 +127,7 @@ export interface Traces {
   setRamTraceGlow(plot: number, color: number | null): void
   setDiskTraceGlow(plot: number, color: number | null): void
   setCpuRamBusGlow(color: number | null): void
+  setRamDiskBusGlow(color: number | null): void
 }
 
 export function buildTraces(): Traces {
@@ -152,6 +154,18 @@ export function buildTraces(): Traces {
   busMesh.lookAt(b)
   busMesh.userData.info = CPU_RAM_BUS_INFO
   group.add(busMesh)
+
+  // RAM ↔ DISK bus: wide flat ribbon along the hardware strip surface.
+  const ramDiskMat = traceMaterial()
+  const c = v(RAM_X, Y_HW, HW_Z).addScaledVector(new THREE.Vector3(0, TRACE_RAISE, 0), 1)
+  const d = v(DISK_X, Y_HW, HW_Z).addScaledVector(new THREE.Vector3(0, TRACE_RAISE, 0), 1)
+  const lenRamDisk = c.distanceTo(d) || 0.001
+  const ramDiskMesh = new THREE.Mesh(new THREE.BoxGeometry(BUS_W, TRACE_H, lenRamDisk), ramDiskMat)
+  ramDiskMesh.position.copy(c).lerp(d, 0.5)
+  ramDiskMesh.position.y -= TRACE_H / 2
+  ramDiskMesh.lookAt(d)
+  ramDiskMesh.userData.info = RAM_DISK_BUS_INFO
+  group.add(ramDiskMesh)
 
   // RAM: one climb, forking into RAM -> zygote and RAM -> ward-strip trunk.
   const ramMat = traceMaterial()
@@ -190,5 +204,6 @@ export function buildTraces(): Traces {
     setRamTraceGlow(plot, color) { setFamilyGlow(ramFamily.mats, plot, color) },
     setDiskTraceGlow(plot, color) { setFamilyGlow(diskFamily.mats, plot, color) },
     setCpuRamBusGlow(color) { setSingleGlow(busMat, color) },
+    setRamDiskBusGlow(color) { setSingleGlow(ramDiskMat, color) },
   }
 }

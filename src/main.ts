@@ -216,7 +216,7 @@ attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)
 hud.attach('hardware', ANCHORS.hardware, 'HARDWARE')
 const hwWiring = attachHardwareWiring(
   bus, hardwareRow, wardManager, foundry,
-  traces.setCpuTraceGlow, traces.setRamTraceGlow, traces.setDiskTraceGlow, traces.setCpuRamBusGlow,
+  traces.setCpuTraceGlow, traces.setRamTraceGlow, traces.setDiskTraceGlow, traces.setCpuRamBusGlow, traces.setRamDiskBusGlow,
 )
 // PSI-driven LMK: crossing 0.85 upward (edge-triggered, rearms below 0.7) fires
 // memory:pressure — foundry reclaims a cached process in response.
