@@ -9,6 +9,7 @@ import { makeCar } from '../scene/builders'
 // Ported at mini scale from the retired v1 scenarios (mainThread/lifecycle/gc).
 export const SHED_FLASH_MS = 400
 export const SCREEN_FLASH_MS = 400
+export const SWEEP_MS = 600
 
 const LIT = 0x3fb950
 const DIM = 0x21262d
@@ -121,6 +122,15 @@ function crateSlotPosition(i: number): THREE.Vector3 {
   return new THREE.Vector3((i % GRID) * CRATE_SPACING - 2.1, 0.4, Math.floor(i / GRID) * CRATE_SPACING - 2.1)
 }
 
+// x position of the sweep plane in cratesParent-local space for a given
+// remaining sweepMs (grid spans -2.1..2.1, so -2.8..2.8 covers it with margin).
+// Shared by syncFlashes (positions the mesh) and manager (gates crate removal)
+// so both agree on where the bar actually is in the same tick.
+export function sweepBarX(sweepMs: number): number {
+  const progress = 1 - sweepMs / SWEEP_MS
+  return -2.8 + progress * 5.6
+}
+
 function claimSlot(slots: Map<number, number>, id: number): number {
   const used = new Set(slots.values())
   let i = 0
@@ -134,6 +144,8 @@ export function syncCrates(
   heap: HeapState,
   cratePool: Map<number, THREE.Mesh>,
   slots: Map<number, number>,
+  sweepActive: boolean,
+  sweepX: number,
 ): void {
   const ids = new Set(heap.objects.map(o => o.id))
   for (const obj of heap.objects) {
@@ -154,12 +166,22 @@ export function syncCrates(
     mat.opacity = obj.reachable ? 1 : 0.4
   }
   for (const [id, crate] of cratePool) {
-    if (!ids.has(id)) {
-      disposeMesh(crate)
-      meshes.cratesParent.remove(crate)
-      cratePool.delete(id)
-      slots.delete(id)
+    if (ids.has(id)) continue
+    // Swept out of the heap already, but the travelling bar hasn't reached this
+    // crate's slot yet — keep it visible as garbage until the bar passes, so GC
+    // reads as "crates fall as the plane sweeps by" instead of an instant vanish.
+    // Slot stays claimed (not freed below) so claimSlot can't hand it to a new
+    // crate mid-sweep.
+    if (sweepActive && crate.position.x > sweepX) {
+      const mat = crate.material as THREE.MeshStandardMaterial
+      mat.color.setHex(CRATE_GARBAGE)
+      mat.opacity = 0.4
+      continue
     }
+    disposeMesh(crate)
+    meshes.cratesParent.remove(crate)
+    cratePool.delete(id)
+    slots.delete(id)
   }
 }
 
@@ -266,6 +288,7 @@ export function syncFlashes(state: FlashState, anrOn: boolean, anrFlashT: number
       state.sweepMesh = mesh
     }
     state.sweepMesh.visible = true
+    state.sweepMesh.position.x = sweepBarX(state.sweepMs)
   } else if (state.sweepMesh) {
     state.sweepMesh.visible = false
   }

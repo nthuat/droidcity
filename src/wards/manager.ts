@@ -14,7 +14,7 @@ import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import {
   syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards,
   setAppFloorLit, setServiceAnnexLit, setProviderSlabLit, disposeMesh, clearPool,
-  syncSingleTopFlash, syncThreadPosts, SHED_FLASH_MS, SCREEN_FLASH_MS, SINGLE_TOP_FLASH_MS,
+  syncSingleTopFlash, syncThreadPosts, sweepBarX, SHED_FLASH_MS, SCREEN_FLASH_MS, SINGLE_TOP_FLASH_MS, SWEEP_MS,
 } from './visualSync'
 import { makeCar } from '../scene/builders'
 
@@ -85,7 +85,6 @@ const IDLE_RELEASE_MS = 6000
 const IDLE_ALLOC_MS = 5000
 const REBUILD_MS = 1200
 const REBUILD_HALF_MS = REBUILD_MS / 2
-const SWEEP_MS = 600
 const ALLOC_KB = 80
 const ALLOC_COUNT = 3
 const IDLE_ALLOC_KB = 60
@@ -782,7 +781,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     syncStackCards(entry.meshes, entry.backStack)
     syncSingleTopFlash(entry.meshes, entry.backStack, entry.singleTopFlashMs)
     entry.meshes.viewModelOrb.visible = entry.activity.viewModelValue !== null
-    syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots)
+    syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots, entry.sweepMs > 0, sweepBarX(entry.sweepMs))
     syncFlashes(entry, entry.looper.anr, entry.anrFlashT, entry.app === foregroundApp && entry.activity.phase === 'resumed')
     syncThreadPosts(entry.meshes, {
       main: entry.busyGlowMs > 0,
