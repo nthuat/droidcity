@@ -32,17 +32,6 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   }
   group.add(factory)
 
-  const meter = new THREE.Mesh(
-    new THREE.BoxGeometry(1.5, 1, 1.5),
-    new THREE.MeshStandardMaterial({ color: 0x3fb950 }),
-  )
-  meter.position.set(10, 0.8, 0)
-  meter.userData.info = { title: 'RAM meter', note: 'Height tracks total memory used by forked processes.' }
-  group.add(meter)
-  const meterLabel = makeLabel('RAM', 0.7)
-  meterLabel.position.set(10, 8.3, 0)
-  group.add(meterLabel)
-
   // Piston stamp: slides out from the factory front on every fork.
   const stamp = new THREE.Mesh(
     new THREE.BoxGeometry(1.2, 1.2, 1.2),
@@ -186,10 +175,6 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
         }
       }
       if (state.killedPids.length > 20) state = { ...state, killedPids: state.killedPids.slice(-20) }
-      const frac = usedMb(state) / CAPACITY_MB
-      meter.scale.y = 1 + frac * 10
-      meter.position.y = meter.scale.y / 2
-      ;(meter.material as THREE.MeshStandardMaterial).color.setHex(frac > 0.8 ? 0xf85149 : 0x3fb950)
       if (stampT > 0) {
         stampT = Math.max(0, stampT - dtMs)
         const t = stampT / STAMP_MS // 1 → 0 over the animation
