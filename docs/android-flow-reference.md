@@ -153,6 +153,40 @@ Services / broadcasts / ContentProviders · JobScheduler/WorkManager/Doze · per
 
 ---
 
+## Concept atlas — what the vertical slice skips
+
+The flow above is one path through the system. These are the concepts an Android engineer is expected to hold that live OUTSIDE that path. Tagged: 🏙 = worth modeling in DroidCity eventually · 📖 = reference-only (doc/interview material, not city material).
+
+**🏙 Binder mechanics** (we use it as "roads via City Hall" but the machine itself): kernel `/dev/binder` driver; **one-copy** transfers via mmap'd receive buffers; each process owns a **binder thread pool** (default max ~16) — incoming calls run on those, not your main thread; `oneway` (async) vs synchronous calls; the **~1MB transaction buffer** shared per process — `TransactionTooLargeException` when a Parcel (e.g. a giant Bundle in `onSaveInstanceState`) blows it; **death recipients** (`linkToDeath`) — how system_server notices an app died; AIDL generates the Parcel marshalling.
+
+**🏙 The four components + Intents**: Activity, **Service** (started vs bound; foreground services with notification), **BroadcastReceiver** (system events; registered vs manifest), **ContentProvider** (data sharing across UIDs; initialized before `Application.onCreate` — startup cost). **Intents**: explicit vs implicit, resolution by PMS against manifest intent-filters. This is THE textbook Android abstraction set and DroidCity models only Activity.
+
+**🏙 Cold / warm / hot start**: doc's Phase 2 is a **cold** start (fork everything). **Warm** = process alive, Activity recreated (no fork, no Application.onCreate). **Hot** = everything alive, just brought to front. Launcher tap on a cached ward should NOT rebuild the ward — instant hot start would teach why cached processes exist (ties directly into oom_adj 700/900 and LMK).
+
+**🏙 ANR ladder** (we model input-ANR only): input dispatch **5s** · foreground service **20s** · broadcast receiver **10s** (foreground) · JobScheduler jobs. Different timers, same disease: a blocked main looper.
+
+**🏙 Tasks & back stack**: tasks (Recents entries), back stack of activities, `launchMode` (standard / singleTop / singleTask / singleInstance), task affinity, predictive back. Explains what "back" actually does — a stack of floors/rooms metaphor fits the tower naturally.
+
+**📖 Install & ART compilation pipeline**: APK (zip: dex, resources, native libs, manifest) → `installd` → **dex2oat**: install-time partial AOT, then **JIT** at runtime with **profile-guided AOT** re-compiles during idle-charge (baseline profiles ship those hot-path profiles with the app for fast first launches). Interpreter → JIT → AOT tiers.
+
+**📖 Compose pipeline** (the doc's render path is View-centric): Compose = declarative UI over the same lower half — **composition → layout → draw** phases per frame, driven by **snapshot state** invalidations (recomposition scopes, skipping via stable types). Below `draw` it joins the exact same RenderThread → SF path. Choreographer/vsync unchanged.
+
+**📖 Notifications**: app posts → **NotificationManagerService** (system_server) → ranking/channels (user-controlled importance since O) → SystemUI renders shade/status bar. PendingIntent = a capability token letting SystemUI fire YOUR intent with YOUR identity later.
+
+**📖 Power management**: wakelocks (PowerManager), **Doze** (deep idle: network off, jobs/alarms deferred to maintenance windows), **App Standby Buckets** (active/working set/frequent/rare/restricted — usage-based throttling), why WorkManager exists (constraint-aware, Doze-respecting deferred work) vs AlarmManager (exact-time, user-visible things).
+
+**📖 Networking below OkHttp**: ConnectivityService picks default network (wifi/cell scoring, VPN), `netd` programs kernel routing/firewall per-UID, DNS via resolver service, radio through RIL/HAL. Network security config + cert validation on the TLS step. Per-UID traffic accounting = how the OS bills data to apps.
+
+**📖 Storage model**: per-app sandbox `/data/data/<pkg>` (the Room shed) · **scoped storage** (MediaStore/SAF for shared files — no more raw sdcard access) · **file-based encryption** (FBE: DE vs CE storage — why direct-boot apps split data) · app-specific external dirs.
+
+**📖 Security model stack**: per-app Linux UID (modeled as ward walls) + **SELinux** domains (even root is confined) + **runtime permissions** (dangerous perms prompted, granted per-UID by PMS) + **app signing** (v2/v3 scheme, Play signing) + hardware **Keystore/StrongBox** (keys never enter app memory) + verified boot (AVB) chaining from Phase 1's bootloader.
+
+**📖 IPC menu beyond Binder**: ContentProvider (structured data), Messenger (Binder-wrapped Handler), shared memory (`ashmem`/`SharedMemory` for big blobs — how providers pass cursors), Unix sockets (Zygote's own command channel is one).
+
+**Priority for DroidCity v3, if extended:** components+Intents (biggest conceptual hole — Services/broadcasts are half of real apps), then cold/warm/hot starts (cheap, reuses everything), then Binder mechanics beat (thread pool + 1MB limit as narration on City Hall), then ANR ladder (narration-only). The 📖 set stays doc-only — city can't carry everything without becoming noise.
+
+---
+
 ## Priority recommendations (highest teaching value ÷ effort)
 
 1. **Worker-thread lane in the ward** — second small road ("worker pool") beside the main road; data requests hop main → worker (packet), IO happens from the worker lane, result hops back to main. Kills the "main thread does IO" misread; makes the ANR beat land harder ("this is what happens when you DON'T hop"). Medium effort.
