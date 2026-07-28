@@ -39,6 +39,7 @@ export interface WardManagerDeps {
   anchors: Record<string, THREE.Vector3>
   plotAnchors: readonly THREE.Vector3[]
   buildMeshes?: (app: string) => WardMeshes
+  routePath?: (from: string, to: string) => THREE.Vector3[]
 }
 
 const RISE_MS = 800
@@ -63,6 +64,12 @@ const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].include
 export function createWardManager(deps: WardManagerDeps): WardManager {
   const { bus, scene, packets, anchors, plotAnchors } = deps
   const buildMeshes = deps.buildMeshes ?? buildWardMeshes
+  // Default mirrors pre-routes.ts behavior: a straight two-point hop between the
+  // named anchors/plot slots. Real routing is wired in from main.ts via routePath.
+  const routePath = deps.routePath ?? ((from: string, to: string): THREE.Vector3[] => {
+    const resolve = (key: string): THREE.Vector3 => key.startsWith('plot') ? plotAnchors[Number(key.slice(4))] : anchors[key]
+    return [resolve(from), resolve(to)]
+  })
   const wards = new Map<string, WardEntry>()
   let plots = createPlots(plotAnchors.length)
   let idleEnabled = true
@@ -306,7 +313,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       entry.frame = advanceFrame(entry.frame, dtMs)
       if (entry.frame.done) {
         bus.emit('frame:submitted', { app, dropped: entry.frame.dropped })
-        packets.fly([plotAnchors[entry.plot], anchors.surfaceflinger])
+        packets.fly(routePath(`plot${entry.plot}`, 'surfaceflinger'), { arcHeight: 1 })
         entry.frame = null
       }
     }
@@ -325,7 +332,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       entry.resumed = true
       entry.activity = launch(entry.activity)
       bus.emit('activity:resumed', { app })
-      packets.fly([plotAnchors[entry.plot], anchors.cityhall, anchors.launcher], { color: 0xbc8cff })
+      const plotKey = `plot${entry.plot}`
+      const toCityhall = routePath(plotKey, 'cityhall')
+      const toLauncher = routePath('cityhall', 'launcher')
+      packets.fly([...toCityhall, ...toLauncher.slice(1)], { color: 0xbc8cff, arcHeight: 1 })
     }
 
     if (entry.panel) entry.panel.setNarration(narrationFor(entry))

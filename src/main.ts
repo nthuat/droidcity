@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { createCity } from './scene/city'
 import { buildBoard } from './scene/board'
+import { buildRoutes, pathLength } from './scene/routes'
 import { createPacketSystem } from './scene/packet'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
@@ -52,6 +53,8 @@ const WARD_TARGET_OFFSET = new THREE.Vector3(0, 2, 0)
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
 city.scene.add(buildBoard())
+const routes = buildRoutes()
+city.scene.add(routes.group)
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
 const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
@@ -59,7 +62,9 @@ const bus = createBus()
 const packets = createPacketSystem(city.scene)
 // Constructed before any bus.on() below, so its process:forked handler (which spawns
 // the ward group synchronously) always runs before main.ts's own handlers.
-const wardManager = createWardManager({ bus, scene: city.scene, packets, anchors: ANCHORS, plotAnchors: PLOT_ANCHORS })
+const wardManager = createWardManager({
+  bus, scene: city.scene, packets, anchors: ANCHORS, plotAnchors: PLOT_ANCHORS, routePath: routes.path,
+})
 
 // Hides every district (and every live ward) except Boot Row while a boot replay is in
 // progress, then restores them on boot:complete.
@@ -100,23 +105,34 @@ scenarios.forEach((s, i) => {
 
 // Story-independent packet routing: activity:resumed (ward→cityhall→launcher) and
 // frame:submitted (ward→surfaceflinger) are already flown by WardManager itself —
-// not duplicated here.
+// not duplicated here. Packets here follow the physical roads (routes.path) rather
+// than straight anchor-to-anchor hops; duration scales with the routed distance.
+function plotKeyFor(app: string): string | null {
+  const w = wardManager.wards().find(entry => entry.app === app)
+  return w ? `plot${w.plot}` : null
+}
+
+function flyRoute(path: THREE.Vector3[], color: number): void {
+  packets.fly(path, { color, arcHeight: 1, durationMs: Math.max(700, 12 * pathLength(path)) })
+}
+
 bus.on('app:launchRequested', () => {
-  packets.fly([ANCHORS.launcher, ANCHORS.zygote], { color: 0x3fb950 })
+  flyRoute(routes.path('launcher', 'zygote'), 0x3fb950)
 })
 bus.on('process:forked', ({ app }) => {
   const g = wardManager.wardGroupFor(app)
   if (dimmed && g) g.visible = false
-  if (g) packets.fly([ANCHORS.zygote, g.position], { color: 0x3fb950 })
+  const plotKey = plotKeyFor(app)
+  if (plotKey) flyRoute(routes.path('zygote', plotKey), 0x3fb950)
 })
 bus.on('data:requested', ({ app, source }) => {
   if (source !== 'network') return
-  const g = wardManager.wardGroupFor(app)
-  if (g) packets.fly([g.position, ANCHORS.network], { color: 0xd29922 })
+  const plotKey = plotKeyFor(app)
+  if (plotKey) flyRoute(routes.path(plotKey, 'network'), 0xd29922)
 })
 bus.on('data:fetched', ({ app }) => {
-  const g = wardManager.wardGroupFor(app)
-  if (g) packets.fly([ANCHORS.network, g.position], { color: 0xd29922 })
+  const plotKey = plotKeyFor(app)
+  if (plotKey) flyRoute(routes.path('network', plotKey), 0xd29922)
 })
 
 // Camera fly-to tween state (position + orbit target, eased over TWEEN_MS).
