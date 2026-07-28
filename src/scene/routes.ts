@@ -89,19 +89,8 @@ const ROUTES: RouteDef[] = [
   { from: 'surfaceflinger', to: 'displaywall', waypoints: [ANCHORS.surfaceflinger, DISPLAY_WALL] },
   // launcher -> foundry: traverse the deck flat (starts z 31) at z 33, step off
   // its west edge (x -30) onto bare board, cross to the foundry plate's south
-  // seam (z 5) and climb on at z 4, then north to the Zygote.
-  // KEPT (retired from packet duty): app:launchRequested no longer flies this
-  // leg directly — launcher routes through cityhall first (AMS orders the
-  // fork; see main.ts). This road mesh stays as physical city geography —
-  // foundry.ts's prop layout is positioned relative to it (world x -65) — but
-  // no packet travels it anymore.
-  {
-    from: 'launcher', to: 'zygote',
-    waypoints: [
-      ANCHORS.launcher, v(0, 3, 33), v(-30, 3, 33), v(-33, 0, 33),
-      v(ANCHORS.zygote.x, 0, 6), v(ANCHORS.zygote.x, PLATE_Y, 4), ANCHORS.zygote,
-    ],
-  },
+  // (launcher->zygote direct road removed: launches route through City Hall —
+  // AMS orders the fork; a direct road taught the opposite.)
   // network -> each ward plot: shared trunk (network plate -> step down at the
   // plate's SW corner -> west along z 0 over the pit) built once in TRUNKS;
   // per-plot branch turns north at board level, then steps up onto the wards
