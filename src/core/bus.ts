@@ -8,6 +8,7 @@ export interface CityEvents {
   'data:requested': { app: string; source: 'db' | 'network' }
   'data:cacheHit': { app: string; stale: boolean }
   'data:fetched': { app: string; ms: number }
+  'data:dropped': { app: string }
   'net:phase': { app: string; phase: string }
   'ui:messagePosted': { app: string; label: string }
   'frame:submitted': { app: string; dropped: boolean }

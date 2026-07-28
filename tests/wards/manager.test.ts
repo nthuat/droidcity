@@ -109,6 +109,24 @@ describe('WardManager', () => {
     matDispose.mockRestore()
   })
 
+  it('disposes a network worker car when its request is dropped (networkTower queue overflow)', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    deps.bus.emit('data:requested', { app: 'chat', source: 'network' })
+
+    const geoDispose = vi.spyOn(THREE.BufferGeometry.prototype, 'dispose')
+    const matDispose = vi.spyOn(THREE.Material.prototype, 'dispose')
+
+    deps.bus.emit('data:dropped', { app: 'chat' })
+
+    expect(geoDispose).toHaveBeenCalledTimes(1)
+    expect(matDispose).toHaveBeenCalledTimes(1)
+
+    geoDispose.mockRestore()
+    matDispose.mockRestore()
+  })
+
   it('excludes a dying ward from wardStats immediately on process:killed', () => {
     const deps = makeDeps()
     const manager = createWardManager(deps)

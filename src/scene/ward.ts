@@ -121,7 +121,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   road.position.set(0, 0.01, 7)
   road.userData.info = {
     title: 'Main thread',
-    note: 'One road: every touch, callback and draw queues here as a car…posting IO to the worker pool.',
+    note: 'One road: every touch, callback and draw queues here as a car; IO gets posted to the worker pool instead.',
   }
   group.add(road)
 

@@ -173,16 +173,29 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.workerCars.set(source, car)
   }
 
+  // Shared by every completion path (success or drop) so a source's worker car
+  // never outlives its request, regardless of how the request ends.
+  function removeWorkerCar(entry: WardEntry, source: 'db' | 'network'): void {
+    const workerCar = entry.workerCars.get(source)
+    if (!workerCar) return
+    entry.meshes.workerParent.remove(workerCar)
+    disposeMesh(workerCar)
+    entry.workerCars.delete(source)
+  }
+
+  // networkTower's queue caps at 3 in-flight requests and silently drops
+  // anything beyond that (no data:fetched ever follows) — without this, that
+  // app's network worker car would orbit the lane forever.
+  function onDataDropped({ app }: { app: string }): void {
+    const entry = wards.get(app)
+    if (!entry) return
+    removeWorkerCar(entry, 'network')
+  }
+
   function onDataArrived(app: string, isFetched: boolean): void {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
-    const source: 'db' | 'network' = isFetched ? 'network' : 'db'
-    const workerCar = entry.workerCars.get(source)
-    if (workerCar) {
-      entry.meshes.workerParent.remove(workerCar)
-      disposeMesh(workerCar)
-      entry.workerCars.delete(source)
-    }
+    removeWorkerCar(entry, isFetched ? 'network' : 'db')
     const label = isFetched ? 'bindNetwork' : 'bindCache'
     const cost = isFetched ? 16 : 4
     entry.looper = post(entry.looper, label, cost)
@@ -208,6 +221,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   bus.on('process:forked', onForked)
   bus.on('process:killed', onKilled)
   bus.on('data:requested', onDataRequested)
+  bus.on('data:dropped', onDataDropped)
   bus.on('data:cacheHit', p => onDataArrived(p.app, false))
   bus.on('data:fetched', p => onDataArrived(p.app, true))
   bus.on('ui:messagePosted', onMessagePosted)

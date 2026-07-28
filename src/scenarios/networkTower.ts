@@ -92,7 +92,10 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   group.add(retryLight)
 
   function enqueue(app: string): void {
-    if (queue.length >= MAX_QUEUE) return // drop beyond capacity
+    if (queue.length >= MAX_QUEUE) {
+      bus.emit('data:dropped', { app }) // drop beyond capacity — tell listeners so they don't wait forever
+      return
+    }
     counter += 1
     const failAt = forceFailNext || counter % 3 === 0 ? 'ttfb' : undefined
     forceFailNext = false
