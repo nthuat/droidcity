@@ -17,7 +17,7 @@ const COLORS = {
   surfaceflinger: 0x3a2a55,
   network: 0x553a2a,
   launcher: 0x374a37,
-  hardware: 0x263238,
+  hardware: 0x2e3a44,
 }
 
 function plateMaterial(color: number): THREE.MeshStandardMaterial {
@@ -161,10 +161,10 @@ export function buildBoard(): THREE.Group {
   // Sits between the title (-73) and the CPU/RAM/PSI/DISK row (-62) — names the
   // layer beneath this physical strip without claiming to model it (see docs).
   group.add(makeEdgeText('HAL · drivers · physical', 40, 1.6, 0, -0.44, -70, HW_LABEL_DIM))
-  group.add(makeEdgeText('CPU', 8, 1.6, -55, -0.44, -62, HW_LABEL_DIM))
+  group.add(makeEdgeText('CPU', 8, 1.6, -30, -0.44, -62, HW_LABEL_DIM))
   group.add(makeEdgeText('RAM BANK', 8, 1.6, 0, -0.44, -62, HW_LABEL_DIM))
   group.add(makeEdgeText('PSI', 8, 1.6, 14, -0.44, -62, HW_LABEL_DIM))
-  group.add(makeEdgeText('DISK', 8, 1.6, 55, -0.44, -62, HW_LABEL_DIM))
+  group.add(makeEdgeText('DISK', 8, 1.6, 30, -0.44, -62, HW_LABEL_DIM))
 
   // Board corners: 2 vents each. Back corners (z -57) sit on the recessed boot strip
   // (plate top -0.2); front corners (z 57) sit on bare board (no plate reaches there).

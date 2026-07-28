@@ -8,25 +8,26 @@ import type { Scenario } from './types'
 // later task — this file just exposes the paint API).
 
 const PLATE_TOP = -0.5
-const HOUSING_COLOR = 0x161b22
-const CORE_IDLE = 0x1c2128
+const HOUSING_COLOR = 0x2c333d
+const CORE_IDLE = 0x39434e
 const CORE_STUCK = 0xf85149
-const RAM_SHELL_COLOR = 0x2a2f36
+const RAM_SHELL_COLOR = 0x454c56
 const RAM_SHARED_COLOR = 0x9aa7b8
 const RAM_FILL_MARGIN = 0.2 // top/bottom inset so the fill visibly sits inside the shell
 const RAM_FILL_MAX_H = 3 - RAM_FILL_MARGIN * 2
 const RAM_MIN_FILL = 0.05
-const RAM_FILL_EMISSIVE = 0.4
+const RAM_FILL_EMISSIVE = 0.6
 const RAM_PULSE_MS = 300
-const DISK_IDLE = 0x30363d
+const DISK_IDLE = 0x454e58
+const DISK_IDLE_EMISSIVE = 0.15 // idle LED stays slightly visible instead of fully dark
 const DISK_READ = 0x76e3ea
 const DISK_WRITE = 0xd29922
 const DISK_DECAY_MS = 300
 const CORE_PULSE_HZ = 0.006 // ~160ms period, matches other scenarios' pulse feel
 
-const CPU_X = -55
+const CPU_X = -30
 const RAM_X = 0
-const DISK_X = 55
+const DISK_X = 30
 
 // +14 clears the RAM bank's east end (app slab at +10.8, 2 wide → edge 11.8)
 const PSI_X = RAM_X + 14
@@ -148,7 +149,7 @@ function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   }
   group.add(diskGroup)
 
-  const platterMat = new THREE.MeshStandardMaterial({ color: 0x484f58, roughness: 0.4, metalness: 0.3 })
+  const platterMat = new THREE.MeshStandardMaterial({ color: 0x69727c, roughness: 0.4, metalness: 0.3 })
   for (let i = 0; i < 3; i++) {
     const platter = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.3, 24), platterMat)
     platter.position.set(DISK_X, PLATE_TOP + 0.15 + i * 0.7, 0)
@@ -162,7 +163,7 @@ function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   diskGroup.add(arm)
 
   const ledMat = new THREE.MeshStandardMaterial({
-    color: DISK_IDLE, emissive: DISK_IDLE, emissiveIntensity: 0, roughness: 0.4,
+    color: DISK_IDLE, emissive: DISK_IDLE, emissiveIntensity: DISK_IDLE_EMISSIVE, roughness: 0.4,
   })
   const led = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8), ledMat)
   led.position.set(DISK_X, PLATE_TOP + 2, 3)
@@ -248,7 +249,7 @@ export function makeHardwareRowScenario(): Scenario & {
     const hex = diskLedT > 0 ? diskLedColor : DISK_IDLE
     diskLedMat.color.setHex(hex)
     diskLedMat.emissive.setHex(hex)
-    diskLedMat.emissiveIntensity = diskLedT > 0 ? diskLedT / DISK_DECAY_MS : 0
+    diskLedMat.emissiveIntensity = diskLedT > 0 ? diskLedT / DISK_DECAY_MS : DISK_IDLE_EMISSIVE
   }
 
   const panel = makePanel('Hardware — CPU · RAM · Disk')

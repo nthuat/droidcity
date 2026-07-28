@@ -81,7 +81,7 @@ city.scene.add(traces.group)
 // duplicated between main.ts and routes.ts (see routes.ts's header) — these two points
 // are used only for the small-packet flights below.
 const RAM_POS = new THREE.Vector3(0, -0.5, -68)
-const DISK_POS = new THREE.Vector3(55, -0.5, -68)
+const DISK_POS = new THREE.Vector3(30, -0.5, -68)
 const HW_PACKET_MS = 600
 const HW_PACKET_ARC = 0.5
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!

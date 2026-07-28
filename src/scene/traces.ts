@@ -28,9 +28,9 @@ const Z_BOOT_PLATE = -45 // boot/main-plate seam (board.ts)
 const STEP_LEN = 2 // z-length of each sloped climbing step
 
 const HW_Z = -68 // hardwareRow.ts component z (world, matches ANCHORS.hardware)
-const CPU_X = -55
+const CPU_X = -30
 const RAM_X = 0
-const DISK_X = 55
+const DISK_X = 30
 const CORE_OFFSETS = [-4.8, -1.6, 1.6, 4.8] // mirrors hardwareRow.ts's CPU slotXOffsets
 
 // RAM and DISK per-plot trace families run the exact same fan-per-plot shape as
