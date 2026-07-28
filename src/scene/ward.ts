@@ -373,15 +373,17 @@ export function buildWardMeshes(app: string): WardMeshes {
   }
   group.add(anrOverlay)
 
-  // Sandbox wall: translucent border marking the ward footprint, used for picking.
-  const wallGeo = new THREE.BoxGeometry(18, 1.2, 18)
-  const wallMat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.12 })
+  // Sandbox wall: low solid curb marking the ward footprint, used for picking.
+  // Was a full-height translucent box — viewed from outside, its tint veiled the
+  // whole interior and made every idle structure read near-black.
+  const wallGeo = new THREE.BoxGeometry(18, 0.35, 18)
+  const wallMat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.4 })
   disposables.push(wallGeo, wallMat)
   const wallMesh = new THREE.Mesh(wallGeo, wallMat)
   wallMesh.name = 'wardWall'
   wallMesh.userData.app = app
   wallMesh.userData.info = { title: 'Sandbox wall', note: 'Process isolation — no other app can reach inside.' }
-  wallMesh.position.y = 0.6
+  wallMesh.position.y = 0.175
   group.add(wallMesh)
 
   function dispose(): void {

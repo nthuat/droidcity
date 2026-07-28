@@ -40,8 +40,8 @@ export function createCity(container: HTMLElement): City {
   controls.enableDamping = true
   controls.target.set(0, 2, 0)
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5))
-  const sun = new THREE.DirectionalLight(0xffffff, 1.2)
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8))
+  const sun = new THREE.DirectionalLight(0xffffff, 1.35)
   sun.position.set(20, 30, 10)
   scene.add(sun)
 
