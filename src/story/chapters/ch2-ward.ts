@@ -13,7 +13,7 @@ export function makeCh2(ctx: StoryCtx): Chapter {
         waitFor: { ms: 2000 },
       },
       {
-        narration: "You tap chat. The launcher doesn't start apps — it files a request with the system.",
+        narration: "You tap chat. The launcher doesn't start apps — it files a request with the system. That request is an Intent — a typed envelope City Hall knows how to route.",
         focus: 'launcher',
         fire: () => ctx.launcher.clickKiosk('chat'),
         waitFor: { event: 'app:launchRequested' },
