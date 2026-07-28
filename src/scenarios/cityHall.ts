@@ -19,24 +19,33 @@ export function makeCityHallScenario(bus: Bus): Scenario {
     note: 'ActivityManager, WindowManager, PackageManager. All Binder calls route here. '
       + 'Intents resolve here — PMS matches them against every app\'s declared filters. '
       + 'servicemanager is the phone book: every Binder client asks it for handles.'
-      + ' Itself the first process forked from Zygote — function put it at the center, not birthplace.',
+      + ' Itself the first process forked from Zygote — function put it at the center, not birthplace.'
+      + ' Binder itself: one-copy IPC via mmap; each process runs a ~16-thread binder pool; transactions '
+      + 'share a ~1MB buffer — blow it and you get TransactionTooLargeException.',
   }
   group.add(hall)
 
+  // AMS/WMS/PMS wings: each gets its own tooltip and its own pulse tint (below),
+  // so the three services read as distinct decision-makers instead of one
+  // undifferentiated "system_server" block.
   const wingNames = ['AMS', 'WMS', 'PMS']
+  const WING_INFO = [
+    { title: 'ActivityManager (AMS)', note: 'Decides who runs: approves launches, schedules lifecycles, writes every oom_adj score. The foundry and wards execute ITS decisions.' },
+    { title: 'WindowManager (WMS)', note: 'Owns every window: shows the starting splash the instant you tap, registers app windows, routes input focus.' },
+    { title: 'PackageManager (PMS)', note: 'Knows every installed app — resolves your tap\'s Intent against manifests to pick what launches.' },
+  ]
+  // Pulse tints echo the packet colors already used for each wing's triggering
+  // events elsewhere (launch=green, tap/splash=amber, broadcast/resolve=orange)
+  // — same PULSE_MS decay curve as the hall's own pulse, just tinted per wing.
+  const WING_TINTS = [0x3fb950, 0xf2cc60, 0xd29922]
   const wings = wingNames.map((name, i) => {
     const w = makeBuilding(3, 3, 3, LIT, name)
     w.position.set((i - 1) * 6, 0, 7)
-    if (i === 0) { // AMS wing gets Binder tooltip
-      w.userData.info = {
-        title: 'Binder',
-        note: 'One-copy IPC via mmap. Each process runs a ~16-thread binder pool; transactions share a ~1MB buffer — blow it and you get TransactionTooLargeException.',
-      }
-    }
+    w.userData.info = WING_INFO[i]
     group.add(w)
     return w
   })
-  const buildings = [hall, ...wings]
+  const wingPulse = [0, 0, 0]
 
   // Static dressing: antenna on the hall roof + 4 pillar columns at the pit floor's
   // corners. Local y 0 is the pit floor here (anchor y -2 already matches it).
@@ -60,16 +69,18 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   let litFrac = 1 // starts fully lit — default city state is already "booted"
   let pulseT = 0
 
+  function paintBuilding(b: THREE.Group, pulseMs: number, tint: number): void {
+    const body = b.getObjectByName('body') as THREE.Mesh
+    const mat = body.material as THREE.MeshStandardMaterial
+    const pulsing = pulseMs > 0
+    mat.color.setHex(litFrac > 0.99 || pulsing ? LIT : DIM)
+    mat.emissive.setHex(pulsing ? tint : (litFrac > 0 ? LIT : 0))
+    mat.emissiveIntensity = 0.15 * litFrac + (pulsing ? 0.5 * (pulseMs / PULSE_MS) : 0)
+  }
+
   function paint(): void {
-    const emissive = litFrac > 0 ? LIT : 0
-    const intensity = 0.15 * litFrac + (pulseT > 0 ? 0.5 * (pulseT / PULSE_MS) : 0)
-    for (const b of buildings) {
-      const body = b.getObjectByName('body') as THREE.Mesh
-      const mat = body.material as THREE.MeshStandardMaterial
-      mat.color.setHex(litFrac > 0.99 || pulseT > 0 ? LIT : DIM)
-      mat.emissive.setHex(emissive)
-      mat.emissiveIntensity = intensity
-    }
+    paintBuilding(hall, pulseT, LIT)
+    wings.forEach((w, i) => paintBuilding(w, wingPulse[i], WING_TINTS[i]))
   }
   paint()
 
@@ -86,11 +97,24 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   })
   bus.on('activity:resumed', () => {
     pulseT = PULSE_MS
+    wingPulse[0] = PULSE_MS // AMS: schedules the resumed lifecycle
   })
   bus.on('process:killed', () => {
     pulseT = PULSE_MS
     panel.setNarration('Death recipient fired — system_server noticed the process die (linkToDeath).')
   })
+  // AMS: approves the launch request (intent-to-run decision) and reacts when
+  // an already-running app is brought back to front (no fork, still its call).
+  bus.on('app:launchRequested', () => { wingPulse[0] = PULSE_MS })
+  bus.on('app:broughtToFront', () => { wingPulse[0] = PULSE_MS })
+  // WMS: the ghost splash IS its starting window, shown the instant the ward's
+  // plot is known; then it composites the app's first real frame.
+  bus.on('process:forked', () => { wingPulse[1] = PULSE_MS })
+  bus.on('frame:composited', () => { wingPulse[1] = PULSE_MS })
+  // PMS: resolves the tap's Intent against manifests, and fields broadcasts
+  // (its own registered-receiver matching is the same resolution machinery).
+  bus.on('app:launchRequested', () => { wingPulse[2] = PULSE_MS })
+  bus.on('broadcast:sent', () => { wingPulse[2] = PULSE_MS })
 
   const panel = makePanel('City Hall — system_server')
   panel.addButton('Send broadcast', () => bus.emit('broadcast:sent', { action: 'NEWS' }))
@@ -103,10 +127,12 @@ export function makeCityHallScenario(bus: Bus): Scenario {
     cameraPos: new THREE.Vector3(0, 9, 18),
     cameraTarget: new THREE.Vector3(0, 3, 0),
     update(dtMs) {
-      if (pulseT > 0) {
-        pulseT = Math.max(0, pulseT - dtMs)
-        paint()
+      let dirty = false
+      if (pulseT > 0) { pulseT = Math.max(0, pulseT - dtMs); dirty = true }
+      for (let i = 0; i < wingPulse.length; i++) {
+        if (wingPulse[i] > 0) { wingPulse[i] = Math.max(0, wingPulse[i] - dtMs); dirty = true }
       }
+      if (dirty) paint()
     },
     setIdle() {
       // visual only — no ambient behavior beyond the bus-driven boot/pulse reactions

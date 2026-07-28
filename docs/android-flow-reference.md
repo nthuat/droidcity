@@ -213,9 +213,9 @@ The developer.android.com platform-architecture diagram (System Apps / Java API 
 | Diagram box | Status | Where |
 |---|---|---|
 | **System Apps** (Dialer, Email, Calendar, Camera…) | ✅ | Launcher + app wards (generic apps stand in for the specific system apps) |
-| Framework: ActivityManager | ✅ | City Hall AMS |
-| Framework: PackageManager | ✅ | Intent resolution + PMS boot APK scan |
-| Framework: WindowManager | ⚠️ | Wing label only (City Hall) + doc-only detail |
+| Framework: ActivityManager | ✅ | City Hall AMS (wing pulses on decisions) |
+| Framework: PackageManager | ✅ | Intent resolution + PMS boot APK scan (wing pulses on decisions) |
+| Framework: WindowManager | ✅ (wing pulses + starting-window attribution; window registration still doc-only) | City Hall WMS wing |
 | Framework: View System | ✅ | Render bench + doc Phase 2/3 |
 | Framework: Content Providers | ✅ | Providers slab (v5 init beat) |
 | Framework: NotificationManager | 📖 | Concept atlas only |

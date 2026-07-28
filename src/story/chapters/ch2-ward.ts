@@ -19,7 +19,7 @@ export function makeCh2(ctx: StoryCtx): Chapter {
         waitFor: { event: 'app:launchRequested' },
       },
       {
-        narration: "The foundry forks: Zygote is copied in milliseconds, framework and all. That's why launches are fast.",
+        narration: "The foundry forks: Zygote is copied in milliseconds, framework and all. That's why launches are fast — on AMS's order; the launcher never talks to Zygote directly.",
         focus: 'zygote',
         waitFor: { event: 'process:forked', app: 'chat' },
       },

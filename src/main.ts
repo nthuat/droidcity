@@ -176,7 +176,7 @@ function spawnGhost(app: string): void {
   )
   mesh.position.set(g.position.x, g.position.y + GHOST_SIZE.h / 2, g.position.z)
   mesh.visible = !dimmed
-  mesh.userData.info = { title: 'Starting window', note: 'WMS shows this splash instantly — the real app is still forking behind it.' }
+  mesh.userData.info = { title: 'Starting window (WMS)', note: 'WindowManager shows this splash instantly — the real app is still forking behind it.' }
   city.scene.add(mesh)
   startingGhosts.set(app, { mesh, fading: false, fadeMs: 0 })
 }
@@ -279,8 +279,14 @@ function flyRoute(path: THREE.Vector3[], color: number): void {
   packets.fly(path, { color, arcHeight: 1, durationMs: Math.max(700, 12 * pathLength(path)) })
 }
 
+// Launcher never talks to Zygote — it files the request with AMS (city hall),
+// which is the one that tells Zygote to fork. Flown as two concatenated legs
+// (same pattern WardManager uses for ward->cityhall->launcher) so it reads as
+// one continuous packet, not two independent flights.
 bus.on('app:launchRequested', () => {
-  flyRoute(routes.path('launcher', 'zygote'), 0x3fb950)
+  const toCityhall = routes.path('launcher', 'cityhall')
+  const toZygote = routes.path('cityhall', 'zygote')
+  flyRoute([...toCityhall, ...toZygote.slice(1)], 0x3fb950)
 })
 bus.on('process:forked', ({ app }) => {
   const g = wardManager.wardGroupFor(app)

@@ -90,6 +90,11 @@ const ROUTES: RouteDef[] = [
   // launcher -> foundry: traverse the deck flat (starts z 31) at z 33, step off
   // its west edge (x -30) onto bare board, cross to the foundry plate's south
   // seam (z 5) and climb on at z 4, then north to the Zygote.
+  // KEPT (retired from packet duty): app:launchRequested no longer flies this
+  // leg directly — launcher routes through cityhall first (AMS orders the
+  // fork; see main.ts). This road mesh stays as physical city geography —
+  // foundry.ts's prop layout is positioned relative to it (world x -65) — but
+  // no packet travels it anymore.
   {
     from: 'launcher', to: 'zygote',
     waypoints: [
