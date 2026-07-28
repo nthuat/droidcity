@@ -12,7 +12,7 @@ Written for checking coverage — each numbered item is a checkable unit.
 3. **Kernel** — Linux boots: CPU/memory init, drivers (storage, display, input, radio), mounts ramdisk, starts PID 0/kernel threads. Android-specific bits: binder driver, ashmem, PSI accounting (what lmkd will listen to), SELinux policy load begins.
 4. **init (PID 1)** — first userspace process. Parses `init.rc`: mounts partitions, applies SELinux, starts core daemons:
    - `ueventd` (device nodes), `logd`, `servicemanager` (**Binder name service** — the phone book every Binder client asks), `vold` (storage), HALs (camera, audio, radio…), `surfaceflinger` (yes — SF starts at init stage, not later), `netd`, `zygote`.
-5. **Zygote** — started by init (usually twice: `zygote64` + `zygote` for 32-bit ABIs). Loads ART, **preloads ~thousands of framework classes + shared resources** into memory, then opens a socket and waits (modern Android also keeps a small **USAP pool** of pre-forked blanks to skip even the fork on hot launch paths). Every app process will be a `fork()` of this warm template — copy-on-write shares the framework pages.
+5. **Zygote** — started by init (usually twice: `zygote64` + `zygote` for 32-bit ABIs). Loads ART, **preloads ~thousands of framework classes + shared resources** into memory, then opens a socket and waits (modern Android can keep an opt-in **USAP pool** of pre-forked blanks, disabled by default in AOSP, to skip even the fork on hot launch paths). Every app process will be a `fork()` of this warm template — copy-on-write shares the framework pages.
 6. **system_server** — the **first fork of Zygote**. Hosts ~100 system services in one process: ActivityManagerService (AMS)/ActivityTaskManager, WindowManagerService (WMS), PackageManagerService (PMS — scans installed APKs at boot), PowerManager, InputManagerService (InputReader + InputDispatcher threads), JobScheduler, ConnectivityService…
 7. **Launcher** — AMS is ready → fires `Intent.CATEGORY_HOME` → the launcher app (itself just an app, forked from Zygote like any other) starts and draws the home screen.
 8. **`ACTION_BOOT_COMPLETED`** broadcast → apps with receivers wake up.
@@ -38,7 +38,7 @@ Order that matters: init → **Zygote → system_server** (system_server is fork
 3. App main thread: `ViewRootImpl` → `dispatchTouchEvent()` walks the view tree → your `onClickListener` runs **as a message on the main Looper**.
 
 **Data (cache-then-network, the standard repository pattern):**
-4. Click handler asks ViewModel → repository. Repository launches work **off the main thread** (coroutine dispatcher / executor — Room and OkHttp both refuse main-thread by default).
+4. Click handler asks ViewModel → repository. Repository launches work **off the main thread** (coroutine dispatcher / executor — Room refuses the main thread by default; networking on it throws the OS's NetworkOnMainThreadException (StrictMode)).
 5. **Room query** (SQLite file in `/data/data/<pkg>/databases/`, app-private). ~ms. Returns cached/stale rows → emitted via Flow/LiveData → **main thread** renders the stale list immediately.
 6. **Network fetch** — OkHttp: DNS → TCP connect → TLS handshake → request → TTFB wait → body download. Connection pooling/HTTP2 reuse skips the first three on warm connections. Timeouts → retry with backoff. Radio itself is shared hardware; the socket lives in the app process.
 7. **Parse + insert** — JSON decoded (worker thread), `INSERT`/`UPSERT` into Room. Room invalidation tracker notices the table changed → the same Flow from step 5 **re-emits fresh rows automatically** (this is why cache-then-network is nearly free with Room+Flow).
@@ -57,7 +57,7 @@ Two independent layers: **GC works inside one process's heap; lmkd kills whole p
 
 ### ART garbage collector (per-process)
 1. **Allocation** — objects land in region-based heap via thread-local allocation buffers (TLABs) — allocation is normally just a pointer bump, no lock.
-2. **Collector** — since Android 8: **Concurrent Copying (CC)** collector, generational since Android 10 — most collections are **young-generation** (recently allocated objects die young; sweep is cheap). Full-heap CC runs rarer; compacts regions to fight fragmentation.
+2. **Collector** — since Android 8: **Concurrent Copying (CC)** collector, generational since Android 10 — and Android 13+ replaced CC with the userfaultfd-based Concurrent Mark-Compact (CMC) collector as default — most collections are **young-generation** (recently allocated objects die young; sweep is cheap). Full-heap CC runs rarer; compacts regions to fight fragmentation.
 3. **Pauses** — CC is concurrent with the app; stop-the-world pauses are sub-ms (a far cry from Dalvik's tens of ms). GC almost never causes jank on modern Android; blaming GC for jank is usually wrong post-Oreo.
 4. **Triggers** — allocation pressure (heap grows toward its limit: `dalvik.vm.heapgrowthlimit`, raised by `android:largeHeap`), app going background (compacting GC to shrink footprint), explicit `System.gc()` (a hint).
 5. **Reference types** — soft (cleared under pressure), weak (cleared at next GC), phantom (post-mortem cleanup); finalizers/Cleaner run on a dedicated thread — slow finalizers delay reclamation.
@@ -88,6 +88,8 @@ Two independent layers: **GC works inside one process's heap; lmkd kills whole p
 | 700 | PREVIOUS_APP_ADJ | the app you just left (back-switch is common) |
 | 800 | SERVICE_B_ADJ | old/long-running services |
 | 900-999 | CACHED_APP_MIN…MAX | cached/empty processes — kill fodder, LRU-ordered within |
+
+(Abbreviated — omits PERSISTENT_SERVICE −700 and HEAVY_WEIGHT 400.)
 
 10. **The kill** — on a PSI event, lmkd walks from the highest score down, picks the victim (largest RSS as tiebreak within a bucket), **SIGKILL** — no callback, no goodbye. This is why `onDestroy` is never guaranteed and why saved instance state / persistence matter: a cached app's death is silent and routine.
 11. **Cooperative layer** — before/alongside kills, AMS sends `onTrimMemory(level)` (ComponentCallbacks2: TRIM_MEMORY_RUNNING_LOW … TRIM_MEMORY_COMPLETE) so apps can drop caches voluntarily; well-behaved apps shrink instead of dying.
@@ -137,8 +139,10 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Choreographer + vsync scheduling | named in ch4 narration + input-stage tooltip (frame start still message-driven ⚠️) | ✅ (fixed) |
 | RenderThread off main | bench station | ✅ |
 | BufferQueue / triple buffering | compositor tooltip | ✅ (v4, tooltip-level) |
-| SF + HWC composition | SF district + HWC tooltip on display wall | ✅ (v4) |
+| SF + HWC composition | SF district + HWC sentence on display-wall tooltip | ✅ (v4) |
 | Jank (missed vsync) vs ANR (blocked looper) | ch4 shows both distinctly | ✅ |
+| CPU core occupancy per process | core afterglow + app-color mapping + ANR red | ✅ (v5) |
+| Single-foreground rendering (one visible app) | bright/faint/dark display tiles + background wards render nothing | ✅ (v5) |
 
 ### Memory management
 | Real thing | DroidCity | Status |
@@ -147,16 +151,17 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Generational / concurrent copying detail | GC narration hedges "ART keeps pauses sub-ms" | ⚠️ fine at this depth |
 | GC on background transition, largeHeap, soft/weak refs | — | ❌ minor |
 | OOM = leak (all reachable) | gc OOM narration says exactly this | ✅ |
-| **oom_adj score ladder** (0/100/200/500/600/700/900) | live oom_adj on ward labels (0/100/500/900 via priorities); HOME/PREVIOUS slots unmodeled | ✅ (fixed, partial ladder ⚠️) |
+| **oom_adj score ladder** (0/100/200/500/600/700/900) | live oom_adj on ward labels (0/100/500/900 — 100 via bound-service visibility inheritance); HOME/PREVIOUS slots unmodeled | ✅ (fixed, partial ladder ⚠️) |
 | **lmkd as its own daemon; SIGKILL, no callback** | kill narration: "SIGKILL — no callback, onDestroy never ran" (foundry still plays both AMS and lmkd roles ⚠️) | ✅ (fixed) |
 | **PSI pressure signals driving kills** | PSI gauge on RAM bank + HUD %, fork-spike decay | ✅ (v4: kills now PSI-edge-triggered at 85% + fork-reclaim fallback) |
 | zram/kswapd reclaim before killing | — | ❌ minor |
 | onTrimMemory cooperative shrink | memory:trim event — wards shed crates + sweep on pressure | ✅ (fixed) |
 | Silent kill → savedInstanceState restore | ch4 finale relaunches; restored wards rise 2x fast + panel badge | ✅ (fixed) |
 | Virtual memory: COW shared framework pages, mmap, PSS | shared slabs in RAM bank + tooltips | ✅ (v3.1; demand paging doc-only) |
+| Per-app RAM fill (live heap → physical pages view) | slab tanks fill/drain with ward heap; GC pulse | ✅ (v5) |
 
 ### Not modeled at all (out of scope so far, fine for v-next list)
-BroadcastReceivers-as-components / bound services / ContentProviders · JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window. (Started services, broadcasts-minimal, and kill→restore shipped in v3.)
+JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window. (Started services, broadcasts-minimal, and kill→restore shipped in v3.)
 
 ---
 
@@ -166,17 +171,19 @@ The flow above is one path through the system. These are the concepts an Android
 
 **🏙 Binder mechanics** (we use it as "roads via City Hall" but the machine itself): kernel `/dev/binder` driver; **one-copy** transfers via mmap'd receive buffers; each process owns a **binder thread pool** (default max ~16) — incoming calls run on those, not your main thread; `oneway` (async) vs synchronous calls; the **~1MB transaction buffer** shared per process — `TransactionTooLargeException` when a Parcel (e.g. a giant Bundle in `onSaveInstanceState`) blows it; **death recipients** (`linkToDeath`) — how system_server notices an app died; AIDL generates the Parcel marshalling. **v4:** thread pool/1MB buffer/TransactionTooLarge in City Hall tooltips; death-recipient pulse on process death.
 
-**🏙 The four components + Intents**: Activity, **Service** (started vs bound; foreground services with notification), **BroadcastReceiver** (system events; registered vs manifest), **ContentProvider** (data sharing across UIDs; initialized before `Application.onCreate` — startup cost). **Intents**: explicit vs implicit, resolution by PMS against manifest intent-filters. This is THE textbook Android abstraction set and DroidCity models only Activity. **v3:** started Services modeled (ward annex, oom_adj 500 keep-alive, LMK survival); broadcasts minimally (City Hall fan-out, BOOT_COMPLETED); Intents named in ch2 narration. BroadcastReceiver/ContentProvider still doc-only.
+**🏙 The four components + Intents**: Activity, **Service** (started vs bound; foreground services with notification), **BroadcastReceiver** (system events; registered vs manifest), **ContentProvider** (data sharing across UIDs; initialized before `Application.onCreate` — startup cost). **Intents**: explicit vs implicit, resolution by PMS against manifest intent-filters. This is THE textbook Android abstraction set and DroidCity models only Activity. **v3:** started Services modeled (ward annex, oom_adj 500 keep-alive, LMK survival); broadcasts minimally (City Hall fan-out, BOOT_COMPLETED); Intents named in ch2 narration. BroadcastReceiver/ContentProvider still doc-only. **v5:** ContentProvider init beat (providers slab lights before Application), bound services with visibility inheritance (oom_adj 100), launchMode singleTop.
 
 **🏙 Cold / warm / hot start**: doc's Phase 2 is a **cold** start (fork everything). **Warm** = process alive, Activity recreated (no fork, no Application.onCreate). **Hot** = everything alive, just brought to front. Launcher tap on a cached ward should NOT rebuild the ward — instant hot start would teach why cached processes exist (ties directly into oom_adj 700/900 and LMK). **v3:** modeled — warm relight, hot pulse, Home button, Chapter 5 ladder.
 
-**🏙 ANR ladder** (we model input-ANR only): input dispatch **5s** · foreground service **20s** (background 200s) · broadcast receiver **10s** foreground / **60s** background · JobScheduler jobs. Different timers, same disease: a blocked main looper. **v4:** full timer ladder in the ANR overlay tooltip.
+**🏙 ANR ladder** (we model input-ANR only): input dispatch **5s** · foreground service **20s** (background 200s) · broadcast receiver **10s** foreground / **60s** background · JobScheduler jobs. Different timers, same disease: a blocked main looper. **v4:** timer ladder (incl. background-service 200s) in the ANR overlay tooltip.
 
 **🏙 Tasks & back stack**: tasks (Recents entries), back stack of activities, `launchMode` (standard / singleTop / singleTask / singleInstance), task affinity, predictive back. Explains what "back" actually does — a stack of floors/rooms metaphor fits the tower naturally. **v4:** modeled — push/pop stack cards, Back to finish-root leaves process alive (warm), launchMode still doc-only.
 
 **📖 Install & ART compilation pipeline**: APK (zip: dex, resources, native libs, manifest) → `installd` → **dex2oat**: install-time partial AOT, then **JIT** at runtime with **profile-guided AOT** re-compiles during idle-charge (baseline profiles ship those hot-path profiles with the app for fast first launches). Interpreter → JIT → AOT tiers.
 
 **📖 Compose pipeline** (the doc's render path is View-centric): Compose = declarative UI over the same lower half — **composition → layout → draw** phases per frame, driven by **snapshot state** invalidations (recomposition scopes, skipping via stable types). Below `draw` it joins the exact same RenderThread → SF path. Choreographer/vsync unchanged.
+
+**📖 Fragments**: sub-controllers within an Activity — own lifecycle nested in the Activity's (onViewCreated/onDestroyView), FragmentManager back stack distinct from the task back stack. City metaphor would be rooms within a floor; doc-only for now.
 
 **📖 Notifications**: app posts → **NotificationManagerService** (system_server) → ranking/channels (user-controlled importance since O) → SystemUI renders shade/status bar. PendingIntent = a capability token letting SystemUI fire YOUR intent with YOUR identity later.
 
@@ -190,7 +197,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 **📖 IPC menu beyond Binder**: ContentProvider (structured data), Messenger (Binder-wrapped Handler), shared memory (`ashmem`/`SharedMemory` for big blobs — how providers pass cursors), Unix sockets (Zygote's own command channel is one).
 
-**Priority for DroidCity v4, if extended:** Binder mechanics beat (thread pool + 1MB limit as narration on City Hall), ANR ladder (narration-only), tasks & back stack (predictive back, launchMode). components+Intents and cold/warm/hot starts shipped in v3. The 📖 set stays doc-only — city can't carry everything without becoming noise.
+**v4 shipped:** Binder mechanics beats, ANR ladder, tasks & back stack. **v5 (gap sweep) shipped:** ContentProvider init beat, worker→main post-back rule, launchMode singleTop, bound-service tether with visibility inheritance, RAM fill tanks, CPU afterglow, single-foreground display. Remaining doc-only: the 📖 set below plus multi-window, Compose recomposition, predictive back, JobScheduler/Doze.
 
 ---
 
