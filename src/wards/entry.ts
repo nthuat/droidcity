@@ -23,8 +23,8 @@ export interface WardEntry {
   dying: boolean
   resumed: boolean
   restored: boolean
-  // Arrives properly in Task 2 (service annex toggle); default false and unused
-  // beyond goHome's foundry-priority read until then.
+  // Flipped by manager.toggleService(app). Default false. Read by goHome to pick
+  // the backgrounded foundry priority (service vs cached) and by narrationFor.
   serviceRunning: boolean
   riseMs: number
   demolishMs: number
@@ -64,5 +64,8 @@ export function trimLog(s: ActivityState): ActivityState {
 export function narrationFor(entry: WardEntry): string {
   const base = `${entry.activity.phase} · queue ${entry.looper.queue.length} · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB`
   const line = entry.looper.anr ? `${base} · ANR! main thread blocked 5s+` : base
-  return entry.restored ? `Restored — saved state + ViewModel made this cheap.\n${line}` : line
+  const withRestored = entry.restored ? `Restored — saved state + ViewModel made this cheap.\n${line}` : line
+  return entry.serviceRunning
+    ? `${withRestored}\nService running — LMK will take cached wards first.`
+    : withRestored
 }

@@ -16,7 +16,8 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   const hall = makeBuilding(14, 6, 8, LIT, 'system_server')
   hall.userData.info = {
     title: 'system_server',
-    note: 'ActivityManager, WindowManager, PackageManager. All Binder calls route here.',
+    note: 'ActivityManager, WindowManager, PackageManager. All Binder calls route here. '
+      + 'Intents resolve here — PMS matches them against every app\'s declared filters.',
   }
   group.add(hall)
 
@@ -78,6 +79,7 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   })
 
   const panel = makePanel('City Hall — system_server')
+  panel.addButton('Send broadcast', () => bus.emit('broadcast:sent', { action: 'NEWS' }))
   panel.setNarration(DEFAULT_NARRATION)
 
   return {

@@ -22,6 +22,7 @@ function fakeMeshes(): WardMeshes {
     shedGlow: { material: { emissiveIntensity: 0 } },
     benchStations: [],
     anrOverlay: { material: { opacity: 0 } },
+    serviceAnnex: { material: { emissiveIntensity: 0 } },
     wallMesh: {},
     workerParent: { add() {}, remove() {} },
     workerRoad: {},
@@ -204,5 +205,41 @@ describe('WardManager', () => {
     expect(onStartType).toHaveBeenCalledWith('chat', 'hot')
     // Already foreground — hot path never touches priority.
     expect(setAppPriority).not.toHaveBeenCalled()
+  })
+
+  it('broadcast:sent posts onReceive to each living ward, skipping a dying one', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
+    deps.bus.emit('process:killed', { app: 'maps', pid: 2 }) // dying, mid-demolition
+
+    const posted: { app: string; label: string }[] = []
+    deps.bus.on('ui:messagePosted', p => posted.push(p))
+
+    deps.bus.emit('broadcast:sent', { action: 'NEWS' })
+
+    expect(posted).toEqual([{ app: 'chat', label: 'onReceive' }])
+  })
+
+  it('toggleService: backgrounded ward flips foundry priority service<->cached and lights the annex', () => {
+    const deps = makeDeps()
+    const setAppPriority = vi.fn()
+    const manager = createWardManager({ ...deps, setAppPriority })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.update(800) // resumed
+    manager.goHome('chat') // backgrounded -> cached (service not yet running)
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'cached')
+
+    const changed: { app: string; running: boolean }[] = []
+    deps.bus.on('service:changed', p => changed.push(p))
+
+    expect(manager.toggleService('chat')).toBe(true)
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'service')
+    expect(changed).toEqual([{ app: 'chat', running: true }])
+
+    expect(manager.toggleService('chat')).toBe(false)
+    expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'cached')
+    expect(changed[1]).toEqual({ app: 'chat', running: false })
   })
 })

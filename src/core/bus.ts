@@ -10,6 +10,8 @@ export interface CityEvents {
   // type via the onStartType dep callback. (Plan drafted a `start` field on this
   // payload; dropped as unreliable since the only producer can't know the truth.)
   'app:broughtToFront': { app: string }
+  'service:changed': { app: string; running: boolean }
+  'broadcast:sent': { action: string }
   'data:requested': { app: string; source: 'db' | 'network' }
   'data:cacheHit': { app: string; stale: boolean }
   'data:fetched': { app: string; ms: number }

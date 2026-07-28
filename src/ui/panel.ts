@@ -1,6 +1,6 @@
 export interface Panel {
   root: HTMLElement
-  addButton(label: string, onClick: () => void): void
+  addButton(label: string, onClick: () => void): HTMLButtonElement
   setNarration(text: string): void
 }
 
@@ -21,6 +21,7 @@ export function makePanel(title: string): Panel {
       b.textContent = label
       b.addEventListener('click', onClick)
       buttons.appendChild(b)
+      return b
     },
     setNarration(text) {
       narration.textContent = text

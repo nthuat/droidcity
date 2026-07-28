@@ -173,6 +173,12 @@ const launcherPlaza = makeLauncherPlazaScenario(bus)
 const networkTower = makeNetworkTowerScenario(bus)
 const surfaceFlinger = makeSurfaceFlingerScenario(bus)
 bus.on('boot:complete', () => setCityDim(false))
+// bootRow's update() only emits boot:complete from its replaying branch (see
+// bootRow.ts) — the pre-booted first-load state never calls update() with
+// replaying=true, so this never fires before a story/panel-triggered replay.
+// Acceptable: "the OS finished booting" is only newsworthy the first time a
+// replay actually runs in this session.
+bus.on('boot:complete', () => bus.emit('broadcast:sent', { action: 'BOOT_COMPLETED' }))
 // SF starts at init stage in real Android (not later), so un-dim it early during boot replay
 bus.on('boot:stageDone', ({ stage }) => {
   if (stage === 'init' && dimmed) {
@@ -266,6 +272,14 @@ bus.on('data:requested', ({ app, source }) => {
 bus.on('data:fetched', ({ app }) => {
   const plotKey = plotKeyFor(app)
   if (plotKey) flyRoute(routes.path('network', plotKey), 0xd29922)
+})
+// Broadcast fan-out: cityhall -> every living ward's plot. wardManager reacts
+// to the same event itself (posts onReceive per ward); this just visualizes
+// the Binder hop for each one.
+bus.on('broadcast:sent', () => {
+  for (const w of wardManager.wardStats()) {
+    flyRoute(routes.path('cityhall', `plot${w.plot}`), 0x58a6ff)
+  }
 })
 
 // Input's system-side trip: a tap starts at hardware and is dispatched by

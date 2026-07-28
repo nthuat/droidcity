@@ -13,7 +13,7 @@ import { buildWardPanel } from './panel'
 import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import {
   syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars,
-  setAppFloorLit, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS,
+  setAppFloorLit, setServiceAnnexLit, disposeMesh, clearPool, SHED_FLASH_MS, SCREEN_FLASH_MS,
 } from './visualSync'
 import { makeCar } from '../scene/builders'
 
@@ -37,6 +37,7 @@ export interface WardManager {
   refreshData(app: string): void
   runHeavyFrame(app: string): void
   goHome(app: string): void
+  toggleService(app: string): boolean
 }
 
 export interface WardManagerDeps {
@@ -320,6 +321,35 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     setAppPriority?.(app, (entry.serviceRunning ?? false) ? 'service' : 'cached')
   }
 
+  // Panel 'Start service'/'Stop service' button: flips entry.serviceRunning,
+  // lights the annex amber, emits service:changed. Only touches foundry priority
+  // when the ward is currently backgrounded (phase 'stopped') — a foreground
+  // ward stays 'foreground' regardless of service state (spec: "foreground apps
+  // stay 'foreground'"). Returns the new running state for the panel to reflect.
+  function toggleService(app: string): boolean {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return false
+    entry.serviceRunning = !entry.serviceRunning
+    setServiceAnnexLit(entry.meshes, entry.serviceRunning)
+    bus.emit('service:changed', { app, running: entry.serviceRunning })
+    if (entry.activity.phase === 'stopped') {
+      setAppPriority?.(app, entry.serviceRunning ? 'service' : 'cached')
+    }
+    return entry.serviceRunning
+  }
+
+  // City Hall 'Send broadcast' + boot:complete (main.ts) both emit this. Every
+  // non-dying ward reacts identically regardless of `action` — no per-app intent
+  // filtering modeled here (teaching-scope simplification, see plan).
+  function onBroadcastSent(): void {
+    for (const entry of wards.values()) {
+      if (entry.dying) continue
+      entry.looper = post(entry.looper, 'onReceive', 6)
+      bus.emit('ui:messagePosted', { app: entry.app, label: 'onReceive' })
+    }
+  }
+  bus.on('broadcast:sent', onBroadcastSent)
+
   function refreshData(app: string): void {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
@@ -516,8 +546,9 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (!entry.panel) {
         entry.panel = buildWardPanel(
           app,
-          { blockMainThread, rotate: rotateWard, forceGc, refreshData, goHome },
+          { blockMainThread, rotate: rotateWard, forceGc, refreshData, goHome, toggleService },
           narrationFor(entry),
+          entry.serviceRunning,
         )
       }
       return entry.panel.root
@@ -528,5 +559,6 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     refreshData,
     runHeavyFrame,
     goHome,
+    toggleService,
   }
 }

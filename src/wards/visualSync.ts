@@ -77,6 +77,15 @@ export function setAppFloorLit(meshes: WardMeshes, lit: boolean): void {
   mat.emissiveIntensity = lit ? APP_FLOOR_LIT_INTENSITY : 0
 }
 
+const SERVICE_ANNEX_LIT_INTENSITY = 0.6
+
+// Service annex lights amber on toggleService(app) → running; on/off toggle,
+// not a timed flash like shed/screen.
+export function setServiceAnnexLit(meshes: WardMeshes, lit: boolean): void {
+  const mat = meshes.serviceAnnex.material as THREE.MeshStandardMaterial
+  mat.emissiveIntensity = lit ? SERVICE_ANNEX_LIT_INTENSITY : 0
+}
+
 // Worker cars slide along the worker lane for as long as their IO request is
 // in flight — purely cosmetic motion, no request-progress tracking needed.
 export function syncWorkerCars(meshes: WardMeshes, cars: ReadonlyMap<string, THREE.Mesh>, tMs: number): void {

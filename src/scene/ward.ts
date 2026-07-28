@@ -12,6 +12,7 @@ export interface WardMeshes {
   readonly shedGlow: THREE.Mesh
   readonly benchStations: readonly THREE.Mesh[]
   readonly anrOverlay: THREE.Mesh
+  readonly serviceAnnex: THREE.Mesh
   readonly wallMesh: THREE.Mesh
   readonly workerParent: THREE.Group
   readonly workerRoad: THREE.Mesh
@@ -69,6 +70,22 @@ export function buildWardMeshes(app: string): WardMeshes {
     note: 'Created once per process at bindApplication — before any Activity.',
   }
   group.add(appFloor)
+
+  // Service annex: small dark building beside the tower. Off by default; manager
+  // lights it amber while entry.serviceRunning is true (toggleService).
+  const annexGeo = new THREE.BoxGeometry(2, 1.8, 2)
+  const annexMat = new THREE.MeshStandardMaterial({
+    color: 0x21262d, roughness: 0.7, emissive: 0xd29922, emissiveIntensity: 0,
+  })
+  disposables.push(annexGeo, annexMat)
+  const serviceAnnex = new THREE.Mesh(annexGeo, annexMat)
+  serviceAnnex.name = 'serviceAnnex'
+  serviceAnnex.position.set(TOWER_X - 2.5, 0.9, TOWER_Z)
+  serviceAnnex.userData.info = {
+    title: 'Service',
+    note: 'Runs with no UI. Keeps the process off the kill list — oom_adj 500 instead of 900.',
+  }
+  group.add(serviceAnnex)
 
   // Activity tower: 3 lifecycle floors stacked above the Application floor.
   const floors: THREE.Mesh[] = []
@@ -247,6 +264,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     shedGlow,
     benchStations,
     anrOverlay,
+    serviceAnnex,
     wallMesh,
     workerParent,
     workerRoad,
