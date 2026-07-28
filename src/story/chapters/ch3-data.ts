@@ -38,7 +38,7 @@ export function makeCh3(ctx: StoryCtx): Chapter {
         waitFor: { event: 'frame:submitted', app: 'chat' },
       },
       {
-        narration: 'Meanwhile the real fetch leaves the city: DNS, connect, TLS, waiting for first byte, download. Every phase costs time.',
+        narration: 'Meanwhile the real fetch leaves the city: DNS, connect, TLS, first byte, download — unless a warm pooled connection skips the handshakes. Every phase costs time.',
         focus: 'network',
         waitFor: { event: 'net:phase' },
       },

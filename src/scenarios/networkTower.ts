@@ -120,6 +120,21 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   bus.on('data:requested', ({ app, source }) => {
     if (source === 'network') enqueue(app)
   })
+  // A killed process loses its warm sockets — more realistic, and it's also
+  // what keeps a *stale* pool from a previous instance of `app` (e.g. an ambient
+  // launch before Story mode, or a previous Play-All pass) from silently
+  // warming a brand-new process's first request.
+  // Residual case traced, not "fixed": ch2 → ch3 in Play All still legitimately
+  // pools — ch2's own natural fetch (~600ms post-resume) completes and pools
+  // 'chat' *while it's still alive*; ch3 runs moments later on that same live
+  // process with no kill in between, so its fetch can still land inside the
+  // 30s window. That's correct warm-connection behavior, not a bug — ch3's
+  // narration was worded to stay true either way (see ch3-data.ts).
+  bus.on('process:killed', ({ app }) => {
+    if (!(app in pooledUntil)) return
+    const { [app]: _dropped, ...rest } = pooledUntil
+    pooledUntil = rest
+  })
 
   const panel = makePanel('Network Tower — every fetch is a trip through 5 phases')
   panel.addButton('Send test request', () => bus.emit('data:requested', { app: 'chat', source: 'network' }))

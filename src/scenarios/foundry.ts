@@ -132,10 +132,14 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   }
 
   bus.on('app:launchRequested', ({ app }) => { pendingLaunches.push(app) })
-  // PSI crossed 0.85 (main.ts's edge-trigger) — react like real LMK: reclaim a
-  // cached process. killOldestCached already no-ops (and skips memory:trim) when
-  // nothing cached is available.
-  bus.on('memory:pressure', () => killOldestCached())
+  // PSI crossed 0.85 (main.ts's edge-trigger): real LMK trims every app's memory
+  // under pressure whether or not it finds a victim to kill — trim fires
+  // unconditionally, the kill only if a cached process exists.
+  bus.on('memory:pressure', () => {
+    bus.emit('memory:trim', {})
+    const victim = oldestCached()
+    if (victim) killApp(victim.name)
+  })
 
   function killApp(app: string): void {
     const proc = state.procs.find(p => p.name === app)
@@ -145,14 +149,19 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     panel.setNarration(procTable() + KILL_NARRATION_SUFFIX)
   }
 
+  function oldestCached(): { name: string } | undefined {
+    return state.procs.filter(p => p.priority === 'cached').sort((a, b) => a.pid - b.pid)[0]
+  }
+
   // Models Android's low-memory killer reclaiming cached processes over time —
   // without this, a free-mode city that fills all plots (capacity ÷ per-app cost
-  // wards) never frees one, and nothing ever re-launches.
+  // wards) never frees one, and nothing ever re-launches. Unlike the PSI path
+  // above, this idle sweep only trims when it actually has a victim to kill.
   function killOldestCached(): void {
-    const cached = state.procs.filter(p => p.priority === 'cached').sort((a, b) => a.pid - b.pid)
-    if (cached.length > 0) {
+    const victim = oldestCached()
+    if (victim) {
       bus.emit('memory:trim', {})
-      killApp(cached[0].name)
+      killApp(victim.name)
     }
   }
 
