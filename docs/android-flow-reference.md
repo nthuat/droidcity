@@ -166,7 +166,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Threads + per-thread stacks | ward thread rack (main/render/binder/worker posts, live-lit) + stacks doc | ✅ (v5.1) |
 
 ### Not modeled at all (out of scope so far, fine for v-next list)
-JobScheduler/WorkManager/Doze · permissions/SELinux · ART JIT/AOT profiles · multi-window. (Started services, broadcasts-minimal, and kill→restore shipped in v3.)
+JobScheduler/WorkManager/Doze · SELinux · ART JIT/AOT profiles · multi-window. (Started services, broadcasts-minimal, kill→restore shipped in v3; runtime permissions + notifications + named input-dispatch path shipped in Glass-OS.)
 
 ---
 
@@ -190,7 +190,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 **📖 Fragments**: sub-controllers within an Activity — own lifecycle nested in the Activity's (onViewCreated/onDestroyView), FragmentManager back stack distinct from the task back stack. City metaphor would be rooms within a floor; doc-only for now.
 
-**📖 Notifications**: app posts → **NotificationManagerService** (system_server) → ranking/channels (user-controlled importance since O) → SystemUI renders shade/status bar. PendingIntent = a capability token letting SystemUI fire YOUR intent with YOUR identity later.
+**🏙 Notifications** *(modeled)*: app posts → **NotificationManagerService** (system_server) → ranking/channels (user-controlled importance since O) → SystemUI renders shade/status bar. PendingIntent = a capability token letting SystemUI fire YOUR intent with YOUR identity later. **Glass-OS update:** modeled — a background fetch posts (ward → City Hall → glass), status-bar dot + shade rows on the display, tap fires the PendingIntent (hot start — or cold: the notification outlives the process). Channels/ranking stay doc-only.
 
 **📖 Power management**: wakelocks (PowerManager), **Doze** (deep idle: network off, jobs/alarms deferred to maintenance windows), **App Standby Buckets** (active/working set/frequent/rare/restricted — usage-based throttling), why WorkManager exists (constraint-aware, Doze-respecting deferred work) vs AlarmManager (exact-time, user-visible things).
 
