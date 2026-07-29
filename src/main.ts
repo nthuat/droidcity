@@ -325,16 +325,30 @@ function syncScreen(next: ReturnType<typeof createScreen>): void {
 // NotificationManagerService's ledger + PMS's permission records (pure sims).
 let notifs = createNotifications()
 let perms = createPermissions()
+// Apps already asked during THIS foreground session: WardManager emits
+// activity:resumed several times per launch (rise, foreground, hot start), and
+// without this an already-open dialog got clobbered — or a denied app was
+// re-prompted on every one of those events.
+const promptedThisVisit = new Set<string>()
 bus.on('activity:resumed', ({ app }) => {
+  // A dialog already up for this app stays up — the app is underneath it.
+  if (screen.mode === 'permission' && screen.app === app) return
   syncScreen(screenOnResumed(screen, app))
   // Runtime permission: the system throws its dialog over the app's first
   // foreground moment (camera models the dangerous CAMERA permission).
-  if (needsPrompt(perms, app)) syncScreen(screenOnPermissionRequest(screen, app))
+  if (needsPrompt(perms, app) && !promptedThisVisit.has(app)) {
+    promptedThisVisit.add(app)
+    syncScreen(screenOnPermissionRequest(screen, app))
+  }
 })
 bus.on('activity:backgrounded', ({ app }) => {
+  promptedThisVisit.delete(app) // next foreground visit may ask again
   if (screen.mode === 'app' && screen.app === app) syncScreen(screenOnHome(screen))
 })
-bus.on('process:killed', ({ app }) => syncScreen(screenOnKilled(screen, app)))
+bus.on('process:killed', ({ app }) => {
+  promptedThisVisit.delete(app)
+  syncScreen(screenOnKilled(screen, app))
+})
 bus.on('process:forked', ({ app }) => {
   const g = wardManager.wardGroupFor(app)
   if (dimmed && g) g.visible = false
