@@ -37,7 +37,9 @@ const EDGE_W = 0.15
 const EDGE_H = 0.05
 const ROAD_RAISE = 0.05 // clears the plate top so road/stripes don't z-fight
 const CONVEYOR_RAISE = 0.4
-const CONVEYOR_COLORS = [0x8a99a5, 0x74838f]
+// Two DARK asphalt tones: after the light-theme lift the old light tile color
+// matched the pale plates and every other tile vanished — belts read as dashes.
+const CONVEYOR_COLORS = [0x46545e, 0x38444d]
 const CONVEYOR_SEGMENT_LEN = 3
 const WAYPOINT_LIFT = 0.5
 
