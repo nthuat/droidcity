@@ -612,6 +612,7 @@ const storyCtx: StoryCtx = {
   wards: wardManager,
   setCityDim,
   killApp: foundry.killApp,
+  resetCity() { for (const p of foundry.stats().procList) foundry.killApp(p.name) },
   injectTap,
 }
 

@@ -5,6 +5,10 @@ export function makeCh1(ctx: StoryCtx): Chapter {
   return {
     id: 'ch1',
     title: 'Power On',
+    // Empty city: chapter narrates a cold boot — auto-mode wards (or a launch
+    // still mid-fork when Play was pressed) would rise while the script is
+    // still introducing Zygote.
+    setup: () => { ctx.launcher.resetApps(); ctx.resetCity() },
     steps: [
       {
         narration: 'This is Android as a city. Every running app will be a walled ward with its own streets. Right now the power is off.',
