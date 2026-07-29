@@ -31,23 +31,23 @@ import { makeCh6 } from './story/chapters/ch6-metal'
 export const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(0, 0, -52),
   hardware: new THREE.Vector3(0, 0, -68),
-  zygote: new THREE.Vector3(-65, 0, -20),
-  cityhall: new THREE.Vector3(0, -2, 10),
-  surfaceflinger: new THREE.Vector3(65, 0, -22),
+  zygote: new THREE.Vector3(-55, 0, -35),
+  cityhall: new THREE.Vector3(0, 0.3, -35),
+  surfaceflinger: new THREE.Vector3(60, 0, -35),
   network: new THREE.Vector3(65, 0, 17),
   launcher: new THREE.Vector3(-22, 0, 50),
 }
 
-const WARDS_ANCHOR = new THREE.Vector3(0, 5, -25)
+const WARDS_ANCHOR = new THREE.Vector3(0, 5, -10)
 const HUD_UPDATE_MS = 500
 const START_TYPE_FLASH_MS = 3000
 
 // y 0.3 = wards plate top (board.ts) — at y 0 the wards' lower 0.3 sat buried in the plate.
 export const PLOT_ANCHORS: THREE.Vector3[] = [
-  new THREE.Vector3(-33.75, 0.3, -25),
-  new THREE.Vector3(-11.25, 0.3, -25),
-  new THREE.Vector3(11.25, 0.3, -25),
-  new THREE.Vector3(33.75, 0.3, -25),
+  new THREE.Vector3(-33.75, 0.3, -10),
+  new THREE.Vector3(-11.25, 0.3, -10),
+  new THREE.Vector3(11.25, 0.3, -10),
+  new THREE.Vector3(33.75, 0.3, -10),
 ]
 
 // One offset per entry in `scenarios` below, same order.

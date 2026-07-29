@@ -15,14 +15,14 @@ const PLATE_Y = 0.3
 const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(0, 0, -52),
   hardware: new THREE.Vector3(0, 0, -68),
-  zygote: new THREE.Vector3(-65, PLATE_Y, -20),
-  cityhall: new THREE.Vector3(0, -2, 10),
-  surfaceflinger: new THREE.Vector3(65, PLATE_Y, -22),
+  zygote: new THREE.Vector3(-55, PLATE_Y, -35),
+  cityhall: new THREE.Vector3(0, PLATE_Y, -35),
+  surfaceflinger: new THREE.Vector3(60, PLATE_Y, -35),
   network: new THREE.Vector3(65, PLATE_Y, 17),
   launcher: new THREE.Vector3(-22, 0, 50),
 }
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
-const PLOT_Z = -25
+const PLOT_Z = -10
 const PLOT_ANCHORS = PLOT_X.map(x => new THREE.Vector3(x, PLATE_Y, PLOT_Z))
 // Stops just past the board rim (85) so the road reads as leaving the city
 // without a long strip floating over the void.
@@ -89,86 +89,80 @@ interface RouteDef {
 }
 
 const ROUTES: RouteDef[] = [
-  // foundry -> each ward plot (conveyor along z -25). Packets fly the full path;
-  // the visible conveyor spine is built once in TRUNKS (draw: []).
+  // foundry -> each ward plot (conveyor south from the core band into the app
+  // band, corridor along z -22 — between the band seam (-25) and the ward
+  // walls (-19)). Packets fly the full path; the visible spine is TRUNKS'.
   ...PLOT_X.map((x, n): RouteDef => ({
-    from: 'zygote', to: `plot${n}`, conveyor: true, draw: [],
-    waypoints: [ANCHORS.zygote, v(ANCHORS.zygote.x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, PLOT_Z)],
+    from: 'zygote', to: `plot${n}`, conveyor: true,
+    waypoints: [ANCHORS.zygote, v(ANCHORS.zygote.x, PLATE_Y, -22), v(x, PLATE_Y, -22), v(x, PLATE_Y, PLOT_Z)],
+    draw: [v(x, PLATE_Y, -22), v(x, PLATE_Y, PLOT_Z)],
   })),
-  // each ward plot -> cityhall (Binder road, radiating south into the pit):
-  // rides the wards plate (0.3) to its south edge at z -5, then steps down the
-  // pit's north rim to the floor — no long half-buried lerp across the plate.
+  // each ward plot -> cityhall: apps sit directly on the framework band — every
+  // Binder call is a short straight hop north. Outer plots jog inward at z -28
+  // to land on the hall's plate (x -30..30).
   ...PLOT_X.map((x, n): RouteDef => ({
     from: `plot${n}`, to: 'cityhall',
-    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -5), v(x, -2, -2), ANCHORS.cityhall],
+    waypoints: Math.abs(x) <= 20
+      ? [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -35)]
+      : [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -28), v(Math.sign(x) * 20, PLATE_Y, -28), v(Math.sign(x) * 20, PLATE_Y, -35)],
   })),
-  // cityhall -> launcher ramp base: jogs east around the WMS wing (local (0,7),
-  // world z 17 on the pit floor) instead of driving through it, then up the rim.
+  // cityhall -> launcher: the Intent's return leg — south off the app band at
+  // the z 5 seam (slope tops at the seam, over bare board), then to the shed.
   {
     from: 'cityhall', to: 'launcher',
-    waypoints: [ANCHORS.cityhall, v(3.2, -2, 14.5), v(3.2, -2, 22), v(0, 0, 25), ANCHORS.launcher],
+    waypoints: [ANCHORS.cityhall, v(-10, PLATE_Y, -28), v(-22, PLATE_Y, -28), v(-22, PLATE_Y, 5), v(-22, 0, 12), ANCHORS.launcher],
   },
-  // each ward plot -> surfaceflinger: corridor along z -23 (z -22 clipped the
-  // ward Room sheds, world z -22..-20). Draws only the short plot spur; the
-  // shared east corridor is built once in TRUNKS.
+  // each ward plot -> surfaceflinger: frame corridor along z -17, then north
+  // into the compositor. Crossings with the plot->cityhall roads are
+  // perpendicular same-material overlaps (invisible).
   ...PLOT_X.map((x, n): RouteDef => ({
     from: `plot${n}`, to: 'surfaceflinger',
-    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -23), ANCHORS.surfaceflinger],
-    draw: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -23)],
+    waypoints: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -17), ANCHORS.surfaceflinger],
+    draw: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -17)],
   })),
-  // surfaceflinger -> display wall (visual connector only, no named "to" key)
-  // compositor -> panel: east along the SF plate, south down the network plate's
-  // east rim, off its SOUTH edge (slope starts at the seam, fully over bare
-  // board — mid-plate descents bury the leg in the plate edge), then southwest
-  // to the screen.
+  // compositor -> panel: east along the core band, south down the network
+  // plate's east rim, off its SOUTH edge (slope starts at the seam, fully over
+  // bare board), then southwest to the screen.
   {
     from: 'surfaceflinger', to: 'displaywall',
     waypoints: [
-      ANCHORS.surfaceflinger, v(78, PLATE_Y, -18), v(78, PLATE_Y, 35),
-      v(74, 0, 43), v(30, 0, 55), DISPLAY_WALL,
+      ANCHORS.surfaceflinger, v(78, PLATE_Y, -30), v(78, PLATE_Y, 35),
+      v(74, 0, 43), v(30, 0, 49), DISPLAY_WALL,
     ],
   },
-  // launcher -> foundry: traverse the deck flat (starts z 31) at z 33, step off
-  // its west edge (x -30) onto bare board, cross to the foundry plate's south
-  // (launcher->zygote direct road removed: launches route through City Hall —
-  // AMS orders the fork; a direct road taught the opposite.)
-  // network -> each ward plot: shared trunk (network plate -> step down at the
-  // plate's SW corner -> west along z 0 over the pit) built once in TRUNKS;
-  // per-plot branch turns north at board level, then steps up onto the wards
-  // plate across the z -5/-6 seam.
+  // network -> each ward plot: shared trunk west along z 14 at board level, then
+  // per-plot branch stepping up onto the app band across the z 5 seam.
   ...PLOT_X.map((x, n): RouteDef => ({
     from: 'network', to: `plot${n}`,
     waypoints: [
-      ANCHORS.network, v(46.5, PLATE_Y, 1.5), v(45, 0, 0), v(x, 0, 0),
-      v(x, 0, -5), v(x, PLATE_Y, -6), v(x, PLATE_Y, PLOT_Z),
+      ANCHORS.network, v(46.5, PLATE_Y, 15), v(45, 0, 14), v(x, 0, 14),
+      v(x, 0, 7), v(x, PLATE_Y, 5), v(x, PLATE_Y, PLOT_Z),
     ],
-    draw: [v(x, 0, 0), v(x, 0, -5), v(x, PLATE_Y, -6), v(x, PLATE_Y, PLOT_Z)],
+    draw: [v(x, 0, 14), v(x, 0, 7), v(x, PLATE_Y, 5), v(x, PLATE_Y, PLOT_Z)],
   })),
   // network -> off-board east (the INTERNET road): stays on the network plate
   // (0.3) to the board rim at x 85, then steps down off-board.
   { from: 'network', to: 'offboard-east', waypoints: [ANCHORS.network, v(85, PLATE_Y, 17), OFFBOARD_EAST] },
-  // zygote -> cityhall (genealogy: first casting). Conveyor from foundry plate east
-  // along the rim, flat to the plate edge at (-45,-5), THEN descends pit's west
-  // side to the hall floor — same edge-then-descend pattern as plot->cityhall
-  // (a direct (-48,-10)->(-42,0) leg dove through the foundry plate).
+  // zygote -> cityhall (genealogy: first casting) — straight along the core
+  // band: system_server is cast next door and resides next door.
   {
     from: 'zygote', to: 'cityhall', conveyor: true,
-    waypoints: [ANCHORS.zygote, v(-48, PLATE_Y, -10), v(-45, PLATE_Y, -5), v(-42, -2, 0), ANCHORS.cityhall],
+    waypoints: [ANCHORS.zygote, v(-30, PLATE_Y, -35), ANCHORS.cityhall],
     info: {
       title: 'First casting',
-      note: 'system_server is itself a process — the very first fork out of Zygote at boot. Born in the foundry, resides at the center because every Binder road ends here.',
+      note: 'system_server is itself a process — the very first fork out of Zygote at boot. Cast next door, resides next door: every Binder road ends here.',
     },
   },
 ]
 
 // Shared trunk legs, each meshed exactly once (see RouteDef.draw above).
 const TRUNKS: { readonly points: readonly THREE.Vector3[]; readonly conveyor?: boolean }[] = [
-  // foundry conveyor spine: down to z -25, then east through all 4 plot anchors
-  { conveyor: true, points: [ANCHORS.zygote, v(ANCHORS.zygote.x, PLATE_Y, PLOT_Z), v(PLOT_X[3], PLATE_Y, PLOT_Z)] },
-  // network trunk: off the plate at (45,0,0), then west along z 0 to the last plot
-  { points: [ANCHORS.network, v(46.5, PLATE_Y, 1.5), v(45, 0, 0), v(PLOT_X[0], 0, 0)] },
-  // surfaceflinger corridor along z -23, with a final 1-unit jog to the anchor
-  { points: [v(PLOT_X[0], PLATE_Y, -23), v(ANCHORS.surfaceflinger.x, PLATE_Y, -23), ANCHORS.surfaceflinger] },
+  // foundry conveyor spine: south to the z -22 corridor, then east through all 4 plot columns
+  { conveyor: true, points: [ANCHORS.zygote, v(ANCHORS.zygote.x, PLATE_Y, -22), v(PLOT_X[3], PLATE_Y, -22)] },
+  // network trunk: off the plate at (45,0,14), then west along z 14 to the first plot column
+  { points: [ANCHORS.network, v(46.5, PLATE_Y, 15), v(45, 0, 14), v(PLOT_X[0], 0, 14)] },
+  // surfaceflinger frame corridor along z -17, then north into the compositor
+  { points: [v(PLOT_X[0], PLATE_Y, -17), v(ANCHORS.surfaceflinger.x, PLATE_Y, -17), ANCHORS.surfaceflinger] },
 ]
 
 function resolveAnchor(key: string): THREE.Vector3 | undefined {
