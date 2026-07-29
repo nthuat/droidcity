@@ -35,7 +35,7 @@ export const ANCHORS: Record<string, THREE.Vector3> = {
   cityhall: new THREE.Vector3(0, 0.3, -35),
   surfaceflinger: new THREE.Vector3(60, 0, -35),
   network: new THREE.Vector3(65, 0, 17),
-  launcher: new THREE.Vector3(0, 0, 52),
+  launcher: new THREE.Vector3(0, 0, 48.5),
   displaywall: new THREE.Vector3(0, 0, 58),
 }
 

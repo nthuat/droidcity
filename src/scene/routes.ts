@@ -19,7 +19,7 @@ const ANCHORS: Record<string, THREE.Vector3> = {
   cityhall: new THREE.Vector3(0, PLATE_Y, -35),
   surfaceflinger: new THREE.Vector3(60, PLATE_Y, -35),
   network: new THREE.Vector3(65, PLATE_Y, 17),
-  launcher: new THREE.Vector3(0, 0, 52),
+  launcher: new THREE.Vector3(0, 0, 48.5), // behind the reclined panel's top edge
 }
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -10
@@ -130,9 +130,11 @@ const ROUTES: RouteDef[] = [
   // bare board), then southwest to the screen.
   {
     from: 'surfaceflinger', to: 'displaywall',
+    // Ends at the panel's EAST edge — the reclined slab covers z ~50..59, and a
+    // road driven to its center pierced the bezel.
     waypoints: [
       ANCHORS.surfaceflinger, v(78, PLATE_Y, -30), v(78, PLATE_Y, 35),
-      v(74, 0, 43), v(30, 0, 49), DISPLAY_WALL,
+      v(74, 0, 43), v(30, 0, 52), v(13, 0, 55),
     ],
   },
   // network -> each ward plot: shared trunk west along z 14 at board level, then
