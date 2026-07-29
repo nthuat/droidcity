@@ -7,7 +7,6 @@ import type { Scenario } from './types'
 
 const PULSE_MS = 300
 const RUNNING_COLOR = 0x3ddc84 // Android brand green — the city's 'alive' accent
-const RUNNING_INTENSITY = 0.7 // kiosk signs glow slightly stronger than the old 0.5
 const IDLE_LAUNCH_MS = 8000
 const DEFAULT_NARRATION = 'Tap a kiosk to launch its app. Steady green glow = running.'
 
@@ -15,6 +14,7 @@ interface Kiosk {
   readonly app: string
   readonly root: THREE.Group
   readonly body: THREE.Mesh
+  readonly lamp: THREE.Mesh
   pulseT: number
 }
 
@@ -45,8 +45,17 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
     group.add(root)
     const body = root.getObjectByName('body') as THREE.Mesh
     body.userData.app = app
-    body.userData.info = { title: 'App icon', note: 'Tap to ask the system to launch.' }
-    return { app, root, body, pulseT: 0 }
+    body.userData.info = { title: 'App icon', note: 'Tap to ask the system to launch. Vivid + green lamp = running; washed-out = not started.' }
+    // Green running lamp above the kiosk — with per-app base hues, an emissive
+    // wash was ambiguous; a dedicated lamp is the one unmistakable signal.
+    const lampMat = new THREE.MeshStandardMaterial({
+      color: RUNNING_COLOR, emissive: RUNNING_COLOR, emissiveIntensity: 1,
+    })
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8), lampMat)
+    lamp.position.y = 3.7
+    lamp.visible = false
+    root.add(lamp)
+    return { app, root, body, lamp, pulseT: 0 }
   })
 
   // Static dressing: railing posts around the platform edge. Local y 0 is the
@@ -64,12 +73,21 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
     group.add(post)
   }
 
+  // Not-started icons wash out toward the plaza; running ones show full brand
+  // color, a self-lit boost, and the green lamp.
+  const washed = new Map(kiosks.map(k => {
+    const base = new THREE.Color(KIOSK_COLORS[k.app] ?? 0xe8eaed)
+    return [k.app, base.clone().lerp(new THREE.Color(0xdfe3d8), 0.65)]
+  }))
   function paint(): void {
     for (const k of kiosks) {
       const mat = k.body.material as THREE.MeshStandardMaterial
       const running = state.running.includes(k.app)
-      mat.emissive.setHex(running ? RUNNING_COLOR : 0x000000)
-      mat.emissiveIntensity = running ? RUNNING_INTENSITY : 0
+      const full = new THREE.Color(KIOSK_COLORS[k.app] ?? 0xe8eaed)
+      mat.color.copy(running ? full : washed.get(k.app)!)
+      mat.emissive.copy(running ? full : new THREE.Color(0x000000))
+      mat.emissiveIntensity = running ? 0.35 : 0
+      k.lamp.visible = running
       const bounce = k.pulseT > 0 ? 1 + 0.25 * Math.sin((k.pulseT / PULSE_MS) * Math.PI) : 1
       k.root.scale.setScalar(bounce)
     }
