@@ -128,10 +128,13 @@ function ribbon(mat: THREE.MeshStandardMaterial, points: readonly THREE.Vector3[
   return meshes
 }
 
-// The climb from a hardware-strip source point up to just inside the main plate:
-// flat along hw strip -> sloped step across the hw/boot seam -> flat across boot
-// strip -> sloped step across the boot/plate seam. Returned exit point sits just
-// past the plate seam, ready for a tail run across the plate to the real target.
+// The climb from a hardware-strip source point up onto the main plate: flat along
+// the hw strip -> sloped step up to boot level -> flat across the boot strip ->
+// sloped step up to plate level. Each sloped step ENDS exactly at its seam, fully
+// over the LOWER strip: a step centered on the seam only reached the upper level
+// 2 units past it, so its first half tunneled into the upper plate's side wall —
+// the lane visually died at the seam and reappeared on the plate top (read as a
+// broken link from any camera that could see the wall face).
 function climbPoints(x: number, srcZ: number, lift = 0): THREE.Vector3[] {
   // Origin rides one extra TRACE_RAISE: lanes depart at the bus z (and DISK
   // lanes cross the disk east run), where a same-y origin tile sat coplanar
@@ -140,10 +143,10 @@ function climbPoints(x: number, srcZ: number, lift = 0): THREE.Vector3[] {
   // `lift` is the family's y layer (see RAM_LAYER_LIFT above).
   return [
     v(x, Y_HW + TRACE_RAISE + lift, srcZ),
-    v(x, Y_HW + lift, Z_HW_BOOT - STEP_LEN),
-    v(x, Y_BOOT + lift, Z_HW_BOOT + STEP_LEN),
-    v(x, Y_BOOT + lift, Z_BOOT_PLATE - STEP_LEN),
-    v(x, Y_PLATE + lift, Z_BOOT_PLATE + STEP_LEN),
+    v(x, Y_HW + lift, Z_HW_BOOT - STEP_LEN * 2),
+    v(x, Y_BOOT + lift, Z_HW_BOOT),
+    v(x, Y_BOOT + lift, Z_BOOT_PLATE - STEP_LEN * 2),
+    v(x, Y_PLATE + lift, Z_BOOT_PLATE),
   ]
 }
 
