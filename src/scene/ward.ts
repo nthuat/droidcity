@@ -147,7 +147,9 @@ export function buildWardMeshes(app: string): WardMeshes {
     disposables.push(geo, mat)
     const card = new THREE.Mesh(geo, mat)
     card.name = `stackCard${i}`
-    card.position.set(TOWER_X + 2.6, 0.15 + i * 0.3, TOWER_Z - 1.8)
+    // x +2.7 / z -1.4: clear of the bench stations' z row and the providerSlab's
+    // east face (slab spans x -6.6..-3.4, bench row at z -8) — no coplanar faces.
+    card.position.set(TOWER_X + 2.7, 0.15 + i * 0.3, TOWER_Z - 1.4)
     card.visible = false
     card.userData.info = {
       title: 'Back stack',
@@ -387,18 +389,32 @@ export function buildWardMeshes(app: string): WardMeshes {
   }
   group.add(anrOverlay)
 
-  // Sandbox wall: low solid curb marking the ward footprint, used for picking.
-  // Was a full-height translucent box — viewed from outside, its tint veiled the
-  // whole interior and made every idle structure read near-black.
-  const wallGeo = new THREE.BoxGeometry(18, 0.35, 18)
+  // Sandbox wall: low curb FRAME marking the ward footprint, used for picking.
+  // Was a solid 18×18 slab — its 0.4-alpha tint drew over everything below
+  // y 0.35 (roads, cars, shedLink, heapYard, providerSlab). Four edge boxes
+  // leave the interior floor untinted. All four share the name 'wardWall'
+  // (inspector wall-yield keys on it) and carry userData.app/info for picking.
+  const wallInfo = { title: 'Sandbox wall', note: 'Process isolation — no other app can reach inside.' }
   const wallMat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.4 })
-  disposables.push(wallGeo, wallMat)
-  const wallMesh = new THREE.Mesh(wallGeo, wallMat)
-  wallMesh.name = 'wardWall'
-  wallMesh.userData.app = app
-  wallMesh.userData.info = { title: 'Sandbox wall', note: 'Process isolation — no other app can reach inside.' }
-  wallMesh.position.y = 0.175
-  group.add(wallMesh)
+  const wallGeoNS = new THREE.BoxGeometry(18, 0.35, 0.6) // north/south edges
+  const wallGeoEW = new THREE.BoxGeometry(0.6, 0.35, 16.8) // east/west edges, inset past the corners
+  disposables.push(wallMat, wallGeoNS, wallGeoEW)
+  const wallEdges: [THREE.BufferGeometry, number, number][] = [
+    [wallGeoNS, 0, -8.7], // north
+    [wallGeoNS, 0, 8.7], // south
+    [wallGeoEW, 8.7, 0], // east
+    [wallGeoEW, -8.7, 0], // west
+  ]
+  const wallMeshes = wallEdges.map(([geo, x, z]) => {
+    const edge = new THREE.Mesh(geo, wallMat)
+    edge.name = 'wardWall'
+    edge.userData.app = app
+    edge.userData.info = wallInfo
+    edge.position.set(x, 0.175, z)
+    group.add(edge)
+    return edge
+  })
+  const wallMesh = wallMeshes[0]
 
   function dispose(): void {
     for (const d of disposables) d.dispose()

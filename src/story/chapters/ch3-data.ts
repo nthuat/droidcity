@@ -7,7 +7,10 @@ export function makeCh3(ctx: StoryCtx): Chapter {
     title: 'Getting Data',
     setup: () => {
       ctx.setCityDim(false)
-      if (!ctx.wards.wards().some(w => w.app === 'chat')) ctx.launcher.clickKiosk('chat')
+      // wardStats() (not wards()) — wards() includes dying wards, so a chat ward
+      // mid-demolition read as "running" and the chapter hung on a launch that
+      // never came (same guard as ch5/ch6).
+      if (!ctx.wards.wardStats().some(w => w.app === 'chat')) ctx.launcher.clickKiosk('chat')
     },
     steps: [
       {
@@ -18,7 +21,7 @@ export function makeCh3(ctx: StoryCtx): Chapter {
         // wait below catches it: an explicit refresh here, or the manager's own
         // auto data:requested ~600ms after the ward's natural resume.
         fire: () => {
-          if (ctx.wards.wards().some(w => w.app === 'chat')) ctx.wards.refreshData('chat')
+          if (ctx.wards.wardStats().some(w => w.app === 'chat')) ctx.wards.refreshData('chat')
         },
         waitFor: { event: 'data:requested', app: 'chat' },
       },

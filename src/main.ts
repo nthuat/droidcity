@@ -519,7 +519,9 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   const hits = raycaster.intersectObjects(city.scene.children, true)
   for (const hit of hits) {
     const app = wardManager.wardAppFromObject(hit.object)
-    if (app) {
+    // wardStats() excludes dying wards — clicking a mid-demolition ward must not
+    // fly/open a panel for it; fall through to district resolution instead.
+    if (app && wardManager.wardStats().some(w => w.app === app)) {
       const g = wardManager.wardGroupFor(app)
       if (g) {
         flyTo(g.position.clone().add(WARD_CAMERA_OFFSET), g.position.clone().add(WARD_TARGET_OFFSET))
@@ -605,7 +607,12 @@ function focusCamera(focus: string): void {
 }
 
 function setSwitcherLocked(locked: boolean): void {
-  for (const el of switcherEl.children) el.classList.toggle('disabled', locked)
+  for (const el of switcherEl.children) {
+    el.classList.toggle('disabled', locked)
+    // .disabled class only kills pointer-events — keyboard Enter on a focused
+    // button bypassed it; real disabled covers both.
+    if (el instanceof HTMLButtonElement) el.disabled = locked
+  }
 }
 
 const storyCardEl = document.querySelector<HTMLDivElement>('#story-card')!

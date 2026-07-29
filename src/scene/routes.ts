@@ -118,10 +118,12 @@ const ROUTES: RouteDef[] = [
   // (0.3) to the board rim at x 85, then steps down off-board.
   { from: 'network', to: 'offboard-east', waypoints: [ANCHORS.network, v(85, PLATE_Y, 17), OFFBOARD_EAST] },
   // zygote -> cityhall (genealogy: first casting). Conveyor from foundry plate east
-  // along the rim, descends pit's west side to the hall floor.
+  // along the rim, flat to the plate edge at (-45,-5), THEN descends pit's west
+  // side to the hall floor — same edge-then-descend pattern as plot->cityhall
+  // (a direct (-48,-10)->(-42,0) leg dove through the foundry plate).
   {
     from: 'zygote', to: 'cityhall', conveyor: true,
-    waypoints: [ANCHORS.zygote, v(-48, PLATE_Y, -10), v(-42, -2, 0), ANCHORS.cityhall],
+    waypoints: [ANCHORS.zygote, v(-48, PLATE_Y, -10), v(-45, PLATE_Y, -5), v(-42, -2, 0), ANCHORS.cityhall],
     info: {
       title: 'First casting',
       note: 'system_server is itself a process — the very first fork out of Zygote at boot. Born in the foundry, resides at the center because every Binder road ends here.',

@@ -25,6 +25,9 @@ const Y_BOOT = -0.2
 const Y_PLATE = 0.3
 const Z_HW_BOOT = -60 // hardware/boot plate seam (board.ts)
 const Z_BOOT_PLATE = -45 // boot/main-plate seam (board.ts)
+// Per-plot fans jog east/west at this z then run straight south into their plot —
+// a single plate-seam->plot-center diagonal crossed neighbor wards (bench/heap clips).
+const Z_FAN_JOG = -38
 const STEP_LEN = 2 // z-length of each sloped climbing step
 
 const HW_Z = -68 // hardwareRow.ts component z (world, matches ANCHORS.hardware)
@@ -114,8 +117,11 @@ function buildPlotFamily(
   PLOT_X.forEach((plotX, n) => {
     const mat = traceMaterial()
     mats.push(mat)
+    const fanX = sourceX + fanOffsets[n] + laneOffsetX
     const points = [
-      ...climbPoints(sourceX + fanOffsets[n] + laneOffsetX, HW_Z),
+      ...climbPoints(fanX, HW_Z),
+      v(fanX, Y_PLATE, Z_FAN_JOG),
+      v(plotX + laneOffsetX, Y_PLATE, Z_FAN_JOG),
       v(plotX + laneOffsetX, Y_PLATE, PLOT_Z),
     ]
     for (const m of ribbon(mat, points)) {
@@ -144,7 +150,13 @@ export function buildTraces(): Traces {
   PLOT_X.forEach((plotX, n) => {
     const mat = traceMaterial()
     cpuMats.push(mat)
-    const points = [...climbPoints(CPU_X + CORE_OFFSETS[n], HW_Z), v(plotX, Y_PLATE, PLOT_Z)]
+    const fanX = CPU_X + CORE_OFFSETS[n]
+    const points = [
+      ...climbPoints(fanX, HW_Z),
+      v(fanX, Y_PLATE, Z_FAN_JOG),
+      v(plotX, Y_PLATE, Z_FAN_JOG),
+      v(plotX, Y_PLATE, PLOT_Z),
+    ]
     for (const m of ribbon(mat, points)) {
       m.userData.info = CPU_TRACE_INFO
       group.add(m)
@@ -190,8 +202,10 @@ export function buildTraces(): Traces {
   }
 
   // DISK -> east corridor toward the network district (see NETWORK comment above).
+  // Runs east along the hardware strip to x 60 first, then climbs — climbing at
+  // DISK_X (30) sent the diagonal tail straight through ward plot 3.
   const diskMat = traceMaterial()
-  const diskPoints = [...climbPoints(DISK_X, HW_Z), NETWORK]
+  const diskPoints = [v(DISK_X, Y_HW, HW_Z), ...climbPoints(60, HW_Z), NETWORK]
   for (const m of ribbon(diskMat, diskPoints)) {
     m.userData.info = DISK_TRACE_INFO
     group.add(m)

@@ -7,7 +7,8 @@ export function makeCh4(ctx: StoryCtx): Chapter {
     title: 'The 16ms Race',
     setup: () => {
       ctx.setCityDim(false)
-      if (!ctx.wards.wards().some(w => w.app === 'chat')) ctx.launcher.clickKiosk('chat')
+      // wardStats(), not wards(): dying wards must not read as "running" (ch5 pattern).
+      if (!ctx.wards.wardStats().some(w => w.app === 'chat')) ctx.launcher.clickKiosk('chat')
     },
     steps: [
       {

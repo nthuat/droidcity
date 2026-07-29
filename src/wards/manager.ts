@@ -532,7 +532,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       entry.singleTopFlashMs = SINGLE_TOP_FLASH_MS
       return
     }
-    if (entry.backStack >= MAX_BACK_STACK) return
+    if (entry.backStack >= MAX_BACK_STACK) {
+      setPanelMessage(entry, 'back stack full — max 3 stacked screens')
+      return
+    }
     entry.backStack += 1
     bus.emit('activity:pushed', { app, depth: entry.backStack })
     // Real Android singleTop semantics: no existing instance on top of the
