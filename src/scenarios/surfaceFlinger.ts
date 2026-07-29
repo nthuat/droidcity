@@ -62,6 +62,10 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   // World (0, 0, 58): group anchor is (60, 0, -35) after the core-band move.
   wallGroup.position.set(-60, 0, 93)
   wallGroup.rotation.y = Math.PI / 2 // screen normal (local -x) -> world +z, toward the viewer
+  wallGroup.rotation.z = -0.16 // lean the top back ~9° toward the elevated overview camera
+  // 2x: at 5x10 the phone screen read as a distant sliver from overview — it is
+  // the one thing the whole board exists to light, so it gets billboard scale.
+  wallGroup.scale.setScalar(2)
   group.add(wallGroup)
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(0.4, WALL_H, 10),
