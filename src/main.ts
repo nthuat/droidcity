@@ -17,7 +17,7 @@ import { makeCityHallScenario } from './scenarios/cityHall'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
 import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
-import { createScreen, screenOnHome, screenOnKilled, screenOnResumed } from './sim/screen'
+import { createScreen, screenOnHome, screenOnKilled, screenOnRecents, screenOnRecentsDismissed, screenOnResumed } from './sim/screen'
 import { createWardManager } from './wards/manager'
 import { createPlayer, type Chapter } from './story/player'
 import type { StoryCtx } from './story/chapters/ctx'
@@ -567,9 +567,34 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     }
     return
   }
-  const pillHits = raycaster.intersectObjects([surfaceFlinger.homeButtonMesh()], false)
-  if (pillHits.length > 0) {
-    if (screen.mode === 'app' && screen.app) wardManager.goHome(screen.app)
+  // Recents cards (only visible in recents mode): tap = hot start / bring to front.
+  if (screen.mode === 'recents') {
+    const cardHits = raycaster.intersectObjects(surfaceFlinger.recentsCardMeshes(), false)
+    if (cardHits.length > 0) {
+      const app = cardHits[0].object.userData.app as string | undefined
+      if (app) launcherPlaza.clickKiosk(app) // running -> broughtToFront -> resumed flips the screen
+      return
+    }
+  }
+  const nav = surfaceFlinger.navMeshes()
+  const navHits = raycaster.intersectObjects([nav.back, nav.home, nav.recents], false)
+  if (navHits.length > 0) {
+    const btn = navHits[0].object
+    if (btn === nav.home) {
+      if (screen.mode === 'app' && screen.app) wardManager.goHome(screen.app)
+      else if (screen.mode === 'recents') {
+        const under = screen.app
+        syncScreen(screenOnHome(screen))
+        if (under) wardManager.goHome(under)
+      }
+    } else if (btn === nav.back) {
+      if (screen.mode === 'recents') syncScreen(screenOnRecentsDismissed(screen))
+      // popActivity pops the stack, or at the root finishes the Activity —
+      // which emits activity:backgrounded and drops the screen to home.
+      else if (screen.mode === 'app' && screen.app) wardManager.popActivity(screen.app)
+    } else {
+      syncScreen(screenOnRecents(screen))
+    }
     return
   }
   const kioskHits = raycaster.intersectObjects(launcherPlaza.kioskMeshes(), false)

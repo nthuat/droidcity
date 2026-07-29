@@ -32,7 +32,8 @@ const TILE_INFO = {
 export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   stats(): { composited: number; dropped: number }
   screenIconMeshes(): THREE.Mesh[]
-  homeButtonMesh(): THREE.Mesh
+  navMeshes(): { back: THREE.Mesh; home: THREE.Mesh; recents: THREE.Mesh }
+  recentsCardMeshes(): THREE.Mesh[]
   setScreen(state: ScreenState): void
 } {
   const group = new THREE.Group()
@@ -148,21 +149,60 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     return lbl
   })
 
-  const homePill = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.28, 1.8),
-    new THREE.MeshStandardMaterial({ color: 0x9aa5b1, roughness: 0.4 }),
-  )
+  // Android 3-button nav on the glass: Back ◁ · Home ○ · Recents ▢
+  const navMat = new THREE.MeshStandardMaterial({ color: 0x9aa5b1, roughness: 0.4 })
+  const backBtn = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.4, 3), navMat)
+  backBtn.position.set(-0.42, 0.42, -1.4)
+  backBtn.rotation.x = Math.PI / 2 // point the triangle "left" (toward local -z)
+  backBtn.userData.info = {
+    title: 'Back',
+    note: 'Pops the top of the foreground app\'s back stack; at the root it finishes the Activity — process stays cached.',
+  }
+  wallGroup.add(backBtn)
+  const homePill = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.2, 16), navMat)
+  homePill.rotation.z = Math.PI / 2 // disc face toward the viewer
   homePill.position.set(-0.42, 0.42, 0)
   homePill.userData.info = {
     title: 'Home',
     note: 'Backgrounds the foreground app — the launcher\'s icon grid returns to the glass.',
   }
   wallGroup.add(homePill)
+  const recentsBtn = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.4), navMat)
+  recentsBtn.position.set(-0.42, 0.42, 1.4)
+  recentsBtn.userData.info = {
+    title: 'Recents',
+    note: 'Overview of every live app process. Tap a card to bring it to the front — a hot start.',
+  }
+  wallGroup.add(recentsBtn)
+
+  // Recents overlay: one card per app, shown only while alive. Tap = hot start.
+  const recentsGroup = new THREE.Group()
+  recentsGroup.visible = false
+  wallGroup.add(recentsGroup)
+  const recentsCards: THREE.Mesh[] = APPS.map((app, i) => {
+    const card = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 2.4, 1.7),
+      new THREE.MeshStandardMaterial({ color: APP_COLORS[app] ?? APP_COLOR_FALLBACK, roughness: 0.5 }),
+    )
+    card.position.set(-0.42, 2.15, (i - 1.5) * 2.1)
+    card.userData.app = app
+    card.userData.info = {
+      title: `Recents: ${app}`,
+      note: 'A live process\'s task card. Tap to bring it to the foreground — hot start, no fork.',
+    }
+    recentsGroup.add(card)
+    const lbl = makeLabel(app, 0.32)
+    lbl.position.set(-0.42, 3.6, card.position.z)
+    recentsGroup.add(lbl)
+    card.userData.cardLabel = lbl
+    return card
+  })
 
   let screenState: ScreenState = { mode: 'home', app: null }
   function paintScreen(): void {
     homeGroup.visible = screenState.mode === 'home'
     appPanel.visible = screenState.mode === 'app'
+    recentsGroup.visible = screenState.mode === 'recents'
     appPanelLabels.forEach((lbl, i) => { lbl.visible = screenState.mode === 'app' && APPS[i] === screenState.app })
     if (screenState.mode === 'app' && screenState.app) {
       appPanelMat.color.setHex(APP_COLORS[screenState.app] ?? APP_COLOR_FALLBACK)
@@ -172,6 +212,14 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     // Alive lamps mirror the compositor's tile knowledge: any non-dark tile is a
     // live process — the launcher shows which apps are already running.
     iconLamps.forEach((lamp, i) => { lamp.visible = tiles[i].state !== 'dark' })
+    // Recents shows only live processes — a dead app has no task card here
+    // (simplification: real recents also lists saved tasks of dead processes).
+    recentsCards.forEach((card, i) => {
+      const alive = tiles[i].state !== 'dark'
+      card.visible = alive
+      const lbl = card.userData.cardLabel as THREE.Sprite
+      lbl.visible = recentsGroup.visible && alive
+    })
   }
 
   // Frame crates stacked near the conveyor mouth (west side, where ward packets
@@ -296,7 +344,8 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       return { composited: totalComposited, dropped: totalDropped }
     },
     screenIconMeshes() { return iconMeshes },
-    homeButtonMesh() { return homePill },
+    navMeshes() { return { back: backBtn, home: homePill, recents: recentsBtn } },
+    recentsCardMeshes() { return recentsCards },
     setScreen(state) {
       screenState = state
       paintScreen()
