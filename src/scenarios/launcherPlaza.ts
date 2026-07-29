@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { APP_COLORS, APP_COLOR_FALLBACK } from '../scene/appColors'
 import { APPS, createLauncher, requestLaunch, markRunning, markStopped, type LauncherState } from '../sim/launcher'
 import { makeBuilding } from '../scene/builders'
 import { makePanel } from '../ui/panel'
@@ -34,13 +35,8 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   let idleEnabled = true
   let idleT = 0
 
-  // Per-app brand hues, like real launcher icons — Material 300s, all clear of
-  // Android green so the steady 'running' glow stays unambiguous.
-  const KIOSK_COLORS: Record<string, number> = {
-    chat: 0xffb74d, maps: 0x4dd0e1, camera: 0x64b5f6, bank: 0x9575cd,
-  }
   const kiosks: Kiosk[] = APPS.map((app, i) => {
-    const root = makeBuilding(3, 3, 3, KIOSK_COLORS[app] ?? 0xe8eaed, app)
+    const root = makeBuilding(3, 3, 3, APP_COLORS[app] ?? APP_COLOR_FALLBACK, app)
     root.position.set((i % 2) * 6 - 3, 0, Math.floor(i / 2) * 6 - 3)
     group.add(root)
     const body = root.getObjectByName('body') as THREE.Mesh
@@ -76,14 +72,14 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   // Not-started icons wash out toward the plaza; running ones show full brand
   // color, a self-lit boost, and the green lamp.
   const washed = new Map(kiosks.map(k => {
-    const base = new THREE.Color(KIOSK_COLORS[k.app] ?? 0xe8eaed)
+    const base = new THREE.Color(APP_COLORS[k.app] ?? APP_COLOR_FALLBACK)
     return [k.app, base.clone().lerp(new THREE.Color(0xdfe3d8), 0.65)]
   }))
   function paint(): void {
     for (const k of kiosks) {
       const mat = k.body.material as THREE.MeshStandardMaterial
       const running = state.running.includes(k.app)
-      const full = new THREE.Color(KIOSK_COLORS[k.app] ?? 0xe8eaed)
+      const full = new THREE.Color(APP_COLORS[k.app] ?? APP_COLOR_FALLBACK)
       mat.color.copy(running ? full : washed.get(k.app)!)
       mat.emissive.copy(running ? full : new THREE.Color(0x000000))
       mat.emissiveIntensity = running ? 0.35 : 0
