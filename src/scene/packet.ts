@@ -23,15 +23,22 @@ const PACKET_INFO = {
 export function createPacketSystem(scene: THREE.Scene): PacketSystem {
   const geometry = new THREE.SphereGeometry(0.6)
   const active: ActivePacket[] = []
+  // Materials pooled by color: the scenario set uses a small fixed palette, so
+  // flights share instances for the page lifetime instead of allocating (and
+  // disposing) one material per flight.
+  const materials = new Map<number, THREE.MeshStandardMaterial>()
+  function materialFor(color: number): THREE.MeshStandardMaterial {
+    let mat = materials.get(color)
+    if (!mat) {
+      mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8 })
+      materials.set(color, mat)
+    }
+    return mat
+  }
   return {
     fly(path, opts = {}) {
       if (path.length < 2) return
-      const material = new THREE.MeshStandardMaterial({
-        color: opts.color ?? 0x76e3ea,
-        emissive: opts.color ?? 0x76e3ea,
-        emissiveIntensity: 0.8,
-      })
-      const mesh = new THREE.Mesh(geometry, material)
+      const mesh = new THREE.Mesh(geometry, materialFor(opts.color ?? 0x76e3ea))
       mesh.userData.info = PACKET_INFO
       mesh.position.copy(path[0])
       scene.add(mesh)
@@ -55,7 +62,7 @@ export function createPacketSystem(scene: THREE.Scene): PacketSystem {
         p.mesh.position.y += p.arcHeight * 4 * lt * (1 - lt) + 2
         if (p.t >= 1) {
           scene.remove(p.mesh)
-          ;(p.mesh.material as THREE.Material).dispose()
+          // No material dispose: pooled materials are shared across flights.
           active.splice(i, 1)
         }
       }

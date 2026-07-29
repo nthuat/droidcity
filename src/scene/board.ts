@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { makeVent } from './props'
+import { mergeStaticGroup } from './merge'
 import type { InspectorInfo } from '../ui/inspector'
 
 // Static machine-board geometry: one contiguous plate-tiled floor replacing the old
@@ -211,11 +212,15 @@ export function buildBoard(): THREE.Group {
     [-78, CORNER_Y_FRONT, 57], [-74, CORNER_Y_FRONT, 56],
     [78, CORNER_Y_FRONT, 57], [74, CORNER_Y_FRONT, 56],
   ]
+  // Merged into one mesh per material (plinths + grates = 2 draw calls instead
+  // of 16); the vents' shared tooltip info survives on the merged meshes.
+  const ventStaging = new THREE.Group()
   for (const [x, y, z] of cornerSpots) {
     const vent = makeVent()
     vent.position.set(x, y, z)
-    group.add(vent)
+    ventStaging.add(vent)
   }
+  for (const mesh of mergeStaticGroup(ventStaging)) group.add(mesh)
 
   return group
 }

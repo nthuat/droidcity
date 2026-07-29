@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeStaticGroup } from './merge'
 
 // Motherboard "ribbon" traces: thin flat strips connecting the hardware strip
 // (CPU/RAM/DISK, board.ts plate top y -0.5) up through the boot strip (top y -0.2)
@@ -87,6 +88,13 @@ function segment(mat: THREE.MeshStandardMaterial, from: THREE.Vector3, to: THREE
 function ribbon(mat: THREE.MeshStandardMaterial, points: readonly THREE.Vector3[]): THREE.Mesh[] {
   const meshes: THREE.Mesh[] = []
   for (let i = 0; i < points.length - 1; i++) meshes.push(segment(mat, points[i], points[i + 1]))
+  // Joint pads at interior waypoints: trace-width squares sitting 0.01 above
+  // the ribbon so fan-jog corners connect instead of leaving notches.
+  for (let i = 1; i < points.length - 1; i++) {
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(TRACE_W, TRACE_H, TRACE_W), mat)
+    pad.position.set(points[i].x, points[i].y + TRACE_RAISE + 0.01 - TRACE_H / 2, points[i].z)
+    meshes.push(pad)
+  }
   return meshes
 }
 
@@ -144,6 +152,11 @@ export interface Traces {
 export function buildTraces(): Traces {
   const group = new THREE.Group()
   group.name = 'traces'
+  // Segments build into a staging group, then merge per (material, info):
+  // each glowing unit already owns a unique material, so merging collapses its
+  // ~7 boxes into one mesh while the glow API keeps driving the same material
+  // instances (~98 meshes down to ~16).
+  const staging = new THREE.Group()
   const cpuMats: THREE.MeshStandardMaterial[] = []
 
   // 4 CPU traces: CPU block -> each ward plot, one parallel ribbon per core slot.
@@ -159,7 +172,7 @@ export function buildTraces(): Traces {
     ]
     for (const m of ribbon(mat, points)) {
       m.userData.info = CPU_TRACE_INFO
-      group.add(m)
+      staging.add(m)
     }
   })
 
@@ -173,7 +186,7 @@ export function buildTraces(): Traces {
   busMesh.position.y -= TRACE_H / 2
   busMesh.lookAt(b)
   busMesh.userData.info = CPU_RAM_BUS_INFO
-  group.add(busMesh)
+  staging.add(busMesh)
 
   // RAM ↔ DISK bus: wide flat ribbon along the hardware strip surface.
   const ramDiskMat = traceMaterial()
@@ -185,7 +198,7 @@ export function buildTraces(): Traces {
   ramDiskMesh.position.y -= TRACE_H / 2
   ramDiskMesh.lookAt(d)
   ramDiskMesh.userData.info = RAM_DISK_BUS_INFO
-  group.add(ramDiskMesh)
+  staging.add(ramDiskMesh)
 
   // RAM: one climb, forking into RAM -> zygote and RAM -> ward-strip trunk.
   const ramMat = traceMaterial()
@@ -198,7 +211,7 @@ export function buildTraces(): Traces {
   ]
   for (const m of ramRibbons) {
     m.userData.info = RAM_TRACE_INFO
-    group.add(m)
+    staging.add(m)
   }
 
   // DISK -> east corridor toward the network district (see NETWORK comment above).
@@ -208,14 +221,16 @@ export function buildTraces(): Traces {
   const diskPoints = [v(DISK_X, Y_HW, HW_Z), ...climbPoints(60, HW_Z), NETWORK]
   for (const m of ribbon(diskMat, diskPoints)) {
     m.userData.info = DISK_TRACE_INFO
-    group.add(m)
+    staging.add(m)
   }
 
   // Per-plot RAM and DISK traces, parallel to the CPU family above.
   const ramFamily = buildPlotFamily(RAM_X, RAM_FAN_OFFSETS, RAM_LANE_OFFSET, RAM_TRACE_INFO)
-  for (const m of ramFamily.meshes) group.add(m)
+  for (const m of ramFamily.meshes) staging.add(m)
   const diskFamily = buildPlotFamily(DISK_X, CORE_OFFSETS, DISK_LANE_OFFSET, DISK_TRACE_INFO)
-  for (const m of diskFamily.meshes) group.add(m)
+  for (const m of diskFamily.meshes) staging.add(m)
+
+  for (const m of mergeStaticGroup(staging)) group.add(m)
 
   function setFamilyGlow(mats: THREE.MeshStandardMaterial[], plot: number, color: number | null): void {
     const mat = mats[plot]

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeStaticGroup } from './merge'
 import type { InspectorInfo } from '../ui/inspector'
 
 // Physical roads + conveyors tying the board's zones together, plus the waypoint
@@ -54,6 +55,16 @@ const CONVEYOR_INFO: InspectorInfo = {
 function v(x: number, y: number, z: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z)
 }
+
+// Shared static materials — every segment of a kind renders from the same
+// instance so mergeStaticGroup can collapse them into one mesh per kind.
+const roadMat = new THREE.MeshStandardMaterial({ color: ROAD_COLOR, roughness: 0.7 })
+const conveyorMats = CONVEYOR_COLORS.map(
+  color => new THREE.MeshStandardMaterial({ color, roughness: 0.7 }),
+)
+const edgeMat = new THREE.MeshStandardMaterial({
+  color: EDGE_COLOR, emissive: EDGE_COLOR, emissiveIntensity: 0.6,
+})
 
 interface RouteDef {
   readonly from: string
@@ -153,21 +164,30 @@ function lift(points: readonly THREE.Vector3[]): THREE.Vector3[] {
 
 // One straight road tile between two points — flat box + two thin emissive edge
 // stripes as children (local space, so they stay put regardless of the box's
-// lookAt-derived rotation).
-function roadSegment(color: number, from: THREE.Vector3, to: THREE.Vector3, raise: number): THREE.Object3D {
+// lookAt-derived rotation). Horizontal legs extend deck and stripes ROAD_W/2
+// past both endpoints so polyline corners overlap instead of leaving notches
+// (overlaps merge into one same-material mesh — invisible). Sloped legs stay
+// exact: their top faces already meet flat neighbors at the waypoint, and an
+// along-slope extension would poke a ridge up through the adjoining flat leg.
+// `extendDeck: false` keeps the deck exact — conveyor tiles alternate colors,
+// so an overlapping deck would z-fight against its differently-colored
+// neighbor (stripes still extend: they share one material everywhere).
+function roadSegment(
+  mat: THREE.Material, from: THREE.Vector3, to: THREE.Vector3, raise: number, extendDeck = true,
+): THREE.Object3D {
   const a = from.clone().setY(from.y + raise)
   const b = to.clone().setY(to.y + raise)
   const len = a.distanceTo(b) || 0.001
+  const horizontal = Math.abs(from.y - to.y) < 1e-3
+  const overlap = horizontal ? ROAD_W : 0
   const road = new THREE.Mesh(
-    new THREE.BoxGeometry(ROAD_W, ROAD_H, len),
-    new THREE.MeshStandardMaterial({ color, roughness: 0.7 }),
+    new THREE.BoxGeometry(ROAD_W, ROAD_H, len + (extendDeck ? overlap : 0)), mat,
   )
   road.position.copy(a).lerp(b, 0.5)
   road.position.y -= ROAD_H / 2
   road.lookAt(b)
 
-  const edgeGeo = new THREE.BoxGeometry(EDGE_W, EDGE_H, len)
-  const edgeMat = new THREE.MeshStandardMaterial({ color: EDGE_COLOR, emissive: EDGE_COLOR, emissiveIntensity: 0.6 })
+  const edgeGeo = new THREE.BoxGeometry(EDGE_W, EDGE_H, len + overlap)
   const edgeY = ROAD_H / 2 + EDGE_H / 2
   const edgeX = ROAD_W / 2 - EDGE_W / 2
   const edgeL = new THREE.Mesh(edgeGeo, edgeMat)
@@ -178,24 +198,42 @@ function roadSegment(color: number, from: THREE.Vector3, to: THREE.Vector3, rais
   return road
 }
 
+// Corner joint: a road-width pad at an interior waypoint, top face 0.02 above
+// the deck so it cleanly covers the notch where two legs meet at any angle
+// (including slope-to-slope corners the horizontal extension can't reach).
+function jointPad(mat: THREE.Material, p: THREE.Vector3, raise: number): THREE.Mesh {
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W, ROAD_H, ROAD_W), mat)
+  pad.position.set(p.x, p.y + raise + 0.02 - ROAD_H / 2, p.z)
+  return pad
+}
+
 // Conveyor leg: subdivided into short alternating-color tiles for a ribbed look,
 // raised CONVEYOR_RAISE above the plate.
 function conveyorLeg(from: THREE.Vector3, to: THREE.Vector3): THREE.Object3D[] {
   const n = Math.max(1, Math.round(from.distanceTo(to) / CONVEYOR_SEGMENT_LEN))
   const segments: THREE.Object3D[] = []
   for (let i = 0; i < n; i++) {
+    // Endpoints from cumulative lerp fractions of the one from->to pair, so
+    // tile i ends exactly where tile i+1 starts — contiguous, no rounding gaps.
     const p0 = from.clone().lerp(to, i / n)
     const p1 = from.clone().lerp(to, (i + 1) / n)
-    segments.push(roadSegment(CONVEYOR_COLORS[i % 2], p0, p1, CONVEYOR_RAISE))
+    segments.push(roadSegment(conveyorMats[i % 2], p0, p1, CONVEYOR_RAISE, false))
   }
   return segments
 }
 
 function buildPolyline(points: readonly THREE.Vector3[], conveyor: boolean | undefined): THREE.Object3D[] {
   const meshes: THREE.Object3D[] = []
+  const raise = conveyor ? CONVEYOR_RAISE : ROAD_RAISE
   for (let i = 0; i < points.length - 1; i++) {
     if (conveyor) meshes.push(...conveyorLeg(points[i], points[i + 1]))
-    else meshes.push(roadSegment(ROAD_COLOR, points[i], points[i + 1], ROAD_RAISE))
+    else meshes.push(roadSegment(roadMat, points[i], points[i + 1], raise))
+  }
+  // Joint pads at interior waypoints keep the polyline visually continuous
+  // around every corner. Conveyor pads use color A — every leg's first tile is
+  // color A too, so the pad reads as part of the belt.
+  for (let i = 1; i < points.length - 1; i++) {
+    meshes.push(jointPad(conveyor ? conveyorMats[0] : roadMat, points[i], raise))
   }
   for (const mesh of meshes) mesh.userData.info = conveyor ? CONVEYOR_INFO : ROAD_INFO
   return meshes
@@ -209,6 +247,11 @@ export interface Routes {
 export function buildRoutes(): Routes {
   const group = new THREE.Group()
   group.name = 'routes'
+  // Build every segment into a staging group, then merge into one mesh per
+  // (material, info) pair: plain roads, each conveyor color, edge stripes —
+  // ~300 draw calls down to ~8. First casting carries its own `info`, so its
+  // segments land in their own buckets and keep their distinct tooltip.
+  const staging = new THREE.Group()
   for (const route of ROUTES) {
     const meshes = buildPolyline(route.draw ?? route.waypoints, route.conveyor)
     if (route.info) {
@@ -216,11 +259,12 @@ export function buildRoutes(): Routes {
         mesh.userData.info = route.info
       }
     }
-    for (const mesh of meshes) group.add(mesh)
+    for (const mesh of meshes) staging.add(mesh)
   }
   for (const trunk of TRUNKS) {
-    for (const mesh of buildPolyline(trunk.points, trunk.conveyor)) group.add(mesh)
+    for (const mesh of buildPolyline(trunk.points, trunk.conveyor)) staging.add(mesh)
   }
+  for (const mesh of mergeStaticGroup(staging)) group.add(mesh)
 
   return {
     group,
