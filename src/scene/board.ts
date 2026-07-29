@@ -52,7 +52,7 @@ const PLATE_INFO: Record<string, InspectorInfo> = {
   boot: { title: 'Boot strip', note: 'Recessed on purpose — bootloader/kernel/init run before userspace exists.' },
   hardware: { title: 'Hardware strip', note: 'The silicon. Framework never touches it directly — HALs and drivers sit between.' },
   foundry: { title: 'Foundry plate', note: 'Zygote district — process factory floor.' },
-  cityhall: { title: 'City Hall pit', note: 'Recessed civic district — every Binder road descends here.' },
+  cityhall: { title: 'City Hall plate', note: 'The core-process band — system_server lives beside the foundry that cast it; every Binder road ends here.' },
   surfaceflinger: { title: 'Compositor plate', note: 'SurfaceFlinger district — every frame\'s last stop before glass.' },
   network: { title: 'Network plate', note: 'Radio edge district — every fetch leaves the board from here.' },
   launcher: { title: 'The Glass', note: 'The phone\'s screen and the launcher process live here — everything north of this strip exists to light it up.' },
@@ -108,23 +108,6 @@ function makeEdgeText(
   return mesh
 }
 
-// cityhallPit: recessed floor (y -2) with a sloped rim connecting it back up to
-// board level (y 0), inset RIM units from the pit's outer footprint.
-function buildPit(): THREE.Object3D[] {
-  const x0 = -45, x1 = 45, z0 = -5, z1 = 25
-  const floorY = -2
-  const RIM = 3
-  const fx0 = x0 + RIM, fx1 = x1 - RIM, fz0 = z0 + RIM, fz1 = z1 - RIM
-  const midZ = (fz0 + fz1) / 2
-  return [
-    tagged(makePlate(COLORS.cityhall, fx0, fx1, fz0, fz1, floorY), PLATE_INFO.cityhall),
-    makeSlope(COLORS.cityhall, new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, floorY, fz0), x1 - x0), // north rim
-    makeSlope(COLORS.cityhall, new THREE.Vector3(0, 0, z1), new THREE.Vector3(0, floorY, fz1), x1 - x0), // south rim
-    makeSlope(COLORS.cityhall, new THREE.Vector3(x0, 0, midZ), new THREE.Vector3(fx0, floorY, midZ), fz1 - fz0), // west rim
-    makeSlope(COLORS.cityhall, new THREE.Vector3(x1, 0, midZ), new THREE.Vector3(fx1, floorY, midZ), fz1 - fz0), // east rim
-  ]
-}
-
 // The Glass strip: a flat launcher-green apron at board level along the south
 // rim, home to the display wall and the launcher process shed. The old elevated
 // deck is gone — the launcher's UI moved onto the display itself.
@@ -144,20 +127,11 @@ export function buildBoard(): THREE.Group {
   group.name = 'board'
   group.userData.info = BOARD_INFO
 
-  // Depth 120→140, extending only off the back edge (front stays at z=60 so every
-  // existing plate/zone coordinate below is untouched). The slab is 3 z-segments,
-  // not one solid box: boot (-60..-45) and hardware (-80..-60) each sit at their
-  // own lower top-face y so the recess is real geometry, not just a thin plate
-  // floating inside an opaque box — their shared z-boundaries render as the visible
-  // step/cliff walls (BoxGeometry side faces render by default, no extra work needed).
-  // Main slab is 4 segments ringing the city-hall pit footprint (-45..45 × -5..25) —
-  // a single -85..85 box would fill the pit solid, hiding the recessed floor and
-  // rim slopes inside opaque geometry (same buried-geometry lesson as the strips).
-  group.add(makeSlab(-85, -45, -45, 60, 0)) // west of pit
-  group.add(makeSlab(45, 85, -45, 60, 0)) // east of pit
-  group.add(makeSlab(-45, 45, -45, -5, 0)) // north strip (wards)
-  group.add(makeSlab(-45, 45, 25, 60, 0)) // south strip (under launcher)
-  group.add(makeSlab(-45, 45, -5, 25, -2 - PLATE_H)) // recessed under the pit — floor plate rests on it
+  // The board reads as the Android stack, north -> south: hardware -> kernel/boot
+  // -> core processes (Zygote · system_server · SurfaceFlinger) -> app wards ->
+  // the glass. One flat main slab (no pit — City Hall sits ON the core band now),
+  // plus the two recessed back strips.
+  group.add(makeSlab(-85, 85, -45, 60, 0)) // main userspace slab
   // Recessed slabs sit one PLATE_H below their plate tops so the plates rest ON
   // the slab instead of embedding flush in it — coplanar top faces z-fight (visible
   // as shimmering scanline flicker across the strip).
@@ -166,14 +140,18 @@ export function buildBoard(): THREE.Group {
 
   group.add(tagged(makePlate(COLORS.boot, -85, 85, -60, -45, -0.2), PLATE_INFO.boot)) // recessed back strip
   group.add(tagged(makePlate(COLORS.hardware, -85, 85, -75, -60, -0.5), PLATE_INFO.hardware)) // hardware/kernel strip, deeper recess
-  group.add(tagged(makePlate(COLORS.foundry, -85, -45, -45, 5, 0.3), PLATE_INFO.foundry))
-  group.add(tagged(makePlate(COLORS.wards, -45, 45, -45, -5, 0.3), PLATE_INFO.wards))
-  group.add(tagged(makePlate(COLORS.surfaceflinger, 45, 85, -45, 0, 0.3), PLATE_INFO.surfaceflinger))
-  group.add(tagged(makePlate(COLORS.network, 45, 85, 0, 35, 0.3), PLATE_INFO.network))
-  for (const o of buildPit()) group.add(o)
+  // Core-process band (z -45..-25)
+  group.add(tagged(makePlate(COLORS.foundry, -85, -30, -45, -25, 0.3), PLATE_INFO.foundry))
+  group.add(tagged(makePlate(COLORS.cityhall, -30, 30, -45, -25, 0.3), PLATE_INFO.cityhall))
+  group.add(tagged(makePlate(COLORS.surfaceflinger, 30, 85, -45, -25, 0.3), PLATE_INFO.surfaceflinger))
+  // App band (z -25..5)
+  group.add(tagged(makePlate(COLORS.wards, -85, 45, -25, 5, 0.3), PLATE_INFO.wards))
+  // Radio edge
+  group.add(tagged(makePlate(COLORS.network, 45, 85, -25, 35, 0.3), PLATE_INFO.network))
   for (const o of buildGlassApron()) group.add(o)
 
   group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
+  group.add(makeEdgeText('THE GLASS', 20, 3, 0, 0.16, 38))
   group.add(makeEdgeText('INTERNET →', 16, 6, 76, 0.36, 17))
   // The hardware strip sits at the board's far edge in a recess — the scene's
   // single directional light grazes past it and the ambient alone leaves it
