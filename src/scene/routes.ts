@@ -171,25 +171,24 @@ function lift(points: readonly THREE.Vector3[]): THREE.Vector3[] {
 // (overlaps merge into one same-material mesh — invisible). Sloped legs stay
 // exact: their top faces already meet flat neighbors at the waypoint, and an
 // along-slope extension would poke a ridge up through the adjoining flat leg.
-// `extendDeck: false` keeps the deck exact — conveyor tiles alternate colors,
+// Decks are exact-length — conveyor tiles alternate colors,
 // so an overlapping deck would z-fight against its differently-colored
 // neighbor (stripes still extend: they share one material everywhere).
 function roadSegment(
-  mat: THREE.Material, from: THREE.Vector3, to: THREE.Vector3, raise: number, extendDeck = true,
+  mat: THREE.Material, from: THREE.Vector3, to: THREE.Vector3, raise: number,
 ): THREE.Object3D {
   const a = from.clone().setY(from.y + raise)
   const b = to.clone().setY(to.y + raise)
   const len = a.distanceTo(b) || 0.001
-  const horizontal = Math.abs(from.y - to.y) < 1e-3
-  const overlap = horizontal ? ROAD_W : 0
-  const road = new THREE.Mesh(
-    new THREE.BoxGeometry(ROAD_W, ROAD_H, len + (extendDeck ? overlap : 0)), mat,
-  )
+  // NO endpoint extension: extended decks overlapped coplanar on straight runs
+  // and z-fought as a shimmering comb (read as both broken lines AND "lag").
+  // Corners are covered by jointPad (raised 0.02 — never coplanar with decks).
+  const road = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W, ROAD_H, len), mat)
   road.position.copy(a).lerp(b, 0.5)
   road.position.y -= ROAD_H / 2
   road.lookAt(b)
 
-  const edgeGeo = new THREE.BoxGeometry(EDGE_W, EDGE_H, len + overlap)
+  const edgeGeo = new THREE.BoxGeometry(EDGE_W, EDGE_H, len)
   const edgeY = ROAD_H / 2 + EDGE_H / 2
   const edgeX = ROAD_W / 2 - EDGE_W / 2
   const edgeL = new THREE.Mesh(edgeGeo, edgeMat)
@@ -219,7 +218,7 @@ function conveyorLeg(from: THREE.Vector3, to: THREE.Vector3): THREE.Object3D[] {
     // tile i ends exactly where tile i+1 starts — contiguous, no rounding gaps.
     const p0 = from.clone().lerp(to, i / n)
     const p1 = from.clone().lerp(to, (i + 1) / n)
-    segments.push(roadSegment(conveyorMats[i % 2], p0, p1, CONVEYOR_RAISE, false))
+    segments.push(roadSegment(conveyorMats[i % 2], p0, p1, CONVEYOR_RAISE))
   }
   return segments
 }
