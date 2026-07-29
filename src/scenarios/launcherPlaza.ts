@@ -34,8 +34,13 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   let idleEnabled = true
   let idleT = 0
 
+  // Per-app brand hues, like real launcher icons — Material 300s, all clear of
+  // Android green so the steady 'running' glow stays unambiguous.
+  const KIOSK_COLORS: Record<string, number> = {
+    chat: 0xffb74d, maps: 0x4dd0e1, camera: 0x64b5f6, bank: 0x9575cd,
+  }
   const kiosks: Kiosk[] = APPS.map((app, i) => {
-    const root = makeBuilding(3, 3, 3, 0xe8eaed, app) // light kiosk shells — near-black cubes read as holes on the green plaza
+    const root = makeBuilding(3, 3, 3, KIOSK_COLORS[app] ?? 0xe8eaed, app)
     root.position.set((i % 2) * 6 - 3, 0, Math.floor(i / 2) * 6 - 3)
     group.add(root)
     const body = root.getObjectByName('body') as THREE.Mesh
