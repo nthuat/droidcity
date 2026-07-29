@@ -82,19 +82,42 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   wallLabel.position.set(0, WALL_BASE_Y + WALL_H + 0.7, 0)
   wallGroup.add(wallLabel)
 
-  // Compositor's view: one small BufferQueue tile per app, in a row across the
-  // wall's top edge (the phone-UI screen face below is the panel's view).
+  // Compositor's view: one BufferQueue tile per app on the panel's REAR face —
+  // where frames physically arrive (the SF road ends behind the screen). On the
+  // front they read as stray UI blocks; the front is the phone's face only.
   const tileMeshes: THREE.Mesh[] = APPS.map((app, i) => {
     const tile = new THREE.Mesh(
       new THREE.BoxGeometry(0.25, 0.9, 0.9),
       new THREE.MeshStandardMaterial({ color: DARK }),
     )
-    tile.position.set(-0.45, WALL_BASE_Y + WALL_H - 0.65, (i - 1.5) * 1.2)
+    tile.position.set(0.45, WALL_BASE_Y + WALL_H - 0.65, (i - 1.5) * 1.2)
     tile.userData.info = TILE_INFO
     tile.userData.tileApp = app
     wallGroup.add(tile)
     return tile
   })
+
+  // Screen backdrop: the lit LCD area inside the bezel, with a status bar strip
+  // on top and a nav strip at the bottom — the phone's face.
+  const screenPanel = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 4.0, 8.8),
+    new THREE.MeshStandardMaterial({ color: 0x10161d, roughness: 0.4 }),
+  )
+  screenPanel.position.set(-0.26, 2.65, 0)
+  wallGroup.add(screenPanel)
+  const statusBar = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.3, 8.8),
+    new THREE.MeshStandardMaterial({ color: 0x2a3542, roughness: 0.4 }),
+  )
+  statusBar.position.set(-0.3, 4.5, 0)
+  statusBar.userData.info = { title: 'Status bar', note: 'SystemUI — also just a process. Not modeled beyond this strip.' }
+  wallGroup.add(statusBar)
+  const navStrip = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.55, 8.8),
+    new THREE.MeshStandardMaterial({ color: 0x1a222c, roughness: 0.4 }),
+  )
+  navStrip.position.set(-0.3, 0.35, 0)
+  wallGroup.add(navStrip)
 
   // ---- The phone UI on the glass ----
   // Home mode: the launcher's icon grid (2x2, brand colors, green lamp = alive).
@@ -109,32 +132,34 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   const iconLamps: THREE.Mesh[] = []
   APPS.forEach((app, i) => {
     const icon = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, 1.3, 1.3),
+      new THREE.BoxGeometry(0.2, 1.1, 1.1),
       new THREE.MeshStandardMaterial({ color: APP_COLORS[app] ?? APP_COLOR_FALLBACK, roughness: 0.5 }),
     )
     const row = Math.floor(i / 2) // 0 top, 1 bottom
     const col = i % 2
-    icon.position.set(-0.42, 2.75 - row * 1.6, col === 0 ? -1.1 : 1.1)
+    // Rows leave room for a small name label UNDER each icon (real launcher
+    // layout) — labels above overlapped the row on top of them.
+    icon.position.set(-0.38, 3.5 - row * 1.7, col === 0 ? -1.6 : 1.6)
     icon.userData.app = app
     icon.userData.info = ICON_INFO
     homeGroup.add(icon)
     iconMeshes.push(icon)
-    const lbl = makeLabel(app, 0.32)
-    lbl.position.set(-0.42, icon.position.y + 0.95, icon.position.z)
+    const lbl = makeLabel(app, 0.26)
+    lbl.position.set(-0.38, icon.position.y - 0.78, icon.position.z)
     homeGroup.add(lbl)
     const lamp = new THREE.Mesh(
-      new THREE.SphereGeometry(0.14, 10, 8),
+      new THREE.SphereGeometry(0.12, 10, 8),
       new THREE.MeshStandardMaterial({ color: GREEN, emissive: GREEN, emissiveIntensity: 1 }),
     )
-    lamp.position.set(-0.5, icon.position.y + 0.55, icon.position.z + 0.55)
+    lamp.position.set(-0.46, icon.position.y + 0.42, icon.position.z + 0.42)
     lamp.visible = false
     homeGroup.add(lamp)
     iconLamps.push(lamp)
   })
 
   const appPanelMat = new THREE.MeshStandardMaterial({ color: APP_COLOR_FALLBACK, roughness: 0.5 })
-  const appPanel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 8.6), appPanelMat)
-  appPanel.position.set(-0.42, 2.15, 0)
+  const appPanel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.7, 8.6), appPanelMat)
+  appPanel.position.set(-0.38, 2.5, 0)
   appPanel.userData.info = {
     title: 'App content',
     note: 'The foreground app\'s UI — rendered by its ward, composited by SurfaceFlinger, lit on this glass.',
@@ -143,7 +168,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   wallGroup.add(appPanel)
   const appPanelLabels: THREE.Sprite[] = APPS.map((app) => {
     const lbl = makeLabel(app, 0.6)
-    lbl.position.set(-0.5, 2.15, 0)
+    lbl.position.set(-0.55, 2.5, 0)
     lbl.visible = false
     wallGroup.add(lbl)
     return lbl
@@ -151,24 +176,24 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
 
   // Android 3-button nav on the glass: Back ◁ · Home ○ · Recents ▢
   const navMat = new THREE.MeshStandardMaterial({ color: 0x9aa5b1, roughness: 0.4 })
-  const backBtn = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.4, 3), navMat)
-  backBtn.position.set(-0.42, 0.42, -1.4)
-  backBtn.rotation.x = Math.PI / 2 // point the triangle "left" (toward local -z)
+  const backBtn = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.36, 3), navMat)
+  backBtn.position.set(-0.4, 0.35, -1.5)
+  backBtn.rotation.x = Math.PI / 2 // point the triangle sideways, Android's Back glyph
   backBtn.userData.info = {
     title: 'Back',
     note: 'Pops the top of the foreground app\'s back stack; at the root it finishes the Activity — process stays cached.',
   }
   wallGroup.add(backBtn)
-  const homePill = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.2, 16), navMat)
+  const homePill = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.2, 16), navMat)
   homePill.rotation.z = Math.PI / 2 // disc face toward the viewer
-  homePill.position.set(-0.42, 0.42, 0)
+  homePill.position.set(-0.4, 0.35, 0)
   homePill.userData.info = {
     title: 'Home',
     note: 'Backgrounds the foreground app — the launcher\'s icon grid returns to the glass.',
   }
   wallGroup.add(homePill)
-  const recentsBtn = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.4), navMat)
-  recentsBtn.position.set(-0.42, 0.42, 1.4)
+  const recentsBtn = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.36, 0.36), navMat)
+  recentsBtn.position.set(-0.4, 0.35, 1.5)
   recentsBtn.userData.info = {
     title: 'Recents',
     note: 'Overview of every live app process. Tap a card to bring it to the front — a hot start.',
@@ -184,15 +209,15 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       new THREE.BoxGeometry(0.2, 2.4, 1.7),
       new THREE.MeshStandardMaterial({ color: APP_COLORS[app] ?? APP_COLOR_FALLBACK, roughness: 0.5 }),
     )
-    card.position.set(-0.42, 2.15, (i - 1.5) * 2.1)
+    card.position.set(-0.38, 2.4, (i - 1.5) * 2.1)
     card.userData.app = app
     card.userData.info = {
       title: `Recents: ${app}`,
       note: 'A live process\'s task card. Tap to bring it to the foreground — hot start, no fork.',
     }
     recentsGroup.add(card)
-    const lbl = makeLabel(app, 0.32)
-    lbl.position.set(-0.42, 3.6, card.position.z)
+    const lbl = makeLabel(app, 0.3)
+    lbl.position.set(-0.38, 3.85, card.position.z)
     recentsGroup.add(lbl)
     card.userData.cardLabel = lbl
     return card
