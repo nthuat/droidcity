@@ -52,7 +52,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   group.add(compositor)
 
   // Display wall: the phone's screen — front and center at the board's south rim
-  // (world (0, 0, 58), local offset from this group's anchor (65, 0, -22)),
+  // (world (0, 0, 58), local offset from this group's anchor (60, 0, -35)),
   // facing the default camera: you look at the city, the screen looks back.
   // Built inside this scenario because SF's state machine drives the tiles;
   // routes.ts's surfaceflinger->displaywall road carries the compositor->panel leg.

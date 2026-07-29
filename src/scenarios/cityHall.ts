@@ -60,8 +60,8 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   })
   const wingPulse = [0, 0, 0]
 
-  // Static dressing: antenna on the hall roof + 4 pillar columns at the pit floor's
-  // corners. Local y 0 is the pit floor here (anchor y -2 already matches it).
+  // Static dressing: antenna on the hall roof + 4 pillar columns at the plate's
+  // corners. Local y 0 is the core-band plate top (anchor y 0.3 matches it).
   const antenna = makeAntenna()
   antenna.position.set(0, 6, -3)
   group.add(antenna)
