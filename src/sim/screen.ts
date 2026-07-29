@@ -3,7 +3,7 @@
 // bus events into it.
 
 export interface ScreenState {
-  readonly mode: 'home' | 'app' | 'recents'
+  readonly mode: 'home' | 'app' | 'recents' | 'shade' | 'permission'
   // In 'app' mode: the foreground app. In 'recents' mode: the app that was
   // foreground when Recents opened (still running behind the overlay) — Back
   // returns to it. At home: null.
@@ -29,6 +29,28 @@ export function screenOnRecentsDismissed(s: ScreenState): ScreenState {
   return s.app ? { mode: 'app', app: s.app } : { mode: 'home', app: null }
 }
 
+// Notification shade: pulled over whatever is showing; underlying app keeps
+// running (same overlay semantics as recents).
+export function screenOnShade(s: ScreenState): ScreenState {
+  return s.mode === 'shade' ? s : { mode: 'shade', app: s.app }
+}
+
+export function screenOnShadeDismissed(s: ScreenState): ScreenState {
+  if (s.mode !== 'shade') return s
+  return s.app ? { mode: 'app', app: s.app } : { mode: 'home', app: null }
+}
+
+// Runtime-permission dialog: the SYSTEM draws it over the requesting app —
+// the app is foreground underneath and resumes as-is once resolved.
+export function screenOnPermissionRequest(s: ScreenState, app: string): ScreenState {
+  return { mode: 'permission', app }
+}
+
+export function screenOnPermissionResolved(s: ScreenState): ScreenState {
+  if (s.mode !== 'permission') return s
+  return s.app ? { mode: 'app', app: s.app } : { mode: 'home', app: null }
+}
+
 export function screenOnHome(_s: ScreenState): ScreenState {
   return { mode: 'home', app: null }
 }
@@ -39,7 +61,8 @@ export function screenOnHome(_s: ScreenState): ScreenState {
 // clears so Back lands on home instead of a corpse.
 export function screenOnKilled(s: ScreenState, app: string): ScreenState {
   if (s.app !== app) return s
-  if (s.mode === 'app') return createScreen()
+  if (s.mode === 'app' || s.mode === 'permission') return createScreen()
   if (s.mode === 'recents') return { mode: 'recents', app: null }
+  if (s.mode === 'shade') return { mode: 'shade', app: null }
   return s
 }
