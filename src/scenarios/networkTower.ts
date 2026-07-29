@@ -31,7 +31,12 @@ function makePhaseLabel(initial: string): { sprite: THREE.Sprite; setText(t: str
   const texture = new THREE.CanvasTexture(canvas)
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }))
   sprite.scale.set(6, 1.5, 1)
+  // Memoized: the idle branch calls setText('idle') every frame — repainting
+  // (and re-uploading a 512×128 texture to the GPU) only on actual change.
+  let last = ''
   function setText(t: string): void {
+    if (t === last) return
+    last = t
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.font = 'bold 40px system-ui, sans-serif'
     ctx.fillStyle = '#e6edf3'

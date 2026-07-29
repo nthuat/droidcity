@@ -553,6 +553,10 @@ let pointerIsDown = false
 let lastPointerX = 0
 let lastPointerY = 0
 let hasHoverPointer = false
+// Last raycast position — with a still pointer and a still camera the hover
+// result can't change, so the 80ms tick skips the raycast entirely.
+let lastCastX = -1
+let lastCastY = -1
 city.renderer.domElement.addEventListener('pointerdown', () => { pointerIsDown = true })
 addEventListener('pointerup', () => { pointerIsDown = false })
 city.renderer.domElement.addEventListener('pointermove', (ev) => {
@@ -764,7 +768,17 @@ for (const item of storyMenuItems) {
 
 storyBarEl.append(storyToggleBtn, storyMenuEl)
 
+// ?debug readout: fps/draws/tris, refreshed by the existing 500ms HUD tick.
+// Zero cost without the param — debugEl is null and frameCount++ is all that runs.
+const debugEl = new URLSearchParams(location.search).has('debug')
+  ? document.body.appendChild(Object.assign(document.createElement('div'), {
+      style: 'position:fixed;left:8px;bottom:8px;font:11px monospace;color:#8b98a5;z-index:99;pointer-events:none',
+    }))
+  : null
+let frameCount = 0
+
 city.start((dtMs) => {
+  frameCount++
   if (tweenT < tweenDurationMs) {
     tweenT = Math.min(tweenT + dtMs, tweenDurationMs)
     const t = smoothstep(tweenT / tweenDurationMs)
@@ -790,12 +804,24 @@ city.start((dtMs) => {
   inspectorAccMs += dtMs
   if (inspectorAccMs >= INSPECTOR_UPDATE_MS) {
     inspectorAccMs -= INSPECTOR_UPDATE_MS
-    if (hasHoverPointer && !pointerIsDown) inspector.update(lastPointerX, lastPointerY)
+    const cameraMoving = tweenT < tweenDurationMs || (inOverview && !driftStopped && !storyActive)
+    if (hasHoverPointer && !pointerIsDown
+      && (lastPointerX !== lastCastX || lastPointerY !== lastCastY || cameraMoving)) {
+      inspector.update(lastPointerX, lastPointerY)
+      lastCastX = lastPointerX
+      lastCastY = lastPointerY
+    }
   }
   hudAccMs += dtMs
   if (hudAccMs >= HUD_UPDATE_MS) {
     hudAccMs -= HUD_UPDATE_MS
     refreshHud()
+    if (debugEl) {
+      const info = city.renderer.info.render
+      debugEl.textContent =
+        `${Math.round(frameCount * 1000 / HUD_UPDATE_MS)}fps · ${info.calls} draws · ${Math.round(info.triangles / 1000)}k tris`
+      frameCount = 0
+    }
   }
 })
 

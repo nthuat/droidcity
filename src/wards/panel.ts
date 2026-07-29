@@ -47,10 +47,12 @@ export function buildWardPanel(
   return {
     ...panel,
     syncService(running) {
-      serviceBtn.textContent = running ? 'Stop service' : 'Start service'
+      const label = running ? 'Stop service' : 'Start service'
+      if (serviceBtn.textContent !== label) serviceBtn.textContent = label
     },
     syncBind(boundTo, nextTarget) {
-      bindBtn.textContent = boundTo ? 'Unbind' : `Bind to ${nextTarget ?? '—'}`
+      const label = boundTo ? 'Unbind' : `Bind to ${nextTarget ?? '—'}`
+      if (bindBtn.textContent !== label) bindBtn.textContent = label
     },
   }
 }

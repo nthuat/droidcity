@@ -202,6 +202,9 @@ export function makeHardwareRowScenario(): Scenario & {
   const { bar: psiBar, mat: psiMat } = buildPsi(group)
 
   let coreStates: CoreState[] = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
+  // paintCore runs per-frame via syncCores — only rebuild the userData.info
+  // object when the running/stuck/app combination actually changed.
+  const lastCoreInfoKey: (string | null)[] = coreSlots.map(() => null)
   let ramApps: (string | null)[] = ramSlots.map(() => null)
   let elapsedMs = 0
   let diskLedT = 0
@@ -210,12 +213,16 @@ export function makeHardwareRowScenario(): Scenario & {
   function paintCore(i: number): void {
     const { mesh, mat } = coreSlots[i]
     const s = coreStates[i]
-    mesh.userData.info = s.color !== null
-      ? {
-          title: `Core — running ${s.app}`,
-          note: s.stuck ? 'Main thread blocked >5s — ANR territory.' : 'Executing this ward\'s main-thread messages.',
-        }
-      : { title: 'Core — idle', note: 'No ward is executing right now.' }
+    const infoKey = `${s.color !== null}|${s.stuck}|${s.app}`
+    if (lastCoreInfoKey[i] !== infoKey) {
+      lastCoreInfoKey[i] = infoKey
+      mesh.userData.info = s.color !== null
+        ? {
+            title: `Core — running ${s.app}`,
+            note: s.stuck ? 'Main thread blocked >5s — ANR territory.' : 'Executing this ward\'s main-thread messages.',
+          }
+        : { title: 'Core — idle', note: 'No ward is executing right now.' }
+    }
     if (s.stuck) {
       mat.color.setHex(CORE_STUCK)
       mat.emissive.setHex(CORE_STUCK)
