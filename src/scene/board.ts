@@ -55,7 +55,7 @@ const PLATE_INFO: Record<string, InspectorInfo> = {
   cityhall: { title: 'City Hall pit', note: 'Recessed civic district — every Binder road descends here.' },
   surfaceflinger: { title: 'Compositor plate', note: 'SurfaceFlinger district — every frame\'s last stop before glass.' },
   network: { title: 'Network plate', note: 'Radio edge district — every fetch leaves the board from here.' },
-  launcher: { title: 'Launcher deck', note: 'Elevated plaza — the home screen is just an app with a view.' },
+  launcher: { title: 'The Glass', note: 'The phone\'s screen and the launcher process live here — everything north of this strip exists to light it up.' },
 }
 const BOARD_INFO: InspectorInfo = {
   title: 'The device',
@@ -125,24 +125,18 @@ function buildPit(): THREE.Object3D[] {
   ]
 }
 
-// launcherPlatform: elevated deck (top y 3) with a ramp down to board level (y 0)
-// on its pit-facing edge, per the plan's "ramp from platform front edge to pit rim".
-function buildLauncherPlatform(): THREE.Object3D[] {
-  const x0 = -30, x1 = 30, z0 = 25, z1 = 55
-  const topY = 3
-  const rampZ1 = z0 + 6 // ramp occupies the first 6 units of the platform's depth
-  // Solid deck box (full height, base on the board at y 0) — the old 0.3 plate
-  // floated at y 2.7..3 with visible void beneath it.
-  const deck = new THREE.Mesh(
-    new THREE.BoxGeometry(x1 - x0, topY, z1 - rampZ1),
+// The Glass strip: a flat launcher-green apron at board level along the south
+// rim, home to the display wall and the launcher process shed. The old elevated
+// deck is gone — the launcher's UI moved onto the display itself.
+function buildGlassApron(): THREE.Object3D[] {
+  // Top y 0.1 — under ROAD_RAISE (0.15) so roads crossing the apron stay visible.
+  const apron = new THREE.Mesh(
+    new THREE.BoxGeometry(60, 0.1, 24),
     plateMaterial(COLORS.launcher),
   )
-  deck.position.set((x0 + x1) / 2, topY / 2, (rampZ1 + z1) / 2)
-  deck.userData.info = PLATE_INFO.launcher
-  return [
-    deck,
-    makeSlope(COLORS.launcher, new THREE.Vector3(0, 0, z0), new THREE.Vector3(0, topY, rampZ1), x1 - x0),
-  ]
+  apron.position.set(0, 0.05, 47)
+  apron.userData.info = PLATE_INFO.launcher
+  return [apron]
 }
 
 export function buildBoard(): THREE.Group {
@@ -177,7 +171,7 @@ export function buildBoard(): THREE.Group {
   group.add(tagged(makePlate(COLORS.surfaceflinger, 45, 85, -45, 0, 0.3), PLATE_INFO.surfaceflinger))
   group.add(tagged(makePlate(COLORS.network, 45, 85, 0, 35, 0.3), PLATE_INFO.network))
   for (const o of buildPit()) group.add(o)
-  for (const o of buildLauncherPlatform()) group.add(o)
+  for (const o of buildGlassApron()) group.add(o)
 
   group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
   group.add(makeEdgeText('INTERNET →', 16, 6, 76, 0.36, 17))

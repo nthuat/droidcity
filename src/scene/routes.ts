@@ -19,7 +19,7 @@ const ANCHORS: Record<string, THREE.Vector3> = {
   cityhall: new THREE.Vector3(0, -2, 10),
   surfaceflinger: new THREE.Vector3(65, PLATE_Y, -22),
   network: new THREE.Vector3(65, PLATE_Y, 17),
-  launcher: new THREE.Vector3(0, 3, 40),
+  launcher: new THREE.Vector3(-22, 0, 50),
 }
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -25

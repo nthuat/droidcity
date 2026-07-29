@@ -1,23 +1,17 @@
 import * as THREE from 'three'
-import { APP_COLORS, APP_COLOR_FALLBACK } from '../scene/appColors'
 import { APPS, createLauncher, requestLaunch, markRunning, markStopped, type LauncherState } from '../sim/launcher'
 import { makeBuilding } from '../scene/builders'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
 
-const PULSE_MS = 300
-const RUNNING_COLOR = 0x3ddc84 // Android brand green — the city's 'alive' accent
-const IDLE_LAUNCH_MS = 8000
-const DEFAULT_NARRATION = 'Tap a kiosk to launch its app. Steady green glow = running.'
+// The launcher's UI now lives ON the glass (surfaceFlinger.ts's icon grid) —
+// this scenario keeps the launcher PROCESS: the sim state, launch requests, and
+// a small shed by the display. Its icon grid is what the screen draws at home.
 
-interface Kiosk {
-  readonly app: string
-  readonly root: THREE.Group
-  readonly body: THREE.Mesh
-  readonly lamp: THREE.Mesh
-  pulseT: number
-}
+const IDLE_LAUNCH_MS = 8000
+const RUNNING_COLOR = 0x3ddc84
+const DEFAULT_NARRATION = 'The launcher is just an app — its icon grid is drawn on the glass. Tap an icon on the display (or the buttons here) to launch.'
 
 export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   clickKiosk(app: string): void
@@ -27,68 +21,29 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
 } {
   const group = new THREE.Group()
   group.userData.info = {
-    title: 'Launcher Plaza',
-    note: 'The launcher is just an app with a privileged view of PMS.',
+    title: 'Launcher process',
+    note: 'Just an app with a privileged view of PMS. Its UI is the icon grid on the glass next door.',
   }
   let state: LauncherState = createLauncher()
   let rotationIdx = 0
   let idleEnabled = true
   let idleT = 0
 
-  const kiosks: Kiosk[] = APPS.map((app, i) => {
-    const root = makeBuilding(3, 3, 3, APP_COLORS[app] ?? APP_COLOR_FALLBACK, app)
-    root.position.set((i % 2) * 6 - 3, 0, Math.floor(i / 2) * 6 - 3)
-    group.add(root)
-    const body = root.getObjectByName('body') as THREE.Mesh
-    body.userData.app = app
-    body.userData.info = { title: 'App icon', note: 'Tap to ask the system to launch. Vivid + green lamp = running; washed-out = not started.' }
-    // Green running lamp above the kiosk — with per-app base hues, an emissive
-    // wash was ambiguous; a dedicated lamp is the one unmistakable signal.
-    const lampMat = new THREE.MeshStandardMaterial({
-      color: RUNNING_COLOR, emissive: RUNNING_COLOR, emissiveIntensity: 1,
-    })
-    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8), lampMat)
-    lamp.position.y = 3.7
-    lamp.visible = false
-    root.add(lamp)
-    return { app, root, body, lamp, pulseT: 0 }
-  })
-
-  // Static dressing: railing posts around the platform edge. Local y 0 is the
-  // platform's own flat top here (anchor y 3 already matches it).
-  const postMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.6 })
-  const postGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8)
-  const postSpots: Array<[number, number]> = [
-    [-28, -7], [-28, 2], [-28, 11],
-    [28, -7], [28, 2], [28, 11],
-    [-18, 14], [0, 14], [18, 14],
-  ]
-  for (const [x, z] of postSpots) {
-    const post = new THREE.Mesh(postGeo, postMat)
-    post.position.set(x, 0.6, z)
-    group.add(post)
+  // The process shed: the launcher as a resident, not a plaza. Lamp = alive
+  // (it effectively always is — oom_adj 600, killed only under extreme pressure).
+  const shed = makeBuilding(4, 2.5, 4, 0xa5c48a, 'launcher')
+  group.add(shed)
+  const shedBody = shed.getObjectByName('body') as THREE.Mesh
+  shedBody.userData.info = {
+    title: 'Launcher process',
+    note: 'The home screen app. When you tap an icon on the glass, THIS process files the Intent with City Hall — the launcher never starts apps itself.',
   }
-
-  // Not-started icons wash out toward the plaza; running ones show full brand
-  // color, a self-lit boost, and the green lamp.
-  const washed = new Map(kiosks.map(k => {
-    const base = new THREE.Color(APP_COLORS[k.app] ?? APP_COLOR_FALLBACK)
-    return [k.app, base.clone().lerp(new THREE.Color(0xdfe3d8), 0.65)]
-  }))
-  function paint(): void {
-    for (const k of kiosks) {
-      const mat = k.body.material as THREE.MeshStandardMaterial
-      const running = state.running.includes(k.app)
-      const full = new THREE.Color(APP_COLORS[k.app] ?? APP_COLOR_FALLBACK)
-      mat.color.copy(running ? full : washed.get(k.app)!)
-      mat.emissive.copy(running ? full : new THREE.Color(0x000000))
-      mat.emissiveIntensity = running ? 0.35 : 0
-      k.lamp.visible = running
-      const bounce = k.pulseT > 0 ? 1 + 0.25 * Math.sin((k.pulseT / PULSE_MS) * Math.PI) : 1
-      k.root.scale.setScalar(bounce)
-    }
-  }
-  paint()
+  const lamp = new THREE.Mesh(
+    new THREE.SphereGeometry(0.3, 12, 8),
+    new THREE.MeshStandardMaterial({ color: RUNNING_COLOR, emissive: RUNNING_COLOR, emissiveIntensity: 0.9 }),
+  )
+  lamp.position.y = 3.1
+  shed.add(lamp)
 
   function clickKiosk(app: string): void {
     const result = requestLaunch(state, app)
@@ -100,15 +55,11 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
       // — manager decides and reports the real type via onStartType.
       if (state.running.includes(app)) {
         bus.emit('app:broughtToFront', { app })
-        const k = kiosks.find(k => k.app === app)
-        if (k) k.pulseT = PULSE_MS
       }
       return
     }
     state = result.state
     bus.emit('app:launchRequested', { app })
-    const k = kiosks.find(k => k.app === app)
-    if (k) k.pulseT = PULSE_MS
   }
 
   bus.on('activity:resumed', ({ app }) => { state = markRunning(state, app) })
@@ -116,13 +67,11 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
 
   function resetApps(): void {
     state = createLauncher()
-    for (const k of kiosks) k.pulseT = 0
     rotationIdx = 0
-    paint()
     panel.setNarration(DEFAULT_NARRATION)
   }
 
-  const panel = makePanel('Launcher Plaza — tap a kiosk to launch')
+  const panel = makePanel('Launcher — the home screen app')
   for (const app of APPS) {
     panel.addButton(`Open ${app}`, () => clickKiosk(app))
   }
@@ -144,17 +93,13 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
           rotationIdx = (rotationIdx + 1) % APPS.length
         }
       }
-      for (const k of kiosks) {
-        if (k.pulseT > 0) k.pulseT = Math.max(0, k.pulseT - dtMs)
-      }
-      paint()
     },
     setIdle(enabled) {
       idleEnabled = enabled
       idleT = 0
     },
     clickKiosk,
-    kioskMeshes() { return kiosks.map(k => k.body) },
+    kioskMeshes() { return [] },
     resetApps,
     stats() {
       return { running: state.running.length }
