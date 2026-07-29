@@ -17,6 +17,8 @@
       button.active { background: #388bfd; }
       #intro { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: rgba(1,4,9,.8); color: #e6edf3; z-index: 20; padding: 24px; }
       #intro p { max-width: 480px; color: #8b949e; }
+      #intro a, #panel a { color: #58a6ff; text-decoration: none; }
+      #intro a:hover, #panel a:hover { text-decoration: underline; }
       #story-bar { position: fixed; top: 12px; right: 12px; z-index: 10; }
       #story-bar .story-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: rgba(13,17,23,.95); border: 1px solid #30363d; border-radius: 8px; padding: 6px; display: none; flex-direction: column; gap: 4px; min-width: 190px; }
       #story-bar .story-menu.open { display: flex; }
@@ -43,6 +45,11 @@
     <div id="intro">
       <h1>DroidCity</h1>
       <p>A working model of how an Android app runs — as a city. Pick a district up top; press the buttons; watch what the OS does. Early prototype: expect inaccuracies, corrections welcome.</p>
+      <p class="intro-links">
+        <a href="https://github.com/nthuat/droidcity" target="_blank" rel="noopener">GitHub</a> ·
+        <a href="https://github.com/nthuat/droidcity/blob/main/docs/android-flow-reference.md" target="_blank" rel="noopener">Android flow reference</a> ·
+        inspired by <a href="https://nikolays.github.io/PGSimCity/" target="_blank" rel="noopener">PGSimCity</a>
+      </p>
       <button id="intro-close">Explore</button>
     </div>
     <div id="app"></div>

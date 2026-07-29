@@ -410,6 +410,9 @@ function flyTo(pos: THREE.Vector3, target: THREE.Vector3): void {
 function overviewPanel(): HTMLElement {
   const div = document.createElement('div')
   div.innerHTML = '<h2>DroidCity</h2><p>Pick a district.</p>'
+    + '<p class="panel-narration"><a href="https://github.com/nthuat/droidcity" target="_blank" rel="noopener">GitHub</a>'
+    + ' · <a href="https://github.com/nthuat/droidcity/blob/main/docs/android-flow-reference.md" target="_blank" rel="noopener">reference</a>'
+    + ' · inspired by <a href="https://nikolays.github.io/PGSimCity/" target="_blank" rel="noopener">PGSimCity</a></p>'
   return div
 }
 
