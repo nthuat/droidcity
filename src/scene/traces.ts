@@ -26,9 +26,20 @@ const Y_BOOT = -0.2
 const Y_PLATE = 0.3
 const Z_HW_BOOT = -60 // hardware/boot plate seam (board.ts)
 const Z_BOOT_PLATE = -45 // boot/main-plate seam (board.ts)
-// Per-plot fans jog east/west at this z then run straight south into their plot —
-// a single plate-seam->plot-center diagonal crossed neighbor wards (bench/heap clips).
-const Z_FAN_JOG = -38
+// Per-plot fans jog east/west then run straight south into their plot — a single
+// plate-seam->plot-center diagonal crossed neighbor wards (bench/heap clips).
+// Each plot jogs at its OWN z (JOG_Z0 - n * JOG_STEP): with one shared jog z all
+// 12 east-west legs (3 families x 4 plots) sat collinear at the same y — a stack
+// of coplanar boxes whose z-fight rendered the whole run as broken hooks.
+// Farther plots jog farther north, so no jog leg ever crosses a south leg.
+const JOG_Z0 = -36
+const JOG_STEP = 1
+// Families ride stacked y layers for the same reason: jog legs must cross other
+// families' climb lanes (CPU's legs cross the RAM/DISK fan corridor at x -3..6),
+// and an in-plane crossing is a coplanar patch. 0.06 (one TRACE_H) per layer is
+// real geometric clearance, far above depth-buffer noise.
+const RAM_LAYER_LIFT = 0.06
+const DISK_LAYER_LIFT = 0.12
 const STEP_LEN = 2 // z-length of each sloped climbing step
 
 const HW_Z = -68 // hardwareRow.ts component z (world, matches ANCHORS.hardware)
@@ -121,17 +132,18 @@ function ribbon(mat: THREE.MeshStandardMaterial, points: readonly THREE.Vector3[
 // flat along hw strip -> sloped step across the hw/boot seam -> flat across boot
 // strip -> sloped step across the boot/plate seam. Returned exit point sits just
 // past the plate seam, ready for a tail run across the plate to the real target.
-function climbPoints(x: number, srcZ: number): THREE.Vector3[] {
+function climbPoints(x: number, srcZ: number, lift = 0): THREE.Vector3[] {
   // Origin rides one extra TRACE_RAISE: lanes depart at the bus z (and DISK
   // lanes cross the disk east run), where a same-y origin tile sat coplanar
   // on the wide bus top and z-fought. The 0.02 tilt over the 6-unit run is
   // invisible and below SLOPE_DY_MIN, so the tile isn't trimmed as a slope.
+  // `lift` is the family's y layer (see RAM_LAYER_LIFT above).
   return [
-    v(x, Y_HW + TRACE_RAISE, srcZ),
-    v(x, Y_HW, Z_HW_BOOT - STEP_LEN),
-    v(x, Y_BOOT, Z_HW_BOOT + STEP_LEN),
-    v(x, Y_BOOT, Z_BOOT_PLATE - STEP_LEN),
-    v(x, Y_PLATE, Z_BOOT_PLATE + STEP_LEN),
+    v(x, Y_HW + TRACE_RAISE + lift, srcZ),
+    v(x, Y_HW + lift, Z_HW_BOOT - STEP_LEN),
+    v(x, Y_BOOT + lift, Z_HW_BOOT + STEP_LEN),
+    v(x, Y_BOOT + lift, Z_BOOT_PLATE - STEP_LEN),
+    v(x, Y_PLATE + lift, Z_BOOT_PLATE + STEP_LEN),
   ]
 }
 
@@ -142,6 +154,7 @@ function climbPoints(x: number, srcZ: number): THREE.Vector3[] {
 // since CPU predates this lane-offset shape.
 function buildPlotFamily(
   sourceX: number, fanOffsets: readonly number[], laneOffsetX: number, info: { title: string; note: string },
+  lift = 0,
 ): { mats: THREE.MeshStandardMaterial[]; meshes: THREE.Mesh[] } {
   const mats: THREE.MeshStandardMaterial[] = []
   const meshes: THREE.Mesh[] = []
@@ -149,11 +162,12 @@ function buildPlotFamily(
     const mat = traceMaterial()
     mats.push(mat)
     const fanX = sourceX + fanOffsets[n] + laneOffsetX
+    const jogZ = JOG_Z0 - n * JOG_STEP
     const points = [
-      ...climbPoints(fanX, HW_Z),
-      v(fanX, Y_PLATE, Z_FAN_JOG),
-      v(plotX + laneOffsetX, Y_PLATE, Z_FAN_JOG),
-      v(plotX + laneOffsetX, Y_PLATE, PLOT_Z),
+      ...climbPoints(fanX, HW_Z, lift),
+      v(fanX, Y_PLATE + lift, jogZ),
+      v(plotX + laneOffsetX, Y_PLATE + lift, jogZ),
+      v(plotX + laneOffsetX, Y_PLATE + lift, PLOT_Z),
     ]
     for (const m of ribbon(mat, points)) {
       m.userData.info = info
@@ -180,24 +194,10 @@ export function buildTraces(): Traces {
   // ~7 boxes into one mesh while the glow API keeps driving the same material
   // instances (~98 meshes down to ~16).
   const staging = new THREE.Group()
-  const cpuMats: THREE.MeshStandardMaterial[] = []
 
   // 4 CPU traces: CPU block -> each ward plot, one parallel ribbon per core slot.
-  PLOT_X.forEach((plotX, n) => {
-    const mat = traceMaterial()
-    cpuMats.push(mat)
-    const fanX = CPU_X + CORE_OFFSETS[n]
-    const points = [
-      ...climbPoints(fanX, HW_Z),
-      v(fanX, Y_PLATE, Z_FAN_JOG),
-      v(plotX, Y_PLATE, Z_FAN_JOG),
-      v(plotX, Y_PLATE, PLOT_Z),
-    ]
-    for (const m of ribbon(mat, points)) {
-      m.userData.info = CPU_TRACE_INFO
-      staging.add(m)
-    }
-  })
+  const cpuFamily = buildPlotFamily(CPU_X, CORE_OFFSETS, 0, CPU_TRACE_INFO)
+  for (const m of cpuFamily.meshes) staging.add(m)
 
   // CPU ↔ RAM bus: wide flat ribbon along the hardware strip surface.
   const busMat = traceMaterial()
@@ -225,12 +225,12 @@ export function buildTraces(): Traces {
 
   // RAM: one climb, forking into RAM -> zygote and RAM -> ward-strip trunk.
   const ramMat = traceMaterial()
-  const ramClimb = climbPoints(RAM_X, HW_Z)
+  const ramClimb = climbPoints(RAM_X, HW_Z, RAM_LAYER_LIFT)
   const ramExit = ramClimb[ramClimb.length - 1]
   const ramRibbons = [
     ...ribbon(ramMat, ramClimb),
-    ...ribbon(ramMat, [ramExit, ZYGOTE]),
-    ...ribbon(ramMat, [ramExit, WARD_TRUNK]),
+    ...ribbon(ramMat, [ramExit, ZYGOTE.clone().setY(ZYGOTE.y + RAM_LAYER_LIFT)]),
+    ...ribbon(ramMat, [ramExit, WARD_TRUNK.clone().setY(WARD_TRUNK.y + RAM_LAYER_LIFT)]),
     // ramExit is an endpoint of all three ribbons (never interior), so no
     // ribbon() pad lands on the fork elbow — add it explicitly.
     jointPad(ramMat, ramExit),
@@ -244,16 +244,20 @@ export function buildTraces(): Traces {
   // Runs east along the hardware strip to x 60 first, then climbs — climbing at
   // DISK_X (30) sent the diagonal tail straight through ward plot 3.
   const diskMat = traceMaterial()
-  const diskPoints = [v(DISK_X, Y_HW, HW_Z), ...climbPoints(60, HW_Z), NETWORK]
+  const diskPoints = [
+    v(DISK_X, Y_HW + DISK_LAYER_LIFT, HW_Z),
+    ...climbPoints(60, HW_Z, DISK_LAYER_LIFT),
+    NETWORK.clone().setY(NETWORK.y + DISK_LAYER_LIFT),
+  ]
   for (const m of ribbon(diskMat, diskPoints)) {
     m.userData.info = DISK_TRACE_INFO
     staging.add(m)
   }
 
   // Per-plot RAM and DISK traces, parallel to the CPU family above.
-  const ramFamily = buildPlotFamily(RAM_X, RAM_FAN_OFFSETS, RAM_LANE_OFFSET, RAM_TRACE_INFO)
+  const ramFamily = buildPlotFamily(RAM_X, RAM_FAN_OFFSETS, RAM_LANE_OFFSET, RAM_TRACE_INFO, RAM_LAYER_LIFT)
   for (const m of ramFamily.meshes) staging.add(m)
-  const diskFamily = buildPlotFamily(DISK_X, CORE_OFFSETS, DISK_LANE_OFFSET, DISK_TRACE_INFO)
+  const diskFamily = buildPlotFamily(DISK_X, CORE_OFFSETS, DISK_LANE_OFFSET, DISK_TRACE_INFO, DISK_LAYER_LIFT)
   for (const m of diskFamily.meshes) staging.add(m)
 
   for (const m of mergeStaticGroup(staging)) group.add(m)
@@ -272,7 +276,7 @@ export function buildTraces(): Traces {
 
   return {
     group,
-    setCpuTraceGlow(plot, color) { setFamilyGlow(cpuMats, plot, color) },
+    setCpuTraceGlow(plot, color) { setFamilyGlow(cpuFamily.mats, plot, color) },
     setRamTraceGlow(plot, color) { setFamilyGlow(ramFamily.mats, plot, color) },
     setDiskTraceGlow(plot, color) { setFamilyGlow(diskFamily.mats, plot, color) },
     setCpuRamBusGlow(color) { setSingleGlow(busMat, color) },
