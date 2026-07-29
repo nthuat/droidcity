@@ -34,6 +34,10 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   screenIconMeshes(): THREE.Mesh[]
   navMeshes(): { back: THREE.Mesh; home: THREE.Mesh; recents: THREE.Mesh }
   recentsCardMeshes(): THREE.Mesh[]
+  statusBarMesh(): THREE.Mesh
+  shadeRowMeshes(): THREE.Mesh[]
+  permissionButtons(): { allow: THREE.Mesh; deny: THREE.Mesh }
+  setNotifications(apps: readonly string[]): void
   setScreen(state: ScreenState): void
 } {
   const group = new THREE.Group()
@@ -231,6 +235,103 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     return card
   })
 
+  // ---- Notifications on the glass ----
+  // Status-bar dots (one per app, brand color) while a notification is pending;
+  // tap the bar to pull the shade. NotificationManagerService lives in
+  // system_server — the post travels ward -> City Hall -> here.
+  statusBar.userData.info = {
+    title: 'Status bar',
+    note: 'SystemUI (its own process). Dots = pending notifications, owned by NotificationManagerService in system_server — not by the posting app. Tap to open the shade.',
+  }
+  let pendingNotifs: readonly string[] = []
+  const notifDots: THREE.Mesh[] = APPS.map((app, i) => {
+    const dot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.16, 0.16),
+      new THREE.MeshStandardMaterial({
+        color: APP_COLORS[app] ?? APP_COLOR_FALLBACK,
+        emissive: APP_COLORS[app] ?? APP_COLOR_FALLBACK,
+        emissiveIntensity: 0.6,
+      }),
+    )
+    dot.position.set(-0.36, 4.5, -3.9 + i * 0.5)
+    dot.visible = false
+    wallGroup.add(dot)
+    return dot
+  })
+
+  const shadeGroup = new THREE.Group()
+  shadeGroup.visible = false
+  wallGroup.add(shadeGroup)
+  const shadeSheet = new THREE.Mesh(
+    new THREE.BoxGeometry(0.1, 3.9, 8.7),
+    new THREE.MeshStandardMaterial({ color: 0x1a222c, roughness: 0.5 }),
+  )
+  shadeSheet.position.set(-0.32, 2.45, 0)
+  shadeSheet.userData.info = {
+    title: 'Notification shade',
+    note: 'Rendered by SystemUI. Each row carries a PendingIntent — a capability token that lets SystemUI fire the app\'s own intent with the app\'s identity when you tap.',
+  }
+  shadeGroup.add(shadeSheet)
+  const shadeRows: THREE.Mesh[] = APPS.map((app, i) => {
+    const row = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.62, 7.6),
+      new THREE.MeshStandardMaterial({ color: APP_COLORS[app] ?? APP_COLOR_FALLBACK, roughness: 0.5 }),
+    )
+    row.position.set(-0.42, 3.85 - i * 0.85, 0)
+    row.userData.app = app
+    row.userData.info = {
+      title: `Notification: ${app}`,
+      note: 'Posted while the app was in the background. Tap = SystemUI fires the PendingIntent — the app comes to the foreground (or cold-starts if it was killed: the notification outlived the process).',
+    }
+    row.visible = false
+    shadeGroup.add(row)
+    const lbl = makeLabel(`${app} · new data`, 0.28)
+    lbl.position.set(-0.5, row.position.y, -2.4)
+    lbl.visible = false
+    row.userData.rowLabel = lbl
+    shadeGroup.add(lbl)
+    return row
+  })
+
+  // ---- Runtime permission dialog ----
+  // Drawn by the SYSTEM over the requesting app — apps cannot draw or fake it.
+  const permGroup = new THREE.Group()
+  permGroup.visible = false
+  wallGroup.add(permGroup)
+  const permSheet = new THREE.Mesh(
+    new THREE.BoxGeometry(0.1, 2.4, 6.4),
+    new THREE.MeshStandardMaterial({ color: 0x222b36, roughness: 0.5 }),
+  )
+  permSheet.position.set(-0.32, 2.45, 0)
+  permSheet.userData.info = {
+    title: 'Permission dialog',
+    note: 'A SYSTEM surface, not the app\'s — apps can\'t draw or auto-accept it. Dangerous permissions (camera, location, mic…) are granted by you at runtime; PMS records the grant per-app.',
+  }
+  permGroup.add(permSheet)
+  const permLabel = makeLabel('allow camera to use the CAMERA?', 0.34)
+  permLabel.position.set(-0.5, 3.1, 0)
+  permGroup.add(permLabel)
+  const allowBtn = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.55, 2.2),
+    new THREE.MeshStandardMaterial({ color: 0x3fb950, roughness: 0.4 }),
+  )
+  allowBtn.position.set(-0.4, 1.9, 1.5)
+  allowBtn.userData.info = { title: 'Allow', note: 'PMS records the grant — the app never sees this dialog again.' }
+  permGroup.add(allowBtn)
+  const allowLbl = makeLabel('allow', 0.3)
+  allowLbl.position.set(-0.5, 1.9, 1.5)
+  permGroup.add(allowLbl)
+  const denyBtn = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.55, 2.2),
+    new THREE.MeshStandardMaterial({ color: 0x8b98a5, roughness: 0.4 }),
+  )
+  denyBtn.position.set(-0.4, 1.9, -1.5)
+  denyBtn.userData.info = { title: 'Deny', note: 'The app must handle rejection — and may ask again next time it comes forward.' }
+  permGroup.add(denyBtn)
+  const denyLbl = makeLabel('deny', 0.3)
+  denyLbl.position.set(-0.5, 1.9, -1.5)
+  permGroup.add(denyLbl)
+
   let screenState: ScreenState = { mode: 'home', app: null }
   function paintScreen(): void {
     homeGroup.visible = screenState.mode === 'home'
@@ -252,6 +353,15 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       card.visible = alive
       const lbl = card.userData.cardLabel as THREE.Sprite
       lbl.visible = recentsGroup.visible && alive
+    })
+    shadeGroup.visible = screenState.mode === 'shade'
+    permGroup.visible = screenState.mode === 'permission'
+    notifDots.forEach((dot, i) => { dot.visible = pendingNotifs.includes(APPS[i]) })
+    shadeRows.forEach((row, i) => {
+      const on = pendingNotifs.includes(APPS[i])
+      row.visible = on
+      const lbl = row.userData.rowLabel as THREE.Sprite
+      lbl.visible = shadeGroup.visible && on
     })
   }
 
@@ -379,6 +489,13 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     screenIconMeshes() { return iconMeshes },
     navMeshes() { return { back: backBtn, home: homePill, recents: recentsBtn } },
     recentsCardMeshes() { return recentsCards },
+    statusBarMesh() { return statusBar },
+    shadeRowMeshes() { return shadeRows },
+    permissionButtons() { return { allow: allowBtn, deny: denyBtn } },
+    setNotifications(apps) {
+      pendingNotifs = apps
+      paintScreen()
+    },
     setScreen(state) {
       screenState = state
       paintScreen()
