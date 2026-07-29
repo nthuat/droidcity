@@ -16,7 +16,7 @@ import { mergeStaticGroup } from './merge'
 const TRACE_W = 0.5
 const TRACE_H = 0.06
 const TRACE_COLOR = 0x6b7a86
-const TRACE_RAISE = 0.02 // clears the plate top so the ribbon's visible face doesn't z-fight
+const TRACE_RAISE = 0.08 // well clear of plate tops — 0.02 sat inside depth-buffer noise at distance
 const BUS_W = 1.2 // CPU-RAM bus wider than per-plot traces
 const CPU_RAM_BUS_INFO = { title: 'Memory bus (CPU ↔ RAM)', note: 'Every instruction and object the CPU touches streams over this bus. Caches hide most trips — a miss stalls the core.' }
 const RAM_DISK_BUS_INFO = { title: 'Storage bus (RAM ↔ DISK)', note: 'Pages move here: Room reads and mmap\'d dex page IN, write-backs and evictions page OUT. DMA — the CPU doesn\'t carry the bytes.' }
@@ -102,7 +102,8 @@ function segment(mat: THREE.MeshStandardMaterial, from: THREE.Vector3, to: THREE
 // segment tops so it covers jog notches and trimmed slope elbows without ever
 // sitting coplanar with them (routes.ts jointPad pattern).
 function jointPad(mat: THREE.MeshStandardMaterial, p: THREE.Vector3): THREE.Mesh {
-  const pad = new THREE.Mesh(new THREE.BoxGeometry(TRACE_W, TRACE_H, TRACE_W), mat)
+  // Disc pad — covers jogs at any approach angle (box pads left bowtie notches).
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(TRACE_W * 0.72, TRACE_W * 0.72, TRACE_H, 10), mat)
   pad.position.set(p.x, p.y + TRACE_RAISE + 0.015 - TRACE_H / 2, p.z)
   return pad
 }

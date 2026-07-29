@@ -16,7 +16,10 @@ export function createCity(container: HTMLElement): City {
   scene.background = new THREE.Color(0xe9e7e2)
   scene.fog = new THREE.Fog(0xe9e7e2, 140, 380)
 
-  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500)
+  // near 1.5 (not 0.1): nothing sits closer than ~8 units, and the tighter range
+// buys ~25x depth precision — glancing-angle sub-0.1 separations (traces over
+// plates) were quantizing into flickering dashes at distance.
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 1.5, 500)
   camera.position.set(18, 16, 18)
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })

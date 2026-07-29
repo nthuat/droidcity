@@ -206,7 +206,9 @@ function roadSegment(
 // the deck so it cleanly covers the notch where two legs meet at any angle
 // (including slope-to-slope corners the horizontal extension can't reach).
 function jointPad(mat: THREE.Material, p: THREE.Vector3, raise: number): THREE.Mesh {
-  const pad = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W, ROAD_H, ROAD_W), mat)
+  // Cylinder, not box: legs meet at arbitrary angles (rim corners, ramp exits) and
+  // an axis-aligned box left bowtie notches there — a disc covers any approach angle.
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(ROAD_W * 0.72, ROAD_W * 0.72, ROAD_H, 12), mat)
   pad.position.set(p.x, p.y + raise + 0.02 - ROAD_H / 2, p.z)
   return pad
 }
