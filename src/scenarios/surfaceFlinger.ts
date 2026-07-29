@@ -59,7 +59,8 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   const WALL_BASE_Y = 0
   const WALL_H = 5
   const wallGroup = new THREE.Group()
-  wallGroup.position.set(-65, 0, 80)
+  // World (0, 0, 58): group anchor is (60, 0, -35) after the core-band move.
+  wallGroup.position.set(-60, 0, 93)
   wallGroup.rotation.y = Math.PI / 2 // screen normal (local -x) -> world +z, toward the viewer
   group.add(wallGroup)
   const wall = new THREE.Mesh(

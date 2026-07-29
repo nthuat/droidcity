@@ -43,7 +43,12 @@ const EDGE_H = 0.05
 // intersect the slope surfaces beneath them (0.05 left descending decks nearly
 // coplanar with the rim wedges — feathered z-fight combs at every crossing).
 const ROAD_RAISE = 0.15
-const CONVEYOR_RAISE = 0.4
+// 0.5: the DISK-layer trace family tops out at 0.58? no — plate 0.3 + lift 0.12
+// + raise 0.08 + H/2… conveyor deck bottom must clear the tallest trace top
+// (0.3 + 0.12 + 0.08 = 0.5). Bottom at raise - ROAD_H = 0.5 - 0.15 → 0.35? Decks
+// hang below the raise line; 0.5 keeps 0.05+ clearance over every trace layer
+// where fans pass under the spine.
+const CONVEYOR_RAISE = 0.5
 // Two DARK asphalt tones: after the light-theme lift the old light tile color
 // matched the pale plates and every other tile vanished — belts read as dashes.
 const CONVEYOR_COLORS = [0x46545e, 0x38444d]

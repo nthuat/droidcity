@@ -32,8 +32,10 @@ const Z_BOOT_PLATE = -45 // boot/main-plate seam (board.ts)
 // 12 east-west legs (3 families x 4 plots) sat collinear at the same y — a stack
 // of coplanar boxes whose z-fight rendered the whole run as broken hooks.
 // Farther plots jog farther north, so no jog leg ever crosses a south leg.
-const JOG_Z0 = -36
-const JOG_STEP = 1
+// Corridor between the core band's south seam (-25, cosmetic — both bands top
+// 0.3) and the ward walls (-19), under the conveyor spine at z -22 (raise 0.5).
+const JOG_Z0 = -24
+const JOG_STEP = 0.6
 // Families ride stacked y layers for the same reason: jog legs must cross other
 // families' climb lanes (CPU's legs cross the RAM/DISK fan corridor at x -3..6),
 // and an in-plane crossing is a coplanar patch. 0.06 (one TRACE_H) per layer is
@@ -65,9 +67,9 @@ const RAM_TRACE_INFO = { title: 'Memory bus', note: 'Lights when this ward alloc
 const DISK_TRACE_INFO = { title: 'Storage bus', note: 'Lights on Room reads and write-backs — the ward\'s private DB lives on this flash.' }
 
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
-const PLOT_Z = -25
+const PLOT_Z = -10
 const WARD_TRUNK = new THREE.Vector3(0, Y_PLATE, PLOT_Z) // ward-strip center, no specific plot
-const ZYGOTE = new THREE.Vector3(-65, Y_PLATE, -20)
+const ZYGOTE = new THREE.Vector3(-55, Y_PLATE, -35)
 // Radio feed: the network tower's pipeline runs on this silicon (hardwareRow's
 // RADIO_X mast, east of DISK). Feed climbs at x 60 — clear of the DISK per-plot
 // fan (max lane x 36.4) — then runs to the tower on the network plate.
