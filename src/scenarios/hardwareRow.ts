@@ -8,10 +8,10 @@ import type { Scenario } from './types'
 // later task — this file just exposes the paint API).
 
 const PLATE_TOP = -0.5
-// Housing deliberately lighter than the idle dies: at 0x46505c it was near-equal
-// to CORE_IDLE and idle cores vanished into it — light substrate, dark chips.
-const HOUSING_COLOR = 0x808d99
-const CORE_IDLE = 0x3c4650
+// Light-theme metal: silver idle dies on a mid-gray substrate (dark-on-dark made
+// idle cores invisible; dark-on-light read as holes). Busy green / stuck red pop.
+const HOUSING_COLOR = 0x77828e
+const CORE_IDLE = 0xb7c2c9
 const CORE_STUCK = 0xf85149
 const RAM_SHELL_COLOR = 0x5a636e
 const RAM_SHARED_COLOR = 0x9aa7b8
