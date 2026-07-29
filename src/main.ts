@@ -610,6 +610,16 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   }
   const hits = raycaster.intersectObjects(city.scene.children, true)
   for (const hit of hits) {
+    // The display belongs to the SF scenario group, but clicking the phone
+    // should bring you face-to-face with the phone — not fly to SurfaceFlinger.
+    let d: THREE.Object3D | null = hit.object
+    while (d) {
+      if (d.userData.displayWall) {
+        flyTo(new THREE.Vector3(0, 8, 86), new THREE.Vector3(0, 5, 58))
+        return
+      }
+      d = d.parent
+    }
     const app = wardManager.wardAppFromObject(hit.object)
     // wardStats() excludes dying wards — clicking a mid-demolition ward must not
     // fly/open a panel for it; fall through to district resolution instead.

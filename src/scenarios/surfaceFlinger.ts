@@ -60,6 +60,9 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   const WALL_BASE_Y = 0
   const WALL_H = 5
   const wallGroup = new THREE.Group()
+  // Tagged so main.ts's click handler flies to the SCREEN, not to this group's
+  // owning district (the wall is SF's child — a bare parent-walk lands on SF).
+  wallGroup.userData.displayWall = true
   // World (0, 0, 58): group anchor is (60, 0, -35) after the core-band move.
   wallGroup.position.set(-60, 0, 93)
   wallGroup.rotation.y = Math.PI / 2 // screen normal (local -x) -> world +z, toward the viewer
