@@ -72,11 +72,24 @@ function traceMaterial(): THREE.MeshStandardMaterial {
   })
 }
 
+// Sloped tiles get trimmed at both ends: a tilted box's end-face corners poke
+// past the endpoint into the flat tile it meets (coplanar penetration inside
+// the merged mesh — feathered z-fight). Tiles meet at shared endpoints only;
+// the raised joint pad covers the trimmed elbow. Threshold skips the tiny
+// origin-raise tilt (see climbPoints) — only real climb steps trim.
+const SLOPE_TRIM = 0.06
+const SLOPE_DY_MIN = 0.1
+
 // One flat/sloped ribbon tile between two points, oriented via lookAt (handles the
 // sloped climbing steps the same way board.ts's makeSlope does — no separate math).
 function segment(mat: THREE.MeshStandardMaterial, from: THREE.Vector3, to: THREE.Vector3): THREE.Mesh {
   const a = from.clone().setY(from.y + TRACE_RAISE)
   const b = to.clone().setY(to.y + TRACE_RAISE)
+  if (Math.abs(b.y - a.y) > SLOPE_DY_MIN) {
+    const dir = b.clone().sub(a).normalize()
+    a.addScaledVector(dir, SLOPE_TRIM)
+    b.addScaledVector(dir, -SLOPE_TRIM)
+  }
   const len = a.distanceTo(b) || 0.001
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(TRACE_W, TRACE_H, len), mat)
   mesh.position.copy(a).lerp(b, 0.5)
@@ -85,16 +98,21 @@ function segment(mat: THREE.MeshStandardMaterial, from: THREE.Vector3, to: THREE
   return mesh
 }
 
+// Corner joint: a trace-width pad at a waypoint, top face 0.015 above the
+// segment tops so it covers jog notches and trimmed slope elbows without ever
+// sitting coplanar with them (routes.ts jointPad pattern).
+function jointPad(mat: THREE.MeshStandardMaterial, p: THREE.Vector3): THREE.Mesh {
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(TRACE_W, TRACE_H, TRACE_W), mat)
+  pad.position.set(p.x, p.y + TRACE_RAISE + 0.015 - TRACE_H / 2, p.z)
+  return pad
+}
+
 function ribbon(mat: THREE.MeshStandardMaterial, points: readonly THREE.Vector3[]): THREE.Mesh[] {
   const meshes: THREE.Mesh[] = []
   for (let i = 0; i < points.length - 1; i++) meshes.push(segment(mat, points[i], points[i + 1]))
-  // Joint pads at interior waypoints: trace-width squares sitting 0.01 above
-  // the ribbon so fan-jog corners connect instead of leaving notches.
-  for (let i = 1; i < points.length - 1; i++) {
-    const pad = new THREE.Mesh(new THREE.BoxGeometry(TRACE_W, TRACE_H, TRACE_W), mat)
-    pad.position.set(points[i].x, points[i].y + TRACE_RAISE + 0.01 - TRACE_H / 2, points[i].z)
-    meshes.push(pad)
-  }
+  // Joint pads at every interior waypoint (fan jogs AND climb-step junctions)
+  // so corners connect instead of leaving notches.
+  for (let i = 1; i < points.length - 1; i++) meshes.push(jointPad(mat, points[i]))
   return meshes
 }
 
@@ -103,8 +121,12 @@ function ribbon(mat: THREE.MeshStandardMaterial, points: readonly THREE.Vector3[
 // strip -> sloped step across the boot/plate seam. Returned exit point sits just
 // past the plate seam, ready for a tail run across the plate to the real target.
 function climbPoints(x: number, srcZ: number): THREE.Vector3[] {
+  // Origin rides one extra TRACE_RAISE: lanes depart at the bus z (and DISK
+  // lanes cross the disk east run), where a same-y origin tile sat coplanar
+  // on the wide bus top and z-fought. The 0.02 tilt over the 6-unit run is
+  // invisible and below SLOPE_DY_MIN, so the tile isn't trimmed as a slope.
   return [
-    v(x, Y_HW, srcZ),
+    v(x, Y_HW + TRACE_RAISE, srcZ),
     v(x, Y_HW, Z_HW_BOOT - STEP_LEN),
     v(x, Y_BOOT, Z_HW_BOOT + STEP_LEN),
     v(x, Y_BOOT, Z_BOOT_PLATE - STEP_LEN),
@@ -208,6 +230,9 @@ export function buildTraces(): Traces {
     ...ribbon(ramMat, ramClimb),
     ...ribbon(ramMat, [ramExit, ZYGOTE]),
     ...ribbon(ramMat, [ramExit, WARD_TRUNK]),
+    // ramExit is an endpoint of all three ribbons (never interior), so no
+    // ribbon() pad lands on the fork elbow — add it explicitly.
+    jointPad(ramMat, ramExit),
   ]
   for (const m of ramRibbons) {
     m.userData.info = RAM_TRACE_INFO
