@@ -35,7 +35,7 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   let idleT = 0
 
   const kiosks: Kiosk[] = APPS.map((app, i) => {
-    const root = makeBuilding(3, 3, 3, 0x30363d, app)
+    const root = makeBuilding(3, 3, 3, 0xe8eaed, app) // light kiosk shells — near-black cubes read as holes on the green plaza
     root.position.set((i % 2) * 6 - 3, 0, Math.floor(i / 2) * 6 - 3)
     group.add(root)
     const body = root.getObjectByName('body') as THREE.Mesh
