@@ -50,31 +50,38 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   const WALL_X = 17
   const WALL_BASE_Y = 0.3
   const WALL_H = 5
+  // The wall lives in its own pivot group, yawed toward the default overview
+  // camera (southwest of the screen's -x normal) — mounted flat at the east rim
+  // it was seen nearly edge-on from overview, a black sliver.
+  const wallGroup = new THREE.Group()
+  wallGroup.position.set(WALL_X, 0, 0)
+  wallGroup.rotation.y = 0.6
+  group.add(wallGroup)
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(0.4, WALL_H, 10),
     new THREE.MeshStandardMaterial({ color: 0x2b3440 }), // stays dark — it's a screen
   )
-  wall.position.set(WALL_X, WALL_BASE_Y + WALL_H / 2, 0)
+  wall.position.set(0, WALL_BASE_Y + WALL_H / 2, 0)
   wall.userData.info = {
     title: 'Display',
     note: 'One app is on screen at a time — the bright tile. Faint tiles are alive behind it, rendering nothing. Multi-window would light two; not modeled yet. HWC composites overlays in hardware when possible.',
   }
-  group.add(wall)
+  wallGroup.add(wall)
   const wallLabel = makeLabel('Display', 0.7)
-  wallLabel.position.set(WALL_X, WALL_BASE_Y + WALL_H + 0.7, 0)
-  group.add(wallLabel)
+  wallLabel.position.set(0, WALL_BASE_Y + WALL_H + 0.7, 0)
+  wallGroup.add(wallLabel)
 
   const tileMeshes: THREE.Mesh[] = APPS.map((app, i) => {
     const tile = new THREE.Mesh(
       new THREE.BoxGeometry(0.25, 2.2, 2.2),
       new THREE.MeshStandardMaterial({ color: DARK }),
     )
-    tile.position.set(WALL_X - 0.5, WALL_BASE_Y + WALL_H / 2, (i - 1.5) * 2.4)
+    tile.position.set(-0.5, WALL_BASE_Y + WALL_H / 2, (i - 1.5) * 2.4)
     tile.userData.info = TILE_INFO
-    group.add(tile)
+    wallGroup.add(tile)
     const lbl = makeLabel(app, 0.4)
-    lbl.position.set(WALL_X - 0.5, WALL_BASE_Y + WALL_H / 2 + 1.4, (i - 1.5) * 2.4)
-    group.add(lbl)
+    lbl.position.set(-0.5, WALL_BASE_Y + WALL_H / 2 + 1.4, (i - 1.5) * 2.4)
+    wallGroup.add(lbl)
     return tile
   })
 
