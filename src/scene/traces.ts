@@ -68,10 +68,6 @@ const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -25
 const WARD_TRUNK = new THREE.Vector3(0, Y_PLATE, PLOT_Z) // ward-strip center, no specific plot
 const ZYGOTE = new THREE.Vector3(-65, Y_PLATE, -20)
-// "database district" analog: this sim has no standalone DB district — Room reads
-// that miss cache (data:fetched) already route through the network district, so
-// that's the closest real target for an east-corridor disk trace.
-const NETWORK = new THREE.Vector3(65, Y_PLATE, 17)
 
 function v(x: number, y: number, z: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z)
@@ -240,20 +236,6 @@ export function buildTraces(): Traces {
   ]
   for (const m of ramRibbons) {
     m.userData.info = RAM_TRACE_INFO
-    staging.add(m)
-  }
-
-  // DISK -> east corridor toward the network district (see NETWORK comment above).
-  // Runs east along the hardware strip to x 60 first, then climbs — climbing at
-  // DISK_X (30) sent the diagonal tail straight through ward plot 3.
-  const diskMat = traceMaterial()
-  const diskPoints = [
-    v(DISK_X, Y_HW + DISK_LAYER_LIFT, HW_Z),
-    ...climbPoints(60, HW_Z, DISK_LAYER_LIFT),
-    NETWORK.clone().setY(NETWORK.y + DISK_LAYER_LIFT),
-  ]
-  for (const m of ribbon(diskMat, diskPoints)) {
-    m.userData.info = DISK_TRACE_INFO
     staging.add(m)
   }
 
