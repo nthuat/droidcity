@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { APPS } from '../sim/launcher'
+import { APP_COLORS, APP_COLOR_FALLBACK } from '../scene/appColors'
+import type { ScreenState } from '../sim/screen'
 import { makeBuilding, makeLabel } from '../scene/builders'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
@@ -27,7 +29,12 @@ const TILE_INFO = {
   note: 'One BufferQueue per app. Bright = on screen; faint = alive behind it, drawing nothing.',
 }
 
-export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { composited: number; dropped: number } } {
+export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
+  stats(): { composited: number; dropped: number }
+  screenIconMeshes(): THREE.Mesh[]
+  homeButtonMesh(): THREE.Mesh
+  setScreen(state: ScreenState): void
+} {
   const group = new THREE.Group()
   group.userData.info = {
     title: 'SurfaceFlinger district',
@@ -69,19 +76,98 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   wallLabel.position.set(0, WALL_BASE_Y + WALL_H + 0.7, 0)
   wallGroup.add(wallLabel)
 
+  // Compositor's view: one small BufferQueue tile per app, in a row across the
+  // wall's top edge (the phone-UI screen face below is the panel's view).
   const tileMeshes: THREE.Mesh[] = APPS.map((app, i) => {
     const tile = new THREE.Mesh(
-      new THREE.BoxGeometry(0.25, 2.2, 2.2),
+      new THREE.BoxGeometry(0.25, 0.9, 0.9),
       new THREE.MeshStandardMaterial({ color: DARK }),
     )
-    tile.position.set(-0.5, WALL_BASE_Y + WALL_H / 2, (i - 1.5) * 2.4)
+    tile.position.set(-0.45, WALL_BASE_Y + WALL_H - 0.65, (i - 1.5) * 1.2)
     tile.userData.info = TILE_INFO
+    tile.userData.tileApp = app
     wallGroup.add(tile)
-    const lbl = makeLabel(app, 0.4)
-    lbl.position.set(-0.5, WALL_BASE_Y + WALL_H / 2 + 1.4, (i - 1.5) * 2.4)
-    wallGroup.add(lbl)
     return tile
   })
+
+  // ---- The phone UI on the glass ----
+  // Home mode: the launcher's icon grid (2x2, brand colors, green lamp = alive).
+  // App mode: the foreground app's content fills the screen. Nav pill = Home.
+  const ICON_INFO = {
+    title: 'App icon',
+    note: 'The home screen is just the launcher app\'s UI, drawn on this glass. Tap to launch.',
+  }
+  const homeGroup = new THREE.Group()
+  wallGroup.add(homeGroup)
+  const iconMeshes: THREE.Mesh[] = []
+  const iconLamps: THREE.Mesh[] = []
+  APPS.forEach((app, i) => {
+    const icon = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 1.3, 1.3),
+      new THREE.MeshStandardMaterial({ color: APP_COLORS[app] ?? APP_COLOR_FALLBACK, roughness: 0.5 }),
+    )
+    const row = Math.floor(i / 2) // 0 top, 1 bottom
+    const col = i % 2
+    icon.position.set(-0.42, 2.75 - row * 1.6, col === 0 ? -1.1 : 1.1)
+    icon.userData.app = app
+    icon.userData.info = ICON_INFO
+    homeGroup.add(icon)
+    iconMeshes.push(icon)
+    const lbl = makeLabel(app, 0.32)
+    lbl.position.set(-0.42, icon.position.y + 0.95, icon.position.z)
+    homeGroup.add(lbl)
+    const lamp = new THREE.Mesh(
+      new THREE.SphereGeometry(0.14, 10, 8),
+      new THREE.MeshStandardMaterial({ color: GREEN, emissive: GREEN, emissiveIntensity: 1 }),
+    )
+    lamp.position.set(-0.5, icon.position.y + 0.55, icon.position.z + 0.55)
+    lamp.visible = false
+    homeGroup.add(lamp)
+    iconLamps.push(lamp)
+  })
+
+  const appPanelMat = new THREE.MeshStandardMaterial({ color: APP_COLOR_FALLBACK, roughness: 0.5 })
+  const appPanel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 8.6), appPanelMat)
+  appPanel.position.set(-0.42, 2.15, 0)
+  appPanel.userData.info = {
+    title: 'App content',
+    note: 'The foreground app\'s UI — rendered by its ward, composited by SurfaceFlinger, lit on this glass.',
+  }
+  appPanel.visible = false
+  wallGroup.add(appPanel)
+  const appPanelLabels: THREE.Sprite[] = APPS.map((app) => {
+    const lbl = makeLabel(app, 0.6)
+    lbl.position.set(-0.5, 2.15, 0)
+    lbl.visible = false
+    wallGroup.add(lbl)
+    return lbl
+  })
+
+  const homePill = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.28, 1.8),
+    new THREE.MeshStandardMaterial({ color: 0x9aa5b1, roughness: 0.4 }),
+  )
+  homePill.position.set(-0.42, 0.42, 0)
+  homePill.userData.info = {
+    title: 'Home',
+    note: 'Backgrounds the foreground app — the launcher\'s icon grid returns to the glass.',
+  }
+  wallGroup.add(homePill)
+
+  let screenState: ScreenState = { mode: 'home', app: null }
+  function paintScreen(): void {
+    homeGroup.visible = screenState.mode === 'home'
+    appPanel.visible = screenState.mode === 'app'
+    appPanelLabels.forEach((lbl, i) => { lbl.visible = screenState.mode === 'app' && APPS[i] === screenState.app })
+    if (screenState.mode === 'app' && screenState.app) {
+      appPanelMat.color.setHex(APP_COLORS[screenState.app] ?? APP_COLOR_FALLBACK)
+      appPanelMat.emissive.setHex(APP_COLORS[screenState.app] ?? APP_COLOR_FALLBACK)
+      appPanelMat.emissiveIntensity = 0.35
+    }
+    // Alive lamps mirror the compositor's tile knowledge: any non-dark tile is a
+    // live process — the launcher shows which apps are already running.
+    iconLamps.forEach((lamp, i) => { lamp.visible = tiles[i].state !== 'dark' })
+  }
 
   // Frame crates stacked near the conveyor mouth (west side, where ward packets
   // arrive at this zone's anchor).
@@ -164,6 +250,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
       mat.emissive.setHex(GREEN)
       mat.emissiveIntensity = bright ? BRIGHT_INTENSITY : FAINT_INTENSITY
     })
+    paintScreen()
   }
   paint()
 
@@ -202,6 +289,12 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
     },
     stats() {
       return { composited: totalComposited, dropped: totalDropped }
+    },
+    screenIconMeshes() { return iconMeshes },
+    homeButtonMesh() { return homePill },
+    setScreen(state) {
+      screenState = state
+      paintScreen()
     },
   }
 }
