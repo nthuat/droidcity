@@ -12,13 +12,13 @@ const PLATE_EMISSIVE_INTENSITY = 0
 const PLATE_H = 0.3
 
 const COLORS = {
-  boot: 0xa7b8c2,
-  foundry: 0xa8c8ad,
-  wards: 0xb3cfd8,
-  cityhall: 0xb0b4d6,
-  surfaceflinger: 0xc4aacb,
-  network: 0xd8ae85,
-  launcher: 0xb2cf9e,
+  boot: 0x8fa6b4,
+  foundry: 0x8bbf94,
+  wards: 0x8fc1d1,
+  cityhall: 0x9aa0cf,
+  surfaceflinger: 0xb18cbd,
+  network: 0xd09a63,
+  launcher: 0x9cc47e,
   hardware: 0x3b4954, // kernel space deliberately stays dark — the one shadowed region
 }
 
