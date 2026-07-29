@@ -87,6 +87,26 @@ const HW_PACKET_ARC = 0.5
 const switcherEl = document.querySelector<HTMLDivElement>('#switcher')!
 const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 
+// Live oom_adj table (kill-order view, like a tiny dumpsys): pseudo-rows for the
+// untouchable/system tiers plus one row per live proc, sorted so the next LMK
+// victim sits on top. Updated on the 500ms HUD tick.
+const oomTableEl = document.createElement('div')
+oomTableEl.id = 'oom-table'
+document.body.appendChild(oomTableEl)
+function refreshOomTable(): void {
+  const procs = foundry.stats().procList
+  const rows = procs
+    .map(p => ({ name: p.name, score: p.oomAdj }))
+    .sort((a, b) => b.score - a.score)
+  const line = (score: number | string, name: string, cls = '') =>
+    `<div class="oom-row ${cls}"><span>${String(score).padStart(4)}</span><span>${name}</span></div>`
+  oomTableEl.innerHTML =
+    '<div class="oom-title">oom_adj · kill order</div>'
+    + rows.map((r, i) => line(r.score, r.name, i === 0 && r.score >= 900 ? 'oom-victim' : '')).join('')
+    + line(600, 'launcher', 'oom-static')
+    + line(-900, 'system_server', 'oom-static')
+}
+
 const bus = createBus()
 // Tracks "a story is on screen" independent of player.playing — the player goes
 // idle (playing=false) as soon as the last step's wait resolves, but the card
@@ -141,6 +161,7 @@ function setCityDim(dim: boolean): void {
     if (g) g.visible = !dim
   }
   for (const ghost of startingGhosts.values()) ghost.mesh.visible = !dim
+  oomTableEl.style.display = dim ? 'none' : ''
   hud.setDimmed(dim)
 }
 
@@ -240,6 +261,7 @@ const hwWiring = attachHardwareWiring(
 const pressureTrigger = createEdgeTrigger(0.85, 0.7)
 function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
+  refreshOomTable()
   hwWiring.syncRam()
   hwWiring.syncPressure(HUD_UPDATE_MS)
   // Gated while a story is open (paused implies storyActive too): an ambient

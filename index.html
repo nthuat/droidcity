@@ -17,6 +17,11 @@
       button.active { background: #388bfd; }
       #intro { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: rgba(1,4,9,.8); color: #e6edf3; z-index: 20; padding: 24px; }
       #intro p { max-width: 480px; color: #8b949e; }
+      #oom-table { position: fixed; right: 12px; bottom: 12px; background: rgba(13,17,23,.85); border: 1px solid #30363d; border-radius: 8px; padding: 8px 12px; font: 11px ui-monospace, monospace; color: #8b949e; z-index: 10; pointer-events: none; }
+      .oom-title { color: #e6edf3; font-weight: 600; margin-bottom: 4px; }
+      .oom-row { display: flex; gap: 10px; white-space: pre; }
+      .oom-row.oom-victim { color: #f85149; }
+      .oom-row.oom-static { color: #4d5560; }
       #intro a, #panel a { color: #58a6ff; text-decoration: none; }
       #intro a:hover, #panel a:hover { text-decoration: underline; }
       #story-bar { position: fixed; top: 12px; right: 12px; z-index: 10; }
