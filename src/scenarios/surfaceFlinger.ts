@@ -136,7 +136,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   // App mode: the foreground app's content fills the screen. Nav pill = Home.
   const ICON_INFO = {
     title: 'App icon',
-    note: 'The home screen is just the launcher app\'s UI, drawn on this glass. Tap to launch.',
+    note: 'The home screen is just the launcher app\'s UI, drawn on this glass. Every tap travels: touch controller -> kernel input driver -> InputDispatcher (system_server) -> the app\'s main thread. Tap to launch.',
   }
   const homeGroup = new THREE.Group()
   wallGroup.add(homeGroup)

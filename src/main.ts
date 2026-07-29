@@ -17,7 +17,9 @@ import { makeCityHallScenario } from './scenarios/cityHall'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
 import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
-import { createScreen, screenOnHome, screenOnKilled, screenOnRecents, screenOnRecentsDismissed, screenOnResumed } from './sim/screen'
+import { createScreen, screenOnHome, screenOnKilled, screenOnPermissionRequest, screenOnPermissionResolved, screenOnRecents, screenOnRecentsDismissed, screenOnResumed, screenOnShade, screenOnShadeDismissed } from './sim/screen'
+import { createNotifications, dismissNotification, postNotification } from './sim/notifications'
+import { createPermissions, denyPermission, grantPermission, needsPrompt } from './sim/permissions'
 import { createWardManager } from './wards/manager'
 import { createPlayer, type Chapter } from './story/player'
 import type { StoryCtx } from './story/chapters/ctx'
@@ -320,7 +322,15 @@ function syncScreen(next: ReturnType<typeof createScreen>): void {
   screen = next
   surfaceFlinger.setScreen(screen)
 }
-bus.on('activity:resumed', ({ app }) => syncScreen(screenOnResumed(screen, app)))
+// NotificationManagerService's ledger + PMS's permission records (pure sims).
+let notifs = createNotifications()
+let perms = createPermissions()
+bus.on('activity:resumed', ({ app }) => {
+  syncScreen(screenOnResumed(screen, app))
+  // Runtime permission: the system throws its dialog over the app's first
+  // foreground moment (camera models the dangerous CAMERA permission).
+  if (needsPrompt(perms, app)) syncScreen(screenOnPermissionRequest(screen, app))
+})
 bus.on('activity:backgrounded', ({ app }) => {
   if (screen.mode === 'app' && screen.app === app) syncScreen(screenOnHome(screen))
 })
@@ -379,6 +389,18 @@ bus.on('data:fetched', ({ app }) => {
   const plotKey = plotKeyFor(app)
   if (plotKey) flyRoute(routes.path('network', plotKey), 0xd29922)
   pulseRadio()
+  // Background sync pattern: data arriving while the app is NOT on screen
+  // posts a notification — ward -> NotificationManagerService (City Hall) ->
+  // the glass. Foreground apps just show the data.
+  if (screen.app !== app) {
+    notifs = postNotification(notifs, app)
+    surfaceFlinger.setNotifications(notifs.pending)
+    if (plotKey) {
+      const toHall = routes.path(plotKey, 'cityhall')
+      const toGlass = routes.path('cityhall', 'displaywall')
+      flyRoute([...toHall, ...toGlass.slice(1)], 0xf2cc60)
+    }
+  }
 })
 // Room cache hit: plot -> DISK -> plot, a quick round-trip pair (both hops fired
 // immediately — no timers — reading as one flight there and one back).
@@ -567,6 +589,43 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     }
     return
   }
+  // Permission dialog is modal: its two buttons — or Back, which counts as a
+  // denial — are the only answers while it's up.
+  if (screen.mode === 'permission') {
+    const pb = surfaceFlinger.permissionButtons()
+    const permHits = raycaster.intersectObjects([pb.allow, pb.deny], false)
+    const backHit = raycaster.intersectObjects([surfaceFlinger.navMeshes().back], false).length > 0
+    if ((permHits.length > 0 || backHit) && screen.app) {
+      const grantApp = screen.app
+      if (permHits.length > 0 && permHits[0].object === pb.allow) {
+        perms = grantPermission(perms, grantApp)
+      } else {
+        perms = denyPermission(perms, grantApp)
+      }
+      // The answer is recorded by PMS in system_server.
+      flyRoute(routes.path('launcher', 'cityhall'), 0x9aa0cf)
+      syncScreen(screenOnPermissionResolved(screen))
+    }
+    return
+  }
+  // Shade rows: tap = SystemUI fires the PendingIntent.
+  if (screen.mode === 'shade') {
+    const rowHits = raycaster.intersectObjects(surfaceFlinger.shadeRowMeshes(), false)
+    if (rowHits.length > 0) {
+      const app = rowHits[0].object.userData.app as string | undefined
+      if (app) {
+        notifs = dismissNotification(notifs, app)
+        surfaceFlinger.setNotifications(notifs.pending)
+        launcherPlaza.clickKiosk(app)
+      }
+      return
+    }
+  }
+  const barHits = raycaster.intersectObjects([surfaceFlinger.statusBarMesh()], false)
+  if (barHits.length > 0) {
+    syncScreen(screen.mode === 'shade' ? screenOnShadeDismissed(screen) : screenOnShade(screen))
+    return
+  }
   // Recents cards (only visible in recents mode): tap = hot start / bring to front.
   if (screen.mode === 'recents') {
     const cardHits = raycaster.intersectObjects(surfaceFlinger.recentsCardMeshes(), false)
@@ -582,13 +641,15 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     const btn = navHits[0].object
     if (btn === nav.home) {
       if (screen.mode === 'app' && screen.app) wardManager.goHome(screen.app)
-      else if (screen.mode === 'recents') {
+      else if (screen.mode === 'recents' || screen.mode === 'shade') {
         const under = screen.app
         syncScreen(screenOnHome(screen))
         if (under) wardManager.goHome(under)
       }
     } else if (btn === nav.back) {
       if (screen.mode === 'recents') syncScreen(screenOnRecentsDismissed(screen))
+      else if (screen.mode === 'shade') syncScreen(screenOnShadeDismissed(screen))
+      // (Permission mode never reaches here — its modal block above intercepts.)
       // popActivity pops the stack, or at the root finishes the Activity —
       // which emits activity:backgrounded and drops the screen to home.
       else if (screen.mode === 'app' && screen.app) wardManager.popActivity(screen.app)
