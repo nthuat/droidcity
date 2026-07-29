@@ -8,7 +8,16 @@ import type { Scenario } from './types'
 const LIT = 0x484f58
 const DIM = 0x21262d
 const PULSE_MS = 300
-const DEFAULT_NARRATION = 'system_server hosts AMS (Activity Manager), WMS (Window Manager) and PMS (Package Manager). Every app talks to them over Binder IPC — like citizens filing paperwork at city hall.'
+const DEFAULT_NARRATION =
+  'system_server hosts AMS (Activity Manager), WMS (Window Manager) and PMS (Package Manager). Every app talks to them over Binder IPC — like citizens filing paperwork at city hall.\n'
+  + 'AMS writes every process\'s oom_adj score — lmkd kills from the bottom up:\n'
+  + '  -900 system_server (untouchable)\n'
+  + '     0 foreground — the app on screen\n'
+  + '   100 visible — e.g. bound to a foreground client\n'
+  + '   500 running a service\n'
+  + '   600 the launcher (going home must be instant)\n'
+  + '   700 the previous app (back-switch is common)\n'
+  + '   900+ cached — kill fodder, oldest first'
 
 export function makeCityHallScenario(bus: Bus): Scenario {
   const group = new THREE.Group()
