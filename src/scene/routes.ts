@@ -19,7 +19,7 @@ const ANCHORS: Record<string, THREE.Vector3> = {
   cityhall: new THREE.Vector3(0, PLATE_Y, -35),
   surfaceflinger: new THREE.Vector3(60, PLATE_Y, -35),
   network: new THREE.Vector3(65, PLATE_Y, 17),
-  launcher: new THREE.Vector3(-14, 0, 55),
+  launcher: new THREE.Vector3(0, 0, 52),
 }
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -10
@@ -115,7 +115,7 @@ const ROUTES: RouteDef[] = [
   // the z 5 seam (slope tops at the seam, over bare board), then to the shed.
   {
     from: 'cityhall', to: 'launcher',
-    waypoints: [ANCHORS.cityhall, v(-14, PLATE_Y, -28), v(-14, PLATE_Y, 5), v(-14, 0, 12), ANCHORS.launcher],
+    waypoints: [ANCHORS.cityhall, v(-6, PLATE_Y, -28), v(-6, PLATE_Y, 5), v(-6, 0, 12), v(-6, 0, 45), ANCHORS.launcher],
   },
   // each ward plot -> surfaceflinger: frame corridor along z -17, then north
   // into the compositor. Crossings with the plot->cityhall roads are

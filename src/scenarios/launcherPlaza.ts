@@ -1,16 +1,13 @@
 import * as THREE from 'three'
 import { APPS, createLauncher, requestLaunch, markRunning, markStopped, type LauncherState } from '../sim/launcher'
-import { makeBuilding } from '../scene/builders'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
 
-// The launcher's UI now lives ON the glass (surfaceFlinger.ts's icon grid) —
-// this scenario keeps the launcher PROCESS: the sim state, launch requests, and
-// a small shed by the display. Its icon grid is what the screen draws at home.
+// The launcher's UI lives ON the glass (surfaceFlinger.ts's icon grid) — this
+// scenario keeps only the launcher PROCESS: sim state, launch requests, panel.
 
 const IDLE_LAUNCH_MS = 8000
-const RUNNING_COLOR = 0x3ddc84
 const DEFAULT_NARRATION = 'The launcher is just an app — its icon grid is drawn on the glass. Tap an icon on the display (or the buttons here) to launch.'
 
 export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
@@ -29,21 +26,8 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   let idleEnabled = true
   let idleT = 0
 
-  // The process shed: the launcher as a resident, not a plaza. Lamp = alive
-  // (it effectively always is — oom_adj 600, killed only under extreme pressure).
-  const shed = makeBuilding(4, 2.5, 4, 0xa5c48a, 'launcher')
-  group.add(shed)
-  const shedBody = shed.getObjectByName('body') as THREE.Mesh
-  shedBody.userData.info = {
-    title: 'Launcher process',
-    note: 'The home screen app. When you tap an icon on the glass, THIS process files the Intent with City Hall — the launcher never starts apps itself.',
-  }
-  const lamp = new THREE.Mesh(
-    new THREE.SphereGeometry(0.3, 12, 8),
-    new THREE.MeshStandardMaterial({ color: RUNNING_COLOR, emissive: RUNNING_COLOR, emissiveIntensity: 0.9 }),
-  )
-  lamp.position.y = 3.1
-  shed.add(lamp)
+  // No building of its own: the launcher's only visible body IS its UI on the
+  // glass (icon grid). A separate shed was a redundant third representation.
 
   function clickKiosk(app: string): void {
     const result = requestLaunch(state, app)

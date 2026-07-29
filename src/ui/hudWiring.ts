@@ -12,7 +12,7 @@ export function attachZoneLabels(hud: Hud, anchors: Record<string, THREE.Vector3
   hud.setLine('cityhall', 'AMS · WMS · PMS')
   hud.attach('surfaceflinger', anchors.surfaceflinger, 'SURFACEFLINGER')
   hud.attach('network', anchors.network, 'NETWORK')
-  hud.attach('launcher', anchors.launcher, 'LAUNCHER')
+  hud.attach('launcher', anchors.launcher.clone().add(new THREE.Vector3(-9, 0, 0)), 'LAUNCHER')
 }
 
 export function updateHudLines(
