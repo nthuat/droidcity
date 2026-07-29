@@ -59,7 +59,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   for (let row = 0; row < 2; row++) {
     for (const colX of KIT_COL_X) {
       const kit = new THREE.Mesh(kitGeo, kitMat)
-      kit.position.set(colX, 0.8, 9 + row * 5)
+      kit.position.set(colX, 0.8, 3 + row * 5) // local z 3/8 = world -32/-27 — stays on the core band (plate ends at -25)
       kit.userData.info = {
         title: 'Ward blanks',
         note: 'Pre-warmed process templates — what a Zygote fork stamps into a live ward. Copy-on-write: each blank shares the framework pages until written.',
