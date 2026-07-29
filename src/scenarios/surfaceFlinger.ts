@@ -186,7 +186,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   const navMat = new THREE.MeshStandardMaterial({ color: 0x9aa5b1, roughness: 0.4 })
   const backBtn = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.36, 3), navMat)
   backBtn.position.set(-0.4, 0.35, -1.5)
-  backBtn.rotation.x = Math.PI / 2 // point the triangle sideways, Android's Back glyph
+  backBtn.rotation.x = -Math.PI / 2 // apex toward the viewer's LEFT — Android's Back glyph
   backBtn.userData.info = {
     title: 'Back',
     note: 'Pops the top of the foreground app\'s back stack; at the root it finishes the Activity — process stays cached.',

@@ -152,7 +152,7 @@ export function buildBoard(): THREE.Group {
   group.add(tagged(makePlate(COLORS.network, 45, 85, -25, 35, 0.3), PLATE_INFO.network))
   for (const o of buildGlassApron()) group.add(o)
 
-  group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
+  group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 66)) // south of the Glass shelf — at z 57 it ran under the display
   group.add(makeEdgeText('THE GLASS', 12, 2, 0, 0.16, 51.5))
   group.add(makeEdgeText('INTERNET →', 16, 6, 76, 0.36, 17))
   // The hardware strip sits at the board's far edge in a recess — the scene's
