@@ -68,6 +68,12 @@ const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -25
 const WARD_TRUNK = new THREE.Vector3(0, Y_PLATE, PLOT_Z) // ward-strip center, no specific plot
 const ZYGOTE = new THREE.Vector3(-65, Y_PLATE, -20)
+// Radio feed: the network tower's pipeline runs on this silicon (hardwareRow's
+// RADIO_X mast, east of DISK). Feed climbs at x 60 — clear of the DISK per-plot
+// fan (max lane x 36.4) — then runs to the tower on the network plate.
+const RADIO_X = 45
+const NETWORK = new THREE.Vector3(65, Y_PLATE, 17)
+const RADIO_TRACE_INFO = { title: 'Radio feed', note: 'The network tower drives the radio mast — DNS, TLS, download all end as RF on the hardware strip.' }
 
 function v(x: number, y: number, z: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z)
@@ -183,6 +189,7 @@ export interface Traces {
   setDiskTraceGlow(plot: number, color: number | null): void
   setCpuRamBusGlow(color: number | null): void
   setRamDiskBusGlow(color: number | null): void
+  setRadioFeedGlow(color: number | null): void
 }
 
 export function buildTraces(): Traces {
@@ -239,6 +246,14 @@ export function buildTraces(): Traces {
     staging.add(m)
   }
 
+  // Radio feed: RADIO mast -> east along the strip -> climb at 60 -> network tower.
+  const radioMat = traceMaterial()
+  const radioPoints = [v(RADIO_X, Y_HW, HW_Z), ...climbPoints(60, HW_Z), NETWORK]
+  for (const m of ribbon(radioMat, radioPoints)) {
+    m.userData.info = RADIO_TRACE_INFO
+    staging.add(m)
+  }
+
   // Per-plot RAM and DISK traces, parallel to the CPU family above.
   const ramFamily = buildPlotFamily(RAM_X, RAM_FAN_OFFSETS, RAM_LANE_OFFSET, RAM_TRACE_INFO, RAM_LAYER_LIFT)
   for (const m of ramFamily.meshes) staging.add(m)
@@ -266,5 +281,6 @@ export function buildTraces(): Traces {
     setDiskTraceGlow(plot, color) { setFamilyGlow(diskFamily.mats, plot, color) },
     setCpuRamBusGlow(color) { setSingleGlow(busMat, color) },
     setRamDiskBusGlow(color) { setSingleGlow(ramDiskMat, color) },
+    setRadioFeedGlow(color) { setSingleGlow(radioMat, color) },
   }
 }

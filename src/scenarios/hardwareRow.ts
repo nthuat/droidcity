@@ -31,6 +31,11 @@ const DISK_X = 30
 
 // +14 clears the RAM bank's east end (app slab at +10.8, 2 wide → edge 11.8)
 const PSI_X = RAM_X + 14
+// East of DISK, clear of the DISK per-plot trace fan (max lane x 36.4 in traces.ts)
+const RADIO_X = 45
+const RADIO_IDLE = 0x454e58
+const RADIO_ACTIVE = 0x3ddc84
+const RADIO_DECAY_MS = 400
 const PSI_BASE_H = 0.4
 const PSI_MAX_H = 4
 const PSI_AMBER_AT = 0.5
@@ -171,6 +176,39 @@ function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   return ledMat
 }
 
+// Radio / NIC: the network district's hardware. Sits on the strip like DISK —
+// the tower's DNS/TLS/TTFB pipeline all ends as RF on this mast.
+function buildRadio(group: THREE.Group): THREE.MeshStandardMaterial {
+  const radioGroup = new THREE.Group()
+  radioGroup.userData.info = {
+    title: 'Radio / NIC',
+    note: 'The network district\'s silicon. Every fetch the tower pipelines — DNS, TLS, download — leaves the device as RF from this mast.',
+  }
+  group.add(radioGroup)
+
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(2.4, 1.2, 2.4),
+    new THREE.MeshStandardMaterial({ color: 0x6e7681, roughness: 0.5 }),
+  )
+  base.position.set(RADIO_X, PLATE_TOP + 0.6, 0)
+  radioGroup.add(base)
+
+  const mast = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.18, 4.2, 8),
+    new THREE.MeshStandardMaterial({ color: 0x828c96, roughness: 0.4, metalness: 0.3 }),
+  )
+  mast.position.set(RADIO_X, PLATE_TOP + 1.2 + 2.1, 0)
+  radioGroup.add(mast)
+
+  const tipMat = new THREE.MeshStandardMaterial({
+    color: RADIO_IDLE, emissive: RADIO_IDLE, emissiveIntensity: DISK_IDLE_EMISSIVE, roughness: 0.4,
+  })
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), tipMat)
+  tip.position.set(RADIO_X, PLATE_TOP + 1.2 + 4.2 + 0.2, 0)
+  radioGroup.add(tip)
+  return tipMat
+}
+
 function buildPsi(group: THREE.Group): { bar: THREE.Mesh; mat: THREE.MeshStandardMaterial } {
   const mat = new THREE.MeshStandardMaterial({
     color: PSI_GREEN, emissive: PSI_GREEN, emissiveIntensity: 0.5, roughness: 0.5,
@@ -185,13 +223,14 @@ function buildPsi(group: THREE.Group): { bar: THREE.Mesh; mat: THREE.MeshStandar
   return { bar, mat }
 }
 
-const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each ward’s main thread, RAM segments (center) fill as processes are spawned, and the disk (east) blinks on every Room read/write — the silicon underneath everything else in the city.'
+const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each ward’s main thread, RAM segments (center) fill as processes are spawned, the disk (east) blinks on every Room read/write, and the radio mast (far east) turns the network district’s pipeline into RF — the silicon underneath everything else in the city.'
 
 export function makeHardwareRowScenario(): Scenario & {
   setCoreStates(s: CoreState[]): void
   setRamSegments(s: (RamSegment | null)[]): void
   pulseRam(app: string): void
   diskBlink(write: boolean): void
+  radioBlink(): void
   setPressure(frac: number): void
 } {
   const group = new THREE.Group()
@@ -199,6 +238,7 @@ export function makeHardwareRowScenario(): Scenario & {
   const coreSlots = buildCpu(group)
   const ramSlots = buildRam(group)
   const diskLedMat = buildDisk(group)
+  const radioTipMat = buildRadio(group)
   const { bar: psiBar, mat: psiMat } = buildPsi(group)
 
   let coreStates: CoreState[] = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
@@ -209,6 +249,7 @@ export function makeHardwareRowScenario(): Scenario & {
   let elapsedMs = 0
   let diskLedT = 0
   let diskLedColor = DISK_READ
+  let radioT = 0
 
   function paintCore(i: number): void {
     const { mesh, mat } = coreSlots[i]
@@ -259,6 +300,13 @@ export function makeHardwareRowScenario(): Scenario & {
     diskLedMat.emissiveIntensity = diskLedT > 0 ? diskLedT / DISK_DECAY_MS : DISK_IDLE_EMISSIVE
   }
 
+  function paintRadio(): void {
+    const hex = radioT > 0 ? RADIO_ACTIVE : RADIO_IDLE
+    radioTipMat.color.setHex(hex)
+    radioTipMat.emissive.setHex(hex)
+    radioTipMat.emissiveIntensity = radioT > 0 ? radioT / RADIO_DECAY_MS : DISK_IDLE_EMISSIVE
+  }
+
   const panel = makePanel('Hardware — CPU · RAM · Disk')
   panel.setNarration(DEFAULT_NARRATION)
 
@@ -285,6 +333,10 @@ export function makeHardwareRowScenario(): Scenario & {
       diskLedColor = write ? DISK_WRITE : DISK_READ
       paintDisk()
     },
+    radioBlink() {
+      radioT = RADIO_DECAY_MS
+      paintRadio()
+    },
     setPressure(frac) {
       const clamped = THREE.MathUtils.clamp(frac, 0, 1)
       const h = PSI_BASE_H + clamped * PSI_MAX_H
@@ -305,6 +357,10 @@ export function makeHardwareRowScenario(): Scenario & {
       if (diskLedT > 0) {
         diskLedT = Math.max(0, diskLedT - dtMs)
         paintDisk()
+      }
+      if (radioT > 0) {
+        radioT = Math.max(0, radioT - dtMs)
+        paintRadio()
       }
       ramSlots.forEach((slot) => {
         if (slot.pulseT <= 0) return

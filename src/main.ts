@@ -345,14 +345,25 @@ bus.on('process:killed', ({ app }) => {
   const g = wardManager.wardGroupFor(app)
   if (g) packets.fly([g.position, RAM_POS], { color: 0x6e7681, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
 })
+// Radio feed lights while the tower is actually pipelining a request: on for the
+// request, refreshed on the response, decays via the timeout below.
+let radioGlowTimer: number | undefined
+function pulseRadio(): void {
+  hardwareRow.radioBlink()
+  traces.setRadioFeedGlow(0x3ddc84)
+  clearTimeout(radioGlowTimer)
+  radioGlowTimer = window.setTimeout(() => traces.setRadioFeedGlow(null), 600)
+}
 bus.on('data:requested', ({ app, source }) => {
   if (source !== 'network') return
   const plotKey = plotKeyFor(app)
   if (plotKey) flyRoute(routes.path(plotKey, 'network'), 0xd29922)
+  pulseRadio()
 })
 bus.on('data:fetched', ({ app }) => {
   const plotKey = plotKeyFor(app)
   if (plotKey) flyRoute(routes.path('network', plotKey), 0xd29922)
+  pulseRadio()
 })
 // Room cache hit: plot -> DISK -> plot, a quick round-trip pair (both hops fired
 // immediately — no timers — reading as one flight there and one back).
