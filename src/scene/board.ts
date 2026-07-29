@@ -113,11 +113,13 @@ function makeEdgeText(
 // deck is gone — the launcher's UI moved onto the display itself.
 function buildGlassApron(): THREE.Object3D[] {
   // Top y 0.1 — under ROAD_RAISE (0.15) so roads crossing the apron stay visible.
+  // Sized to the furniture: display (20 wide at x -10..10) + launcher shed just
+  // west — a shelf, not a lawn.
   const apron = new THREE.Mesh(
-    new THREE.BoxGeometry(60, 0.1, 24),
+    new THREE.BoxGeometry(32, 0.1, 14),
     plateMaterial(COLORS.launcher),
   )
-  apron.position.set(0, 0.05, 47)
+  apron.position.set(-3, 0.05, 55)
   apron.userData.info = PLATE_INFO.launcher
   return [apron]
 }
@@ -151,7 +153,7 @@ export function buildBoard(): THREE.Group {
   for (const o of buildGlassApron()) group.add(o)
 
   group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 57))
-  group.add(makeEdgeText('THE GLASS', 20, 3, 0, 0.16, 38))
+  group.add(makeEdgeText('THE GLASS', 14, 2.2, -3, 0.16, 50))
   group.add(makeEdgeText('INTERNET →', 16, 6, 76, 0.36, 17))
   // The hardware strip sits at the board's far edge in a recess — the scene's
   // single directional light grazes past it and the ambient alone leaves it
