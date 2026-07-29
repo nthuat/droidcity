@@ -8,7 +8,7 @@ import type { Scenario } from './types'
 const SF_VISUAL_MS = 200 // SF_MS=5 sim-ms scaled ×40
 const FLASH_MS = 350
 const DARK = 0x21262d
-const GREEN = 0x3fb950
+const GREEN = 0x3ddc84 // Android brand green
 const FAINT_GREEN = 0x1b3524
 const RED = 0xf85149
 const DEFAULT_NARRATION = 'SurfaceFlinger composites every submitted frame onto the display, one at a time.'

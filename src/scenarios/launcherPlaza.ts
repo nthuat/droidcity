@@ -6,7 +6,7 @@ import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
 
 const PULSE_MS = 300
-const RUNNING_COLOR = 0x3fb950
+const RUNNING_COLOR = 0x3ddc84 // Android brand green — the city's 'alive' accent
 const RUNNING_INTENSITY = 0.7 // kiosk signs glow slightly stronger than the old 0.5
 const IDLE_LAUNCH_MS = 8000
 const DEFAULT_NARRATION = 'Tap a kiosk to launch its app. Steady green glow = running.'
