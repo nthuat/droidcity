@@ -42,8 +42,8 @@ export function makeCh1(ctx: StoryCtx): Chapter {
         waitFor: { ms: 2500 },
       },
       {
-        narration: 'The launcher — your home screen — is just an app itself. The city is awake.',
-        focus: 'launcher',
+        narration: 'The launcher — your home screen — is just an app itself. Its icon grid lights the glass: the city is awake.',
+        focus: 'displaywall',
         waitFor: { ms: 2500 },
       },
     ],

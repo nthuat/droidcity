@@ -208,7 +208,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 ## The official platform diagram, mapped
 
-The developer.android.com platform-architecture diagram (System Apps / Java API Framework / Native C-C++ Libraries + Android Runtime / HAL / Linux Kernel) is the canonical picture most engineers hold in their head. Mapping DroidCity's coverage onto its actual boxes, not just the vertical flow above:
+The developer.android.com platform-architecture diagram (System Apps / Java API Framework / Native C-C++ Libraries + Android Runtime / HAL / Linux Kernel) is the canonical picture most engineers hold in their head. Since the phone-stack layout, the board *is* this diagram read north to south — hardware strip (silicon) → boot row (kernel) → core-process band (Zygote · system_server · SurfaceFlinger = the framework/native layer) → app-ward band (apps sit literally on top of the framework) → the glass (what the user sees). Mapping coverage onto its actual boxes:
 
 | Diagram box | Status | Where |
 |---|---|---|

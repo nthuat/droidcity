@@ -9,12 +9,12 @@ export function makeCh2(ctx: StoryCtx): Chapter {
     steps: [
       {
         narration: "First the system clears a plot — if chat was already running, its ward is torn down. Processes are disposable; that's the design.",
-        focus: 'launcher',
+        focus: 'displaywall',
         waitFor: { ms: 2000 },
       },
       {
-        narration: "You tap chat. The launcher doesn't start apps — it files a request with the system. That request is an Intent — a typed envelope City Hall knows how to route.",
-        focus: 'launcher',
+        narration: "You tap chat on the glass. The launcher doesn't start apps — it files a request with the system. That request is an Intent — a typed envelope City Hall knows how to route.",
+        focus: 'displaywall',
         fire: () => ctx.launcher.clickKiosk('chat'),
         waitFor: { event: 'app:launchRequested' },
       },
