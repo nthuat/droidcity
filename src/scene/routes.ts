@@ -29,6 +29,9 @@ const PLOT_ANCHORS = PLOT_X.map(x => new THREE.Vector3(x, PLATE_Y, PLOT_Z))
 const OFFBOARD_EAST = new THREE.Vector3(88, 0, 17)
 // The phone's screen, front and center at the south rim (see surfaceFlinger.ts).
 const DISPLAY_WALL = new THREE.Vector3(0, 0, 58)
+// Registered as an anchor so packet flights can target the glass directly
+// (e.g. the tap leg hardware -> displaywall).
+ANCHORS.displaywall = DISPLAY_WALL
 
 const ROAD_COLOR = 0x546e78
 const EDGE_COLOR = 0x00838f

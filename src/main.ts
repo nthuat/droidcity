@@ -17,6 +17,7 @@ import { makeCityHallScenario } from './scenarios/cityHall'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
 import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
+import { createScreen, screenOnHome, screenOnKilled, screenOnResumed } from './sim/screen'
 import { createWardManager } from './wards/manager'
 import { createPlayer, type Chapter } from './story/player'
 import type { StoryCtx } from './story/chapters/ctx'
@@ -310,6 +311,19 @@ bus.on('app:launchRequested', () => {
   const toZygote = routes.path('cityhall', 'zygote')
   flyRoute([...toCityhall, ...toZygote.slice(1)], 0x3fb950)
 })
+
+// The glass mirrors the foreground: launcher grid at home, the resumed app's
+// panel otherwise (src/sim/screen.ts holds the pure state).
+let screen = createScreen()
+function syncScreen(next: ReturnType<typeof createScreen>): void {
+  screen = next
+  surfaceFlinger.setScreen(screen)
+}
+bus.on('activity:resumed', ({ app }) => syncScreen(screenOnResumed(screen, app)))
+bus.on('activity:backgrounded', ({ app }) => {
+  if (screen.mode === 'app' && screen.app === app) syncScreen(screenOnHome(screen))
+})
+bus.on('process:killed', ({ app }) => syncScreen(screenOnKilled(screen, app)))
 bus.on('process:forked', ({ app }) => {
   const g = wardManager.wardGroupFor(app)
   if (dimmed && g) g.visible = false
@@ -541,6 +555,22 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     -((ev.clientY - rect.top) / rect.height) * 2 + 1,
   )
   raycaster.setFromCamera(ndc, city.camera)
+  // Taps on the glass: the display IS the input surface. Icon -> launch
+  // (touch enters via hardware, the launcher files the Intent), pill -> Home.
+  const iconHits = raycaster.intersectObjects(surfaceFlinger.screenIconMeshes(), false)
+  if (iconHits.length > 0) {
+    const app = iconHits[0].object.userData.app as string | undefined
+    if (app) {
+      flyRoute(routes.path('hardware', 'displaywall'), 0xf2cc60)
+      launcherPlaza.clickKiosk(app)
+    }
+    return
+  }
+  const pillHits = raycaster.intersectObjects([surfaceFlinger.homeButtonMesh()], false)
+  if (pillHits.length > 0) {
+    if (screen.mode === 'app' && screen.app) wardManager.goHome(screen.app)
+    return
+  }
   const kioskHits = raycaster.intersectObjects(launcherPlaza.kioskMeshes(), false)
   if (kioskHits.length > 0) {
     const app = kioskHits[0].object.userData.app as string | undefined
