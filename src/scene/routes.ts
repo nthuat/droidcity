@@ -35,7 +35,10 @@ const ROAD_W = 1.6
 const ROAD_H = 0.15
 const EDGE_W = 0.15
 const EDGE_H = 0.05
-const ROAD_RAISE = 0.05 // clears the plate top so road/stripes don't z-fight
+// 0.15: high enough that legs descending the pit rim / plate-crest steps never
+// intersect the slope surfaces beneath them (0.05 left descending decks nearly
+// coplanar with the rim wedges — feathered z-fight combs at every crossing).
+const ROAD_RAISE = 0.15
 const CONVEYOR_RAISE = 0.4
 // Two DARK asphalt tones: after the light-theme lift the old light tile color
 // matched the pale plates and every other tile vanished — belts read as dashes.
