@@ -8,8 +8,10 @@ import type { Scenario } from './types'
 // later task — this file just exposes the paint API).
 
 const PLATE_TOP = -0.5
-const HOUSING_COLOR = 0x46505c
-const CORE_IDLE = 0x4c5763
+// Housing deliberately lighter than the idle dies: at 0x46505c it was near-equal
+// to CORE_IDLE and idle cores vanished into it — light substrate, dark chips.
+const HOUSING_COLOR = 0x808d99
+const CORE_IDLE = 0x3c4650
 const CORE_STUCK = 0xf85149
 const RAM_SHELL_COLOR = 0x5a636e
 const RAM_SHARED_COLOR = 0x9aa7b8
