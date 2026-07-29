@@ -615,7 +615,7 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     let d: THREE.Object3D | null = hit.object
     while (d) {
       if (d.userData.displayWall) {
-        flyTo(new THREE.Vector3(0, 8, 86), new THREE.Vector3(0, 5, 58))
+        flyTo(new THREE.Vector3(0, 18, 80), new THREE.Vector3(0, 2, 54))
         return
       }
       d = d.parent

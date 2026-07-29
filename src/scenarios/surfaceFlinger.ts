@@ -66,7 +66,10 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   // World (0, 0, 58): group anchor is (60, 0, -35) after the core-band move.
   wallGroup.position.set(-60, 0, 93)
   wallGroup.rotation.y = Math.PI / 2 // screen normal (local -x) -> world +z, toward the viewer
-  wallGroup.rotation.z = -0.16 // lean the top back ~9° toward the elevated overview camera
+  // Reclined like a phone on a dock: the default overview camera looks down at
+  // ~38°, so a ~52° recline puts the glass perpendicular to the view ray —
+  // it lies on the Glass shelf and reads at full size, not foreshortened.
+  wallGroup.rotation.z = -0.9
   // 2x: at 5x10 the phone screen read as a distant sliver from overview — it is
   // the one thing the whole board exists to light, so it gets billboard scale.
   wallGroup.scale.setScalar(2)
