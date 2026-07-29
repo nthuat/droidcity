@@ -44,18 +44,16 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   }
   group.add(compositor)
 
-  // Display wall: mounted at the zone's east edge (local x 17 = world x 82, the
-  // plan's "display wall at x 82 facing -x"), bigger than the old freestanding board.
-  // Local y 0.3 is the plate top here (anchor y 0 matches the flat plate offset).
-  const WALL_X = 17
-  const WALL_BASE_Y = 0.3
+  // Display wall: the phone's screen — front and center at the board's south rim
+  // (world (0, 0, 58), local offset from this group's anchor (65, 0, -22)),
+  // facing the default camera: you look at the city, the screen looks back.
+  // Built inside this scenario because SF's state machine drives the tiles;
+  // routes.ts's surfaceflinger->displaywall road carries the compositor->panel leg.
+  const WALL_BASE_Y = 0
   const WALL_H = 5
-  // The wall lives in its own pivot group, yawed toward the default overview
-  // camera (southwest of the screen's -x normal) — mounted flat at the east rim
-  // it was seen nearly edge-on from overview, a black sliver.
   const wallGroup = new THREE.Group()
-  wallGroup.position.set(WALL_X, 0, 0)
-  wallGroup.rotation.y = 0.6
+  wallGroup.position.set(-65, 0, 80)
+  wallGroup.rotation.y = Math.PI / 2 // screen normal (local -x) -> world +z, toward the viewer
   group.add(wallGroup)
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(0.4, WALL_H, 10),

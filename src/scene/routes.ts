@@ -27,7 +27,8 @@ const PLOT_ANCHORS = PLOT_X.map(x => new THREE.Vector3(x, PLATE_Y, PLOT_Z))
 // Stops just past the board rim (85) so the road reads as leaving the city
 // without a long strip floating over the void.
 const OFFBOARD_EAST = new THREE.Vector3(88, 0, 17)
-const DISPLAY_WALL = new THREE.Vector3(82, PLATE_Y, -22)
+// The phone's screen, front and center at the south rim (see surfaceFlinger.ts).
+const DISPLAY_WALL = new THREE.Vector3(0, 0, 58)
 
 const ROAD_COLOR = 0x546e78
 const EDGE_COLOR = 0x00838f
@@ -113,7 +114,17 @@ const ROUTES: RouteDef[] = [
     draw: [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -23)],
   })),
   // surfaceflinger -> display wall (visual connector only, no named "to" key)
-  { from: 'surfaceflinger', to: 'displaywall', waypoints: [ANCHORS.surfaceflinger, DISPLAY_WALL] },
+  // compositor -> panel: east along the SF plate, south down the network plate's
+  // east rim, off its SOUTH edge (slope starts at the seam, fully over bare
+  // board — mid-plate descents bury the leg in the plate edge), then southwest
+  // to the screen.
+  {
+    from: 'surfaceflinger', to: 'displaywall',
+    waypoints: [
+      ANCHORS.surfaceflinger, v(78, PLATE_Y, -18), v(78, PLATE_Y, 35),
+      v(74, 0, 43), v(30, 0, 55), DISPLAY_WALL,
+    ],
+  },
   // launcher -> foundry: traverse the deck flat (starts z 31) at z 33, step off
   // its west edge (x -30) onto bare board, cross to the foundry plate's south
   // (launcher->zygote direct road removed: launches route through City Hall —
