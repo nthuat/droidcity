@@ -63,8 +63,10 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   // Tagged so main.ts's click handler flies to the SCREEN, not to this group's
   // owning district (the wall is SF's child — a bare parent-walk lands on SF).
   wallGroup.userData.displayWall = true
-  // World (0, 0, 58): group anchor is (60, 0, -35) after the core-band move.
-  wallGroup.position.set(-60, 0, 93)
+  // World (0, -0.35, 58): group anchor is (60, 0, -35) after the core-band move.
+  // Sunk 0.35 into the Glass shelf — the recline lifts the slab's back edge off
+  // the ground, and the visible gap read as a floating plank from behind.
+  wallGroup.position.set(-60, -0.35, 93)
   wallGroup.rotation.y = Math.PI / 2 // screen normal (local -x) -> world +z, toward the viewer
   // Reclined like a phone on a dock: the default overview camera looks down at
   // ~38°, so a ~52° recline puts the glass perpendicular to the view ray —
