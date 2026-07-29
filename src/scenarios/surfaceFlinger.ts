@@ -36,7 +36,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   let totalComposited = 0
   let totalDropped = 0
 
-  const compositor = makeBuilding(5, 6, 5, 0x484f58, 'SurfaceFlinger')
+  const compositor = makeBuilding(5, 6, 5, 0x8a99a5, 'SurfaceFlinger')
   compositor.position.y = 0.3
   compositor.userData.info = {
     title: 'SurfaceFlinger',
@@ -52,7 +52,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & { stats(): { co
   const WALL_H = 5
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(0.4, WALL_H, 10),
-    new THREE.MeshStandardMaterial({ color: 0x161b22 }),
+    new THREE.MeshStandardMaterial({ color: 0x2b3440 }), // stays dark — it's a screen
   )
   wall.position.set(WALL_X, WALL_BASE_Y + WALL_H / 2, 0)
   wall.userData.info = {

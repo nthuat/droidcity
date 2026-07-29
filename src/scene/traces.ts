@@ -14,7 +14,7 @@ import * as THREE from 'three'
 
 const TRACE_W = 0.5
 const TRACE_H = 0.06
-const TRACE_COLOR = 0x2a3038
+const TRACE_COLOR = 0x6b7a86
 const TRACE_RAISE = 0.02 // clears the plate top so the ribbon's visible face doesn't z-fight
 const BUS_W = 1.2 // CPU-RAM bus wider than per-plot traces
 const CPU_RAM_BUS_INFO = { title: 'Memory bus (CPU ↔ RAM)', note: 'Every instruction and object the CPU touches streams over this bus. Caches hide most trips — a miss stalls the core.' }

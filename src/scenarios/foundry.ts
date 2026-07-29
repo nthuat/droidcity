@@ -27,7 +27,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
   let state: SystemState = createSystem(CAPACITY_MB)
   let pendingLaunches: string[] = []
 
-  const factory = makeBuilding(8, 5, 6, 0x484f58, 'Zygote Foundry')
+  const factory = makeBuilding(8, 5, 6, 0x78909c, 'Zygote Foundry')
   factory.position.y = 0.3
   factory.userData.info = {
     title: 'Zygote',

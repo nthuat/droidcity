@@ -105,7 +105,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   // lights it amber while entry.serviceRunning is true (toggleService).
   const annexGeo = new THREE.BoxGeometry(2, 1.8, 2)
   const annexMat = new THREE.MeshStandardMaterial({
-    color: 0x4a5058, roughness: 0.7, emissive: 0xd29922, emissiveIntensity: 0,
+    color: 0x9aa7b0, roughness: 0.7, emissive: 0xd29922, emissiveIntensity: 0,
   })
   disposables.push(annexGeo, annexMat)
   const serviceAnnex = new THREE.Mesh(annexGeo, annexMat)
@@ -187,7 +187,7 @@ export function buildWardMeshes(app: string): WardMeshes {
 
   // Road toward the tower, with an empty parent for cars spawned later.
   const roadGeo = new THREE.PlaneGeometry(1, 4)
-  const roadMat = new THREE.MeshStandardMaterial({ color: 0x21262d })
+  const roadMat = new THREE.MeshStandardMaterial({ color: 0x546e78 })
   disposables.push(roadGeo, roadMat)
   const road = new THREE.Mesh(roadGeo, roadMat)
   road.name = 'road'
@@ -211,7 +211,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   // Worker pool: a second, narrower road parallel to the main road — real IO
   // (Room queries, network fetches) runs here, never on the main thread.
   const workerRoadGeo = new THREE.PlaneGeometry(0.6, 4)
-  const workerRoadMat = new THREE.MeshStandardMaterial({ color: 0x37474f })
+  const workerRoadMat = new THREE.MeshStandardMaterial({ color: 0x74838f })
   disposables.push(workerRoadGeo, workerRoadMat)
   const workerRoad = new THREE.Mesh(workerRoadGeo, workerRoadMat)
   workerRoad.name = 'workerRoad'
@@ -274,7 +274,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   const rackStartX = THREAD_RACK_CENTER_X - ((THREAD_POST_LABELS.length - 1) * THREAD_POST_GAP) / 2
   THREAD_POST_LABELS.forEach((label, i) => {
     const geo = new THREE.BoxGeometry(THREAD_POST_W, THREAD_POST_H, THREAD_POST_W)
-    const mat = new THREE.MeshStandardMaterial({ color: 0x4c5763, roughness: 0.6 })
+    const mat = new THREE.MeshStandardMaterial({ color: 0x8fa0aa, roughness: 0.6 })
     disposables.push(geo, mat)
     const post = new THREE.Mesh(geo, mat)
     post.name = `threadPost_${label}`
@@ -292,7 +292,7 @@ export function buildWardMeshes(app: string): WardMeshes {
 
   // Heap yard: dark plate with an empty parent for crates spawned later.
   const heapGeo = new THREE.PlaneGeometry(6, 6)
-  const heapMat = new THREE.MeshStandardMaterial({ color: 0x0d1117 })
+  const heapMat = new THREE.MeshStandardMaterial({ color: 0x7d8b95 })
   disposables.push(heapGeo, heapMat)
   const heapInfo = {
     title: 'Heap',
@@ -313,7 +313,7 @@ export function buildWardMeshes(app: string): WardMeshes {
 
   // Room shed with a door plane that flashes on query.
   const shedGeo = new THREE.BoxGeometry(2, 1.5, 2)
-  const shedMat = new THREE.MeshStandardMaterial({ color: 0x525b66, roughness: 0.7 })
+  const shedMat = new THREE.MeshStandardMaterial({ color: 0x9aa7b0, roughness: 0.7 })
   disposables.push(shedGeo, shedMat)
   const shed = new THREE.Mesh(shedGeo, shedMat)
   shed.name = 'roomShed'
@@ -343,7 +343,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   // from negative-z/north). Strip runs from shed at z 4 to north edge at z -9.
   const linkGeo = new THREE.BoxGeometry(0.4, 0.08, 12.8)
   const linkMat = new THREE.MeshStandardMaterial({
-    color: 0x2a3038, roughness: 0.6, emissive: 0x000000, emissiveIntensity: 0,
+    color: 0x6b7a86, roughness: 0.6, emissive: 0x000000, emissiveIntensity: 0,
   })
   disposables.push(linkGeo, linkMat)
   const shedLink = new THREE.Mesh(linkGeo, linkMat)

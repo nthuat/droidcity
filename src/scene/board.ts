@@ -6,19 +6,20 @@ import type { InspectorInfo } from '../ui/inspector'
 // ground+grid. Built once and added to the scene from main.ts — no disposal needed,
 // this lives for the page lifetime (see plan's disposal-discipline note).
 
-const BOARD_COLOR = 0xcfcbc4
-const PLATE_EMISSIVE_INTENSITY = 0.15
+const BOARD_COLOR = 0xd8d5cf
+// Light theme: diffuse carries the zone color; emissive is reserved for live states.
+const PLATE_EMISSIVE_INTENSITY = 0
 const PLATE_H = 0.3
 
 const COLORS = {
-  boot: 0x37474f,
-  foundry: 0x2e4a3a,
-  wards: 0x2b3440,
-  cityhall: 0x2a2f55,
-  surfaceflinger: 0x3a2a55,
-  network: 0x553a2a,
-  launcher: 0x374a37,
-  hardware: 0x2e3a44,
+  boot: 0x78909c,
+  foundry: 0x3e9c50,
+  wards: 0x35b8cf,
+  cityhall: 0x4f5ec2,
+  surfaceflinger: 0x8a3fb0,
+  network: 0xe07b1a,
+  launcher: 0x7cb342,
+  hardware: 0x3b4954, // kernel space deliberately stays dark — the one shadowed region
 }
 
 function plateMaterial(color: number): THREE.MeshStandardMaterial {
@@ -86,7 +87,7 @@ function makeSlope(color: number, from: THREE.Vector3, to: THREE.Vector3, thickn
 
 // Flat canvas-texture "silk-screen" plane, laid on top of the board facing up.
 function makeEdgeText(
-  text: string, width: number, depth: number, x: number, y: number, z: number, color = '#8b98a5',
+  text: string, width: number, depth: number, x: number, y: number, z: number, color = '#6b7280',
 ): THREE.Mesh {
   const canvas = document.createElement('canvas')
   canvas.width = 1024
@@ -182,11 +183,12 @@ export function buildBoard(): THREE.Group {
   // The hardware strip sits at the board's far edge in a recess — the scene's
   // single directional light grazes past it and the ambient alone leaves it
   // unreadably dark. A dedicated soft overhead light keeps the metal legible.
-  const stripLight = new THREE.PointLight(0xaec6dd, 900, 70, 1.8)
+  const stripLight = new THREE.PointLight(0xaec6dd, 400, 70, 1.8)
   stripLight.position.set(0, 14, -67)
   group.add(stripLight)
 
-  group.add(makeEdgeText('HARDWARE', 30, 6, 0, -0.44, -73)) // on the hardware plate (top -0.5)
+  // Light-grey, not the dark default ink — this label prints on the dark plate.
+  group.add(makeEdgeText('HARDWARE', 30, 6, 0, -0.44, -73, '#8b98a5')) // on the hardware plate (top -0.5)
 
   // Silk-screen sub-labels under each hardware block — dimmer than the section
   // title above, x's mirror hardwareRow.ts's CPU_X/RAM_X/DISK_X (and PSI_X).

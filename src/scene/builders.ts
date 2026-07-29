@@ -6,9 +6,13 @@ export function makeLabel(text: string, scale = 1): THREE.Sprite {
   canvas.height = 128
   const ctx = canvas.getContext('2d')!
   ctx.font = 'bold 48px system-ui, sans-serif'
-  ctx.fillStyle = '#e6edf3'
+  // Dark ink with a white halo so labels read on both vivid plates and pale board.
+  ctx.fillStyle = '#1f2933'
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'
+  ctx.lineWidth = 6
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  ctx.strokeText(text, 256, 64)
   ctx.fillText(text, 256, 64)
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true }),

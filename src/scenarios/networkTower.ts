@@ -39,9 +39,13 @@ function makePhaseLabel(initial: string): { sprite: THREE.Sprite; setText(t: str
     last = t
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.font = 'bold 40px system-ui, sans-serif'
-    ctx.fillStyle = '#e6edf3'
+    // Same dark-ink + white-halo treatment as makeLabel — white text vanished on the light sky.
+    ctx.fillStyle = '#1f2933'
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'
+    ctx.lineWidth = 6
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
+    ctx.strokeText(t, 256, 64)
     ctx.fillText(t, 256, 64)
     texture.needsUpdate = true
   }

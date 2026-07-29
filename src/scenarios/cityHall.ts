@@ -5,7 +5,7 @@ import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
 
-const LIT = 0x484f58
+const LIT = 0x8a99a5
 const DIM = 0x21262d
 const PULSE_MS = 300
 const DEFAULT_NARRATION =

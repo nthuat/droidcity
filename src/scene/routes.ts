@@ -28,15 +28,15 @@ const PLOT_ANCHORS = PLOT_X.map(x => new THREE.Vector3(x, PLATE_Y, PLOT_Z))
 const OFFBOARD_EAST = new THREE.Vector3(88, 0, 17)
 const DISPLAY_WALL = new THREE.Vector3(82, PLATE_Y, -22)
 
-const ROAD_COLOR = 0x455a64
-const EDGE_COLOR = 0x76e3ea
+const ROAD_COLOR = 0x546e78
+const EDGE_COLOR = 0x00838f
 const ROAD_W = 1.6
 const ROAD_H = 0.15
 const EDGE_W = 0.15
 const EDGE_H = 0.05
 const ROAD_RAISE = 0.05 // clears the plate top so road/stripes don't z-fight
 const CONVEYOR_RAISE = 0.4
-const CONVEYOR_COLORS = [0x455a64, 0x37474f]
+const CONVEYOR_COLORS = [0x8a99a5, 0x74838f]
 const CONVEYOR_SEGMENT_LEN = 3
 const WAYPOINT_LIFT = 0.5
 

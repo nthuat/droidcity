@@ -12,7 +12,7 @@ export const SCREEN_FLASH_MS = 400
 export const SWEEP_MS = 600
 
 const LIT = 0x3fb950
-const DIM = 0x21262d
+const DIM = 0xb7c2c9
 const CAR_SCALE = 0.3
 const CAR_SPACING = 0.9
 const GRID = 4
@@ -206,7 +206,7 @@ const THREAD_MAIN = 0x3fb950
 const THREAD_RENDER = 0x76e3ea
 const THREAD_BINDER = 0xbc8cff
 const THREAD_WORKER = 0x8b949e
-const THREAD_DIM = 0x555f6b
+const THREAD_DIM = 0x8fa0aa
 const THREAD_LIT_INTENSITY = 0.6
 
 function setThreadPostLit(post: THREE.Mesh, litColor: number, on: boolean): void {

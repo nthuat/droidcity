@@ -797,7 +797,7 @@ storyBarEl.append(storyToggleBtn, storyMenuEl)
 // Zero cost without the param — debugEl is null and frameCount++ is all that runs.
 const debugEl = new URLSearchParams(location.search).has('debug')
   ? document.body.appendChild(Object.assign(document.createElement('div'), {
-      style: 'position:fixed;left:8px;bottom:8px;font:11px monospace;color:#8b98a5;z-index:99;pointer-events:none',
+      style: 'position:fixed;left:8px;bottom:8px;font:11px monospace;color:#57606a;z-index:99;pointer-events:none',
     }))
   : null
 let frameCount = 0
