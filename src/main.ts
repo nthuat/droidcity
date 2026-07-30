@@ -542,7 +542,14 @@ function flyTo(pos: THREE.Vector3, target: THREE.Vector3): void {
 
 function overviewPanel(): HTMLElement {
   const div = document.createElement('div')
-  div.innerHTML = '<h2>DroidCity</h2><p>Pick a district.</p>'
+  // The old "Pick a district" said nothing about what to do and used the
+  // metaphor's word for the switcher's literal, Android-named buttons.
+  div.innerHTML = '<h2>DroidCity</h2>'
+    + '<p>The board is the Android stack, back to front: hardware · kernel · '
+    + 'core processes · app processes · the screen.</p>'
+    + '<p class="panel-narration">Tap an app icon on the phone to launch it, '
+    + 'click any structure for what it teaches, or pick a layer above. '
+    + 'New here? <b>▶ Story</b> takes the guided tour.</p>'
     + '<p class="panel-narration"><a href="https://github.com/nthuat/droidcity" target="_blank" rel="noopener">GitHub</a>'
     + ' · <a href="https://github.com/nthuat/droidcity/blob/main/docs/android-flow-reference.md" target="_blank" rel="noopener">reference</a>'
     + ' · inspired by <a href="https://nikolays.github.io/PGSimCity/" target="_blank" rel="noopener">PGSimCity</a></p>'

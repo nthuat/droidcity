@@ -8,7 +8,7 @@ import type { Scenario } from './types'
 const CAPACITY_MB = 1200
 const IDLE_RECLAIM_MS = 25000
 const STAMP_MS = 400
-const DEFAULT_NARRATION = 'Zygote forks every app process from a pre-warmed template — this is why app launch is fast. (Wards are the per-app buildings; this district is the factory only.)'
+const DEFAULT_NARRATION = 'Zygote forks every app process from a pre-warmed template — this is why app launch is fast. The forked processes live on the band south of here; this is the factory only.'
 const KILL_NARRATION_SUFFIX = ' — SIGKILL, no callback, onDestroy never ran.'
 
 // AMS's OomAdjuster ladder, collapsed to our 4 coarse priorities.
