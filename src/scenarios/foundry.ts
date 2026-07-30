@@ -12,7 +12,7 @@ const DEFAULT_NARRATION = 'Zygote forks every app process from a pre-warmed temp
 const KILL_NARRATION_SUFFIX = ' — SIGKILL, no callback, onDestroy never ran.'
 
 // AMS's OomAdjuster ladder, collapsed to our 4 coarse priorities.
-const OOM_ADJ: Record<Priority, number> = { foreground: 0, visible: 100, service: 500, cached: 900 }
+const OOM_ADJ: Record<Priority, number> = { foreground: 0, visible: 100, fgservice: 200, service: 500, cached: 900 }
 
 export function makeFoundryScenario(bus: Bus): Scenario & {
   killApp(app: string): void

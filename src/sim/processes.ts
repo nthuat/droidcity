@@ -1,5 +1,9 @@
-export type Priority = 'foreground' | 'visible' | 'service' | 'cached'
-export const KILL_ORDER: readonly Priority[] = ['cached', 'service', 'visible', 'foreground']
+// Mirrors Android's oom_adj tiers (see foundry.ts's OOM_ADJ map): a FOREGROUND
+// SERVICE outranks a plain background service and a cached process, but still
+// loses to anything the user is looking at.
+export type Priority = 'foreground' | 'visible' | 'fgservice' | 'service' | 'cached'
+// lmkd kills from the front of this list.
+export const KILL_ORDER: readonly Priority[] = ['cached', 'service', 'fgservice', 'visible', 'foreground']
 
 export interface Proc {
   readonly pid: number

@@ -35,6 +35,10 @@ export interface WardEntry {
   // Flipped by manager.toggleService(app). Default false. Read by goHome to pick
   // the backgrounded foundry priority (service vs cached) and by narrationFor.
   serviceRunning: boolean
+  // Promoted to a FOREGROUND service: must show a notification the user cannot
+  // dismiss, gets oom_adj 200 (survives pressure that kills cached wards), and
+  // its ANR timer tightens from 200s to 20s.
+  fgs: boolean
   riseMs: number
   demolishMs: number
   demolishStartScale: number

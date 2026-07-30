@@ -44,6 +44,7 @@ export interface WardManager {
   runHeavyFrame(app: string): void
   goHome(app: string): void
   toggleService(app: string): boolean
+  toggleForegroundService(app: string): boolean
   pushActivity(app: string, mode?: 'standard' | 'singleTop'): void
   popActivity(app: string): void
   bindService(clientApp: string, serviceApp: string): void
@@ -157,6 +158,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       w => w.app !== entry.app && !w.dying && w.boundTo === entry.app,
     )
     if (boundClient && boundClient.activity.phase === 'resumed') return 'visible'
+    if (entry.fgs) return 'fgservice'
     return entry.serviceRunning ? 'service' : 'cached'
   }
 
@@ -288,6 +290,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       resumed: false,
       restored,
       serviceRunning: false,
+      fgs: false,
       riseMs: 0,
       demolishMs: 0,
       demolishStartScale: 1,
@@ -611,10 +614,34 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   // when the ward is currently backgrounded (phase 'stopped') — a foreground
   // ward stays 'foreground' regardless of service state (spec: "foreground apps
   // stay 'foreground'"). Returns the new running state for the panel to reflect.
+  // Promote/demote a running Service to a FOREGROUND service. Android requires
+  // the ongoing notification for exactly this reason: the process gets to
+  // outrank cached work, so the user must be able to see that it's happening.
+  function toggleForegroundService(app: string): boolean {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return false
+    if (!entry.serviceRunning && !entry.fgs) {
+      setPanelMessage(entry, 'Start the service first — only a running Service can go foreground')
+      return false
+    }
+    entry.fgs = !entry.fgs
+    bus.emit('service:foreground', { app, fgs: entry.fgs })
+    if (entry.activity.phase !== 'resumed') setAppPriority?.(app, backgroundPriority(entry))
+    setPanelMessage(entry, entry.fgs
+      ? 'Foreground service — ongoing notification posted (not dismissable), oom_adj 200, ANR timer now 20s'
+      : 'Demoted to a background service — notification can go, oom_adj back to 500')
+    return entry.fgs
+  }
+
   function toggleService(app: string): boolean {
     const entry = wards.get(app)
     if (!entry || entry.dying) return false
     entry.serviceRunning = !entry.serviceRunning
+    // Stopping the Service cannot leave a foreground promotion behind.
+    if (!entry.serviceRunning && entry.fgs) {
+      entry.fgs = false
+      bus.emit('service:foreground', { app, fgs: false })
+    }
     setServiceAnnexLit(entry.meshes, entry.serviceRunning)
     bus.emit('service:changed', { app, running: entry.serviceRunning })
     if (entry.activity.phase === 'stopped') {
@@ -883,7 +910,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (!entry.panel) {
         entry.panel = buildWardPanel(
           app,
-          { blockMainThread, rotate: rotateWard, forceGc, callNative, nativeCrash, refreshData, goHome, toggleService, pushActivity, popActivity, toggleBind },
+          { blockMainThread, rotate: rotateWard, forceGc, callNative, nativeCrash, refreshData, goHome, toggleService, toggleForegroundService, pushActivity, popActivity, toggleBind },
           narrationFor(entry),
           entry.serviceRunning,
         )
@@ -899,6 +926,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     runHeavyFrame,
     goHome,
     toggleService,
+    toggleForegroundService,
     pushActivity,
     popActivity,
     bindService,

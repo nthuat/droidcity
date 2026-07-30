@@ -27,6 +27,8 @@ export interface CityEvents {
   'jni:called': { app: string; nativeKb: number }
   // SIGSEGV inside native code — the whole process dies, no onDestroy.
   'native:crashed': { app: string }
+  // A Service was promoted to / demoted from a foreground service.
+  'service:foreground': { app: string; fgs: boolean }
   'anr': { app: string }
   'memory:trim': Record<string, never>
   'memory:pressure': Record<string, never>

@@ -38,6 +38,10 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   shadeRowMeshes(): THREE.Mesh[]
   permissionButtons(): { allow: THREE.Mesh; deny: THREE.Mesh }
   setNotifications(apps: readonly string[]): void
+  // The one app (if any) holding an ongoing foreground-service notification —
+  // its shade row is not dismissable.
+  setOngoing(app: string | null): void
+  isOngoing(app: string): boolean
   setScreen(state: ScreenState): void
 } {
   const group = new THREE.Group()
@@ -244,6 +248,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     note: 'SystemUI (its own process). Dots = pending notifications, owned by NotificationManagerService in system_server — not by the posting app. Tap to open the shade.',
   }
   let pendingNotifs: readonly string[] = []
+  let ongoingApp: string | null = null
   const notifDots: THREE.Mesh[] = APPS.map((app, i) => {
     const dot = new THREE.Mesh(
       new THREE.BoxGeometry(0.06, 0.16, 0.16),
@@ -362,6 +367,20 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       row.visible = on
       const lbl = row.userData.rowLabel as THREE.Sprite
       lbl.visible = shadeGroup.visible && on
+      // Ongoing (foreground-service) rows glow — and refuse to be dismissed.
+      const mat = row.material as THREE.MeshStandardMaterial
+      const ongoing = ongoingApp === APPS[i]
+      mat.emissive.setHex(ongoing ? GREEN : 0x000000)
+      mat.emissiveIntensity = ongoing ? 0.4 : 0
+      row.userData.info = ongoing
+        ? {
+            title: `Ongoing: ${APPS[i]}`,
+            note: 'A foreground service\'s notification. Not dismissable while the service runs — the deal for oom_adj 200 is that the user can always see it. Tapping still opens the app.',
+          }
+        : {
+            title: `Notification: ${APPS[i]}`,
+            note: 'Posted while the app was in the background. Tap = SystemUI fires the PendingIntent — the app comes to the foreground (or cold-starts if it was killed: the notification outlived the process).',
+          }
     })
   }
 
@@ -496,6 +515,11 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       pendingNotifs = apps
       paintScreen()
     },
+    setOngoing(app) {
+      ongoingApp = app
+      paintScreen()
+    },
+    isOngoing(app) { return ongoingApp === app },
     setScreen(state) {
       screenState = state
       paintScreen()

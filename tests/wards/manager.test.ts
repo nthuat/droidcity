@@ -76,6 +76,25 @@ describe('WardManager', () => {
     expect(manager.wardStats().find(w => w.app === 'chat')!.nativeKb).toBe(afterCalls)
   })
 
+  it('refuses to promote a service that is not running', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    expect(manager.toggleForegroundService('chat')).toBe(false)
+  })
+
+  it('promotes a running service to foreground, and stopping the service demotes it', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.toggleService('chat')
+    expect(manager.toggleForegroundService('chat')).toBe(true)
+    const fgsEvents: boolean[] = []
+    deps.bus.on('service:foreground', ({ fgs }) => fgsEvents.push(fgs))
+    manager.toggleService('chat') // stop the service
+    expect(fgsEvents).toEqual([false])
+  })
+
   it('a native crash reports the app so the caller can kill the process', () => {
     const deps = makeDeps()
     const onNativeCrash = vi.fn()

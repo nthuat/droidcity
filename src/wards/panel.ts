@@ -11,6 +11,7 @@ export interface WardPanelActions {
   refreshData(app: string): void
   goHome(app: string): void
   toggleService(app: string): boolean
+  toggleForegroundService(app: string): boolean
   pushActivity(app: string, mode?: 'standard' | 'singleTop'): void
   popActivity(app: string): void
   toggleBind(app: string): void
@@ -45,6 +46,7 @@ export function buildWardPanel(
   panel.addButton('Native crash (SIGSEGV)', () => actions.nativeCrash(app))
   panel.addButton('Refresh data', () => actions.refreshData(app))
   const serviceBtn = panel.addButton(serviceRunning ? 'Stop service' : 'Start service', () => actions.toggleService(app))
+  panel.addButton('Promote to FGS', () => actions.toggleForegroundService(app))
   const bindBtn = panel.addButton('Bind to —', () => actions.toggleBind(app))
   panel.addButton('Home', () => actions.goHome(app))
   panel.setNarration(narration)

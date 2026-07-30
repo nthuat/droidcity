@@ -375,8 +375,18 @@ bus.on('activity:backgrounded', ({ app }) => {
   promptedThisVisit.delete(app) // next foreground visit may ask again
   if (screen.mode === 'app' && screen.app === app) syncScreen(screenOnHome(screen))
 })
+// A foreground service MUST show an ongoing notification — that's the deal it
+// makes for outranking cached work. Demoting (or the process dying) clears it.
+bus.on('service:foreground', ({ app, fgs }) => {
+  notifs = fgs ? postNotification(notifs, app) : dismissNotification(notifs, app)
+  surfaceFlinger.setNotifications(notifs.pending)
+  surfaceFlinger.setOngoing(fgs ? app : null)
+})
 bus.on('process:killed', ({ app }) => {
   promptedThisVisit.delete(app)
+  notifs = dismissNotification(notifs, app)
+  surfaceFlinger.setNotifications(notifs.pending)
+  surfaceFlinger.setOngoing(null)
   syncScreen(screenOnKilled(screen, app))
 })
 bus.on('process:forked', ({ app }) => {
@@ -666,8 +676,12 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     if (rowHits.length > 0) {
       const app = rowHits[0].object.userData.app as string | undefined
       if (app) {
-        notifs = dismissNotification(notifs, app)
-        surfaceFlinger.setNotifications(notifs.pending)
+        // An ongoing (foreground-service) notification can't be swiped away —
+        // tapping it still opens the app, which is exactly Android's behavior.
+        if (!surfaceFlinger.isOngoing(app)) {
+          notifs = dismissNotification(notifs, app)
+          surfaceFlinger.setNotifications(notifs.pending)
+        }
         launcherPlaza.clickKiosk(app)
       }
       return
