@@ -20,6 +20,7 @@ const ANCHORS: Record<string, THREE.Vector3> = {
   surfaceflinger: new THREE.Vector3(60, PLATE_Y, -35),
   network: new THREE.Vector3(65, PLATE_Y, 17),
   launcher: new THREE.Vector3(0, 0, 48.5), // behind the reclined panel's top edge
+  packages: new THREE.Vector3(-58, 0, 22), // /data/app archive on the west board
 }
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -10
