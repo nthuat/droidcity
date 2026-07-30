@@ -184,7 +184,7 @@ function buildRadio(group: THREE.Group): THREE.MeshStandardMaterial {
   const radioGroup = new THREE.Group()
   radioGroup.userData.info = {
     title: 'Radio / NIC',
-    note: 'The network district\'s silicon. Every fetch the tower pipelines — DNS, TLS, download — leaves the device as RF from this mast.',
+    note: 'The network tower\'s silicon. Every fetch the tower pipelines — DNS, TLS, download — leaves the device as RF from this mast.',
   }
   group.add(radioGroup)
 
@@ -251,7 +251,7 @@ function buildPsi(group: THREE.Group): { bar: THREE.Mesh; mat: THREE.MeshStandar
   return { bar, mat }
 }
 
-const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each ward’s main thread, RAM segments (center) fill as processes are spawned, the disk (east) blinks on every Room read/write, zram compresses cold pages before anything is killed, and the radio mast (far east) turns the network district’s pipeline into RF — the silicon underneath everything else in the city.'
+const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each app process’s main thread, RAM segments (center) fill as processes are spawned, the disk (east) blinks on every Room read/write, zram compresses cold pages before anything is killed, and the radio mast (far east) turns the network tower’s pipeline into RF — the silicon underneath everything else in the city.'
 
 export function makeHardwareRowScenario(): Scenario & {
   setCoreStates(s: CoreState[]): void
