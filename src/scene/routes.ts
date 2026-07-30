@@ -147,6 +147,19 @@ const ROUTES: RouteDef[] = [
     ],
     draw: [v(x, 0, 14), v(x, 0, 7), v(x, PLATE_Y, 5), v(x, PLATE_Y, PLOT_Z)],
   })),
+  // The input path — the leg every tap actually takes, and the reason apps can
+  // never read the touchscreen themselves. Runs up the x=0 gap between the two
+  // middle ward plots (which span x -20.25..-2.25 and 2.25..20.25).
+  {
+    from: 'displaywall', to: 'cityhall',
+    waypoints: [
+      v(0, 0, 47), v(0, 0, 7), v(0, PLATE_Y, 5), v(0, PLATE_Y, -28), ANCHORS.cityhall,
+    ],
+    info: {
+      title: 'Input path',
+      note: 'Touch controller → kernel input driver → InputDispatcher in system_server → the focused app\'s main thread. Apps never read the screen directly; a blocked main thread here is exactly what becomes an ANR.',
+    },
+  },
   // network -> off-board east (the INTERNET road): stays on the network plate
   // (0.3) to the board rim at x 85, then steps down off-board.
   { from: 'network', to: 'offboard-east', waypoints: [ANCHORS.network, v(85, PLATE_Y, 17), OFFBOARD_EAST] },

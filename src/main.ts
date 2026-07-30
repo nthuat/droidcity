@@ -665,7 +665,9 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   if (iconHits.length > 0) {
     const app = iconHits[0].object.userData.app as string | undefined
     if (app) {
-      flyRoute(routes.path('hardware', 'displaywall'), 0xf2cc60)
+      // The tap's own journey: glass -> InputDispatcher (system_server). The
+      // launcher's Intent leaves separately, on its own road.
+      flyRoute(routes.path('displaywall', 'cityhall'), 0xf2cc60)
       launcherPlaza.clickKiosk(app)
     }
     return

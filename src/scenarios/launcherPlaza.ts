@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { APPS, createLauncher, requestLaunch, markRunning, markStopped, type LauncherState } from '../sim/launcher'
+import { makeBuilding } from '../scene/builders'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
@@ -28,6 +29,18 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
 
   // No building of its own: the launcher's only visible body IS its UI on the
   // glass (icon grid). A separate shed was a redundant third representation.
+
+  // SystemUI, however, IS a separate process — and everything it draws (status
+  // bar, nav bar, shade, recents) is already on the glass, so its house belongs
+  // here on the apron rather than up in the framework band.
+  const systemUi = makeBuilding(5, 3, 4, 0xb9c4cf, 'SystemUI')
+  systemUi.position.set(-24, 0, -8.5) // world (-24, 0, 40): west of the display
+  const sysUiBody = systemUi.getObjectByName('body') as THREE.Mesh
+  sysUiBody.userData.info = {
+    title: 'SystemUI',
+    note: 'Its own process, not part of system_server: it draws the status bar, the nav bar, the notification shade and Recents. When a notification appears on the glass, NotificationManagerService decides — SystemUI paints.',
+  }
+  group.add(systemUi)
 
   function clickKiosk(app: string): void {
     const result = requestLaunch(state, app)
