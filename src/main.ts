@@ -981,12 +981,18 @@ document.addEventListener('keydown', (e) => {
 
 const storyBarEl = document.querySelector<HTMLDivElement>('#story-bar')!
 const storyToggleBtn = document.createElement('button')
+storyToggleBtn.id = 'story-toggle'
 storyToggleBtn.textContent = '▶ Story'
 const storyMenuEl = document.createElement('div')
 storyMenuEl.className = 'story-menu'
+const storyMenuHead = document.createElement('div')
+storyMenuHead.className = 'menu-head'
+storyMenuHead.textContent = 'GUIDED TOUR · 7 chapters · ~2 min each'
+storyMenuEl.appendChild(storyMenuHead)
 storyToggleBtn.addEventListener('click', () => storyMenuEl.classList.toggle('open'))
 
 const playAllBtn = document.createElement('button')
+playAllBtn.className = 'primary'
 playAllBtn.textContent = 'Play all'
 playAllBtn.addEventListener('click', () => {
   storyMenuEl.classList.remove('open')
@@ -1083,6 +1089,10 @@ city.start((dtMs) => {
   }
 })
 
+document.querySelector('#intro-tour')!.addEventListener('click', () => {
+  document.querySelector<HTMLDivElement>('#intro')!.style.display = 'none'
+  playAllBtn.click()
+})
 document.querySelector('#intro-close')!.addEventListener('click', () => {
   document.querySelector<HTMLDivElement>('#intro')!.style.display = 'none'
 })

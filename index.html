@@ -17,6 +17,10 @@
       button.active { background: #388bfd; color: #fff; }
       #intro { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: rgba(233,231,226,.7); color: #24292f; z-index: 20; padding: 24px; }
       .intro-panel { background: rgba(255,255,255,.95); border: 1px solid #d0d7de; border-radius: 12px; padding: 16px 32px 24px; }
+      .intro-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+      /* The guided tour is the best path through the city — give it the accent. */
+      button.primary { background: #3ddc84; border-color: #2bb96c; color: #10281b; font-weight: 700; }
+      button.primary:hover { background: #34c877; }
       #intro p { max-width: 480px; color: #57606a; }
       #oom-table { position: fixed; right: 12px; bottom: 12px; background: rgba(255,255,255,.9); border: 1px solid #d0d7de; border-radius: 8px; padding: 8px 12px; font: 11px ui-monospace, monospace; color: #57606a; z-index: 10; pointer-events: none; }
       .oom-title { color: #24292f; font-weight: 600; margin-bottom: 4px; }
@@ -26,9 +30,14 @@
       #intro a, #panel a { color: #0969da; text-decoration: none; }
       #intro a:hover, #panel a:hover { text-decoration: underline; }
       #story-bar { position: fixed; top: 12px; right: 12px; z-index: 10; }
-      #story-bar .story-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: rgba(255,255,255,.95); border: 1px solid #d0d7de; border-radius: 8px; padding: 6px; display: none; flex-direction: column; gap: 4px; min-width: 190px; }
+      #story-bar .story-menu { position: absolute; top: 100%; right: 0; margin-top: 6px; background: rgba(255,255,255,.97); border: 1px solid #d0d7de; border-radius: 10px; padding: 8px; display: none; flex-direction: column; gap: 3px; min-width: 232px; box-shadow: 0 8px 24px rgba(31,41,51,.12); }
       #story-bar .story-menu.open { display: flex; }
-      #story-bar .story-menu button { text-align: left; }
+      #story-bar .story-menu button { text-align: left; border-color: transparent; background: transparent; }
+      #story-bar .story-menu button:hover { background: #eef2f6; border-color: #d0d7de; }
+      #story-bar .story-menu .menu-head { font: 11px/1.6 ui-monospace, monospace; color: #57606a; padding: 2px 8px 6px; border-bottom: 1px solid #eaeef2; margin-bottom: 4px; }
+      #story-bar .story-menu button.primary { background: #3ddc84; border-color: #2bb96c; margin-bottom: 2px; }
+      #story-toggle { background: #3ddc84; border-color: #2bb96c; color: #10281b; font-weight: 700; }
+      #story-toggle:hover { background: #34c877; }
       #story-card { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); max-width: 560px; width: calc(100% - 24px); background: rgba(255,255,255,.9); color: #24292f; padding: 12px 16px; border-radius: 8px; border: 1px solid #d0d7de; z-index: 10; display: none; }
       #story-card.open { display: block; }
       #story-card h2 { margin: 0 0 8px; font-size: 16px; }
@@ -57,7 +66,10 @@
         <a href="https://github.com/nthuat/droidcity/blob/main/docs/android-flow-reference.md" target="_blank" rel="noopener">Android flow reference</a> ·
         inspired by <a href="https://nikolays.github.io/PGSimCity/" target="_blank" rel="noopener">PGSimCity</a>
       </p>
-      <button id="intro-close">Explore</button>
+      <div class="intro-actions">
+        <button id="intro-tour" class="primary">▶ Play the 7-chapter tour</button>
+        <button id="intro-close">Explore on my own</button>
+      </div>
       </div>
     </div>
     <div id="app"></div>
