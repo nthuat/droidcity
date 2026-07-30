@@ -25,6 +25,7 @@ export function updateHudLines(
   hud: Hud,
   wardCount: number,
   foundry: { stats(): { usedMb: number; capacityMb: number; procs: number } },
+  cityHall: { jobStats(): { pending: number; running: number; done: number; doze: boolean } },
   networkTower: { stats(): { queue: number; phase: string } },
   surfaceFlinger: { stats(): { composited: number; dropped: number } },
   launcherPlaza: { stats(): { running: number } },
@@ -38,4 +39,8 @@ export function updateHudLines(
   hud.setLine('surfaceflinger', `${sf.composited} composited · ${sf.dropped} janky`)
   const l = launcherPlaza.stats()
   hud.setLine('launcher', `${l.running} apps`)
+  const j = cityHall.jobStats()
+  hud.setLine('cityhall', j.doze
+    ? `DOZE · jobs ${j.pending} deferred · ${j.done} done`
+    : `AMS · WMS · PMS · jobs ${j.pending}/${j.running}/${j.done}`)
 }

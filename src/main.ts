@@ -294,7 +294,7 @@ function onPressureEdge(): void {
   reclaim = resetReclaim(reclaim)
 }
 function refreshHud(): void {
-  updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
+  updateHudLines(hud, wardManager.wards().length, foundry, cityHall, networkTower, surfaceFlinger, launcherPlaza)
   refreshOomTable()
   hwWiring.syncRam()
   hwWiring.syncPressure(HUD_UPDATE_MS)

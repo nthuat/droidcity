@@ -121,9 +121,11 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
 
   // Doze dome: deep idle over the whole board.
   const dozeDome = new THREE.Mesh(
-    new THREE.SphereGeometry(70, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.SphereGeometry(62, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+    // Light touch on purpose: enough to read "the device is asleep" without
+    // washing the city out — at 0.16 the whole board went grey and unreadable.
     new THREE.MeshStandardMaterial({
-      color: 0x4a5b73, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide,
+      color: 0x6a86ad, transparent: true, opacity: 0.09, depthWrite: false, side: THREE.DoubleSide,
     }),
   )
   dozeDome.position.set(0, 0, 0)
