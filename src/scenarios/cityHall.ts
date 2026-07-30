@@ -135,6 +135,11 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
   )
   dozeDome.position.set(0, 0, 0)
   dozeDome.visible = false
+  // Never pickable: it covers the entire board, so while Doze was on it caught
+  // every click and the parent-walk sent the camera to system_server instead of
+  // the ward (or district) the user actually aimed at. Doze is explained by the
+  // job depot's tooltip and the panel narration; the dome is pure atmosphere.
+  dozeDome.raycast = () => {}
   dozeDome.userData.info = {
     title: 'Doze — deep idle',
     note: 'Screen off and still for a while: network is cut, alarms and jobs are deferred to periodic maintenance windows that get further apart the longer the device stays put. This is why background work must be constraint-based, not clock-based.',
