@@ -666,21 +666,10 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     -((ev.clientY - rect.top) / rect.height) * 2 + 1,
   )
   raycaster.setFromCamera(ndc, city.camera)
-  // Taps on the glass: the display IS the input surface. Icon -> launch
-  // (touch enters via hardware, the launcher files the Intent), pill -> Home.
-  const iconHits = raycaster.intersectObjects(surfaceFlinger.screenIconMeshes(), false)
-  if (iconHits.length > 0) {
-    const app = iconHits[0].object.userData.app as string | undefined
-    if (app) {
-      // The tap's own journey: glass -> InputDispatcher (system_server). The
-      // launcher's Intent leaves separately, on its own road.
-      flyRoute(routes.path('displaywall', 'cityhall'), 0xf2cc60)
-      launcherPlaza.clickKiosk(app)
-    }
-    return
-  }
-  // Permission dialog is modal: its two buttons — or Back, which counts as a
-  // denial — are the only answers while it's up.
+  // The permission dialog is MODAL and therefore tested first: the icon grid is
+  // hidden behind it, but raycaster.intersectObjects() only consults each
+  // object's own .visible flag — a mesh whose PARENT is hidden still gets hit.
+  // Testing icons first meant "allow" also launched whatever icon sat under it.
   if (screen.mode === 'permission') {
     const pb = surfaceFlinger.permissionButtons()
     const permHits = raycaster.intersectObjects([pb.allow, pb.deny], false)
@@ -697,6 +686,21 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
       syncScreen(screenOnPermissionResolved(screen))
     }
     return
+  }
+  // Taps on the glass: the display IS the input surface. Only at home — the
+  // grid is hidden in every other mode, and hidden things must not be clickable.
+  if (screen.mode === 'home') {
+    const iconHits = raycaster.intersectObjects(surfaceFlinger.screenIconMeshes(), false)
+    if (iconHits.length > 0) {
+      const app = iconHits[0].object.userData.app as string | undefined
+      if (app) {
+        // The tap's own journey: glass -> InputDispatcher (system_server). The
+        // launcher's Intent leaves separately, on its own road.
+        flyRoute(routes.path('displaywall', 'cityhall'), 0xf2cc60)
+        launcherPlaza.clickKiosk(app)
+      }
+      return
+    }
   }
   // Shade rows: tap = SystemUI fires the PendingIntent.
   if (screen.mode === 'shade') {
