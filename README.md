@@ -74,7 +74,11 @@ Play chapters individually from the Story menu, or **Play all** to chain all sev
 
 The companion reference — the full boot-to-pixel flow, a memory-management deep dive, and an audit of what the city models vs. simplifies — lives in [`docs/android-flow-reference.md`](docs/android-flow-reference.md).
 
-Early prototype — the model simplifies aggressively and surely contains inaccuracies. Issues/PRs welcome.
+## Corrections and contributions
+
+Early prototype: the model simplifies aggressively and certainly contains inaccuracies. The most useful contribution is a correction — if a tooltip, a narration line, or a piece of the flow is wrong, [open an issue](https://github.com/nthuat/droidcity/issues/new) and say what the real behavior is.
+
+Also welcome: Android concepts the city doesn't model yet. `docs/android-flow-reference.md` keeps an honest audit of what's modeled (✅), simplified on purpose (⚠️), and missing (❌) — the ❌ rows and the 📖 entries in the concept atlas are the open list.
 
 ## Dev
 
