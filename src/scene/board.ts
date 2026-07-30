@@ -48,11 +48,11 @@ function makeSlab(x0: number, x1: number, z0: number, z1: number, topY: number):
 // board (slabs, rims, silk texts, deck, ramp) falls back to the group-level info
 // via the inspector's parent-chain walk.
 const PLATE_INFO: Record<string, InspectorInfo> = {
-  wards: { title: 'Ward plots', note: 'Four app plots — one sandboxed process each.' },
+  wards: { title: 'App process band', note: 'Four plots, one sandboxed app process each — a "ward" in the city metaphor: own walls, own memory, own main road.' },
   boot: { title: 'Boot strip', note: 'Recessed on purpose — bootloader/kernel/init run before userspace exists.' },
   hardware: { title: 'Hardware strip', note: 'The silicon. Framework never touches it directly — HALs and drivers sit between.' },
   foundry: { title: 'Foundry plate', note: 'Zygote district — process factory floor.' },
-  cityhall: { title: 'City Hall plate', note: 'The core-process band — system_server lives beside the foundry that cast it; every Binder road ends here.' },
+  cityhall: { title: 'system_server plate', note: 'The core-process band — system_server (the city\'s "city hall") lives beside the foundry that cast it; every Binder road ends here.' },
   surfaceflinger: { title: 'Compositor plate', note: 'SurfaceFlinger district — every frame\'s last stop before glass.' },
   network: { title: 'Network plate', note: 'Radio edge district — every fetch leaves the board from here.' },
   launcher: { title: 'The Glass', note: 'The phone\'s screen and the launcher process live here — everything north of this strip exists to light it up.' },

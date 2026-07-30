@@ -14,14 +14,14 @@ One machine board, laid out as the Android stack itself — read it north to sou
 |---|---|
 | **Hardware strip** | CPU cores · RAM bank (with copy-on-write Zygote pages) · disk · radio/NIC mast feeding the network tower · live PSI pressure · memory and storage buses |
 | **Boot Row** | bootloader → kernel → init → system_server |
-| **Core processes** | **Zygote Foundry** forks every process · **City Hall** (system_server) — cast next door and residing next door: ActivityManager approves launches and writes `oom_adj`, WindowManager owns the starting window, PackageManager resolves Intents · **SurfaceFlinger** — every frame's last stop before glass |
-| **App wards** | One ward per running app, sitting directly on top of the framework band — so every Binder road is a short hop down to City Hall |
+| **Core processes** | **Zygote** (the foundry) forks every process · **system_server** (the city hall) — cast next door and residing next door: ActivityManager approves launches and writes `oom_adj`, WindowManager owns the starting window, PackageManager resolves Intents · **SurfaceFlinger** — every frame's last stop before glass |
+| **App processes** | One ward per running app, sitting directly on top of the framework band — so every Binder road is a short hop down to system_server |
 | **Network Tower** (radio edge) | DNS → connect → TLS → TTFB → download, retries with backoff, pooled connections skip the handshakes |
 | **The Glass** (front) | The phone screen. The launcher has no building of its own — its body *is* the icon grid on that screen |
 
 ## Inside a ward
 
-Every running app is its own walled ward — a sandboxed process containing:
+Every running app is its own walled **ward** — the metaphor for a sandboxed process. On-board labels use the real Android names; the city language lives in the tooltips, panels, and story. Inside a ward:
 
 - **Main road** — the Looper, with the ANR watchdog riding it
 - **Worker-pool lane** — coroutine/executor IO that posts results back to the main road
@@ -37,7 +37,7 @@ Wards rise on launch and are demolished on kill or eviction. `oom_adj` scores an
 ## The phone screen is a real UI, not a diagram
 
 - **Home** shows the launcher's icon grid — brand colors, plus a green dot on every app whose process is alive.
-- **Tap an icon** and the launch travels for real: touch → InputDispatcher (system_server) → the launcher files an Intent → City Hall approves → Zygote forks → a ward rises → its first frame lands back on the glass.
+- **Tap an icon** and the launch travels for real: touch → InputDispatcher (system_server) → the launcher files an Intent → system_server (AMS) approves → Zygote forks → a ward rises → its first frame lands back on the glass.
 - **◁ Back** pops the Activity's back stack, then finishes it at the root — the process stays cached.
 - **○ Home** backgrounds the foreground app.
 - **▢ Recents** shows one task card per live process; tap one to hot-start it.

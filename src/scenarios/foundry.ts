@@ -95,7 +95,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     return state.procs.map(p => `${p.name}(${p.priority})`).join(', ')
   }
 
-  const panel = makePanel('Zygote Foundry — every app forks from here')
+  const panel = makePanel('Zygote — the foundry — every app forks from here')
   panel.setNarration(DEFAULT_NARRATION)
 
   // Forking one hop per frame (instead of synchronously in the event handler) keeps

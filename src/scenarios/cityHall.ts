@@ -129,12 +129,12 @@ export function makeCityHallScenario(bus: Bus): Scenario {
   bus.on('app:launchRequested', () => { wingPulse[2] = PULSE_MS })
   bus.on('broadcast:sent', () => { wingPulse[2] = PULSE_MS })
 
-  const panel = makePanel('City Hall — system_server')
+  const panel = makePanel('system_server — the city hall of Android')
   panel.addButton('Send broadcast', () => bus.emit('broadcast:sent', { action: 'NEWS' }))
   panel.setNarration(DEFAULT_NARRATION)
 
   return {
-    name: 'City Hall',
+    name: 'system_server',
     group,
     panel: panel.root,
     cameraPos: new THREE.Vector3(0, 9, 18),
