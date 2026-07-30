@@ -33,6 +33,7 @@ export interface CityHallHooks {
 
 export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scenario & {
   jobStats(): { pending: number; running: number; done: number; doze: boolean }
+  clearDoze(): void
 } {
   const { onDozeChanged, onJobDispatched } = hooks
   const group = new THREE.Group()
@@ -257,6 +258,15 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
     name: 'system_server',
     jobStats() {
       return { pending: jobs.pending.length, running: jobs.running.length, done: jobs.done, doze: jobs.doze }
+    },
+    // A story is a scripted tour of an awake device — leaving Doze on would
+    // contradict chapters that fetch data and launch apps.
+    clearDoze() {
+      if (!jobs.doze) return
+      jobs = setDoze(jobs, false)
+      dozeBtn.textContent = 'Doze on'
+      paintJobs()
+      onDozeChanged?.(false)
     },
     group,
     panel: panel.root,

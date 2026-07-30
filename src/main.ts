@@ -926,6 +926,8 @@ function stopStory(): void {
 
 function startStory(chapter: Chapter): void {
   clearInjectTapTimer()
+  // Chapters fetch data and launch apps — a sleeping device contradicts them.
+  cityHall.clearDoze()
   storyActive = true
   storyPaused = false
   launcherPlaza.setIdle(false)
