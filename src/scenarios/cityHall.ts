@@ -2,6 +2,10 @@ import * as THREE from 'three'
 import { makeBuilding } from '../scene/builders'
 import { makeAntenna } from '../scene/props'
 import { makePanel } from '../ui/panel'
+import {
+  cancelJobsFor, createJobs, dispatchJobs, enqueueJob, finishJob, setDoze,
+  type JobConstraint, type JobEnv, type JobsState,
+} from '../sim/jobs'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
 
@@ -19,7 +23,18 @@ const DEFAULT_NARRATION =
   + '   700 the previous app (back-switch is common)\n'
   + '   900+ cached — kill fodder, oldest first'
 
-export function makeCityHallScenario(bus: Bus): Scenario {
+export interface CityHallHooks {
+  // Doze gates the ambient city (auto-launches, idle fetches) — main.ts owns
+  // those, so the toggle is reported out rather than reached across.
+  onDozeChanged?: (doze: boolean) => void
+  // A dispatched job runs IN its app's process: main.ts flies the packet.
+  onJobDispatched?: (app: string) => void
+}
+
+export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scenario & {
+  jobStats(): { pending: number; running: number; done: number; doze: boolean }
+} {
+  const { onDozeChanged, onJobDispatched } = hooks
   const group = new THREE.Group()
   group.userData.info = {
     title: 'system_server',
@@ -77,6 +92,87 @@ export function makeCityHallScenario(bus: Bus): Scenario {
     group.add(pillar)
   }
 
+  // Job depot: JobScheduler's queue. WorkManager enqueues here; the SYSTEM
+  // decides when each job runs. Sits west of the AMS wing (wings at x -6/0/6,
+  // z 7) with its crate apron running north, clear of the antenna at z -3.
+  const depot = makeBuilding(4, 2, 3, LIT, 'jobs')
+  depot.position.set(-14, 0, 7)
+  depot.userData.info = {
+    title: 'JobScheduler',
+    note: 'WorkManager enqueues work here; the system decides WHEN. A job waits for its constraints (network, charging, idle) — and in Doze, for the next maintenance window. Batching everyone\'s jobs into shared wakeups is the whole point: your app does not get to pick the moment.',
+  }
+  group.add(depot)
+
+  // Up to 6 visible queue crates: amber = waiting on constraints, green = running.
+  const JOB_CRATE_CAP = 6
+  const jobCrateGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9)
+  const jobCrates = Array.from({ length: JOB_CRATE_CAP }, (_, i) => {
+    const mat = new THREE.MeshStandardMaterial({ color: 0xd29922, roughness: 0.7 })
+    const crate = new THREE.Mesh(jobCrateGeo, mat)
+    crate.position.set(-14 + (i % 3) * 1.2 - 1.2, 0.45, 3.4 - Math.floor(i / 3) * 1.2)
+    crate.visible = false
+    crate.userData.info = {
+      title: 'Queued job',
+      note: 'Amber = waiting for its constraints or a maintenance window. Green = dispatched to its app. A job whose process dies goes with it — real WorkManager persists and reschedules it.',
+    }
+    group.add(crate)
+    return crate
+  })
+
+  // Doze dome: deep idle over the whole board.
+  const dozeDome = new THREE.Mesh(
+    new THREE.SphereGeometry(70, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({
+      color: 0x4a5b73, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide,
+    }),
+  )
+  dozeDome.position.set(0, 0, 0)
+  dozeDome.visible = false
+  dozeDome.userData.info = {
+    title: 'Doze — deep idle',
+    note: 'Screen off and still for a while: network is cut, alarms and jobs are deferred to periodic maintenance windows that get further apart the longer the device stays put. This is why background work must be constraint-based, not clock-based.',
+  }
+  group.add(dozeDome)
+
+  let jobs: JobsState = createJobs()
+  // Timers for jobs in flight (id -> ms remaining) and the open window.
+  const jobTimers = new Map<number, number>()
+  let windowMs = 0
+  const JOB_RUN_MS = 2600
+  const WINDOW_MS = 6000
+
+  function jobEnv(): JobEnv {
+    // Doze cuts the radio, so a network-constrained job can only run inside a
+    // window; 'idle' is exactly what Doze means; charging is user-driven only.
+    return { network: !jobs.doze, charging: false, idle: jobs.doze, window: windowMs > 0 }
+  }
+
+  function paintJobs(): void {
+    const running = jobs.running.length
+    jobCrates.forEach((crate, i) => {
+      const isRunning = i < running
+      const shown = i < Math.min(JOB_CRATE_CAP, running + jobs.pending.length)
+      crate.visible = shown
+      if (!shown) return
+      const mat = crate.material as THREE.MeshStandardMaterial
+      const hex = isRunning ? 0x3ddc84 : 0xd29922
+      mat.color.setHex(hex)
+      mat.emissive.setHex(isRunning ? hex : 0x000000)
+      mat.emissiveIntensity = isRunning ? 0.5 : 0
+    })
+    dozeDome.visible = jobs.doze
+  }
+  paintJobs()
+
+  bus.on('process:killed', ({ app }) => {
+    const next = cancelJobsFor(jobs, app)
+    if (next !== jobs) {
+      for (const j of jobs.running) if (j.app === app) jobTimers.delete(j.id)
+      jobs = next
+      paintJobs()
+    }
+  })
+
   // Dark until boot:complete while a replay is in progress; relights one stage at a time.
   let stagesSeen = 0
   let litFrac = 1 // starts fully lit — default city state is already "booted"
@@ -131,10 +227,35 @@ export function makeCityHallScenario(bus: Bus): Scenario {
 
   const panel = makePanel('system_server — the city hall of Android')
   panel.addButton('Send broadcast', () => bus.emit('broadcast:sent', { action: 'NEWS' }))
+  function enqueue(constraint: JobConstraint): void {
+    jobs = enqueueJob(jobs, 'chat', constraint)
+    paintJobs()
+    panel.setNarration(jobs.doze
+      ? `Job queued (${constraint}) — Doze is on, so it waits for the next maintenance window.`
+      : `Job queued (${constraint}) — runs as soon as the constraint is met.`)
+  }
+  panel.addButton('Enqueue job (network)', () => enqueue('network'))
+  panel.addButton('Enqueue job (charging)', () => enqueue('charging'))
+  const dozeBtn = panel.addButton('Doze on', () => {
+    jobs = setDoze(jobs, !jobs.doze)
+    dozeBtn.textContent = jobs.doze ? 'Doze off' : 'Doze on'
+    paintJobs()
+    onDozeChanged?.(jobs.doze)
+    panel.setNarration(jobs.doze
+      ? 'Doze on — radio off, jobs and alarms deferred. Nothing runs until a maintenance window opens.'
+      : 'Doze off — the device is awake; constraints alone decide when jobs run.')
+  })
+  panel.addButton('Maintenance window', () => {
+    windowMs = WINDOW_MS
+    panel.setNarration('Maintenance window open — deferred work runs now, batched with everyone else\'s.')
+  })
   panel.setNarration(DEFAULT_NARRATION)
 
   return {
     name: 'system_server',
+    jobStats() {
+      return { pending: jobs.pending.length, running: jobs.running.length, done: jobs.done, doze: jobs.doze }
+    },
     group,
     panel: panel.root,
     cameraPos: new THREE.Vector3(0, 9, 18),
@@ -146,6 +267,30 @@ export function makeCityHallScenario(bus: Bus): Scenario {
         if (wingPulse[i] > 0) { wingPulse[i] = Math.max(0, wingPulse[i] - dtMs); dirty = true }
       }
       if (dirty) paint()
+
+      // Job machinery: window countdown, dispatch, and completion.
+      if (windowMs > 0) windowMs = Math.max(0, windowMs - dtMs)
+      const dispatched = dispatchJobs(jobs, jobEnv())
+      if (dispatched !== jobs) {
+        for (const j of dispatched.running) {
+          if (!jobTimers.has(j.id)) {
+            jobTimers.set(j.id, JOB_RUN_MS)
+            onJobDispatched?.(j.app)
+          }
+        }
+        jobs = dispatched
+        paintJobs()
+      }
+      for (const [id, left] of [...jobTimers]) {
+        const next = left - dtMs
+        if (next <= 0) {
+          jobTimers.delete(id)
+          jobs = finishJob(jobs, id)
+          paintJobs()
+        } else {
+          jobTimers.set(id, next)
+        }
+      }
     },
     setIdle() {
       // visual only — no ambient behavior beyond the bus-driven boot/pulse reactions
