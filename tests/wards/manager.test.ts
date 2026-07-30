@@ -36,6 +36,9 @@ function fakeMeshes(): WardMeshes {
     threadPosts: Array.from({ length: 6 }, () => ({
       material: { color: { setHex() {} }, emissive: { setHex() {} }, emissiveIntensity: 0 },
     })),
+    nativeShop: { material: { emissive: { setHex() {} }, emissiveIntensity: 0 } },
+    jniBridge: { material: { color: { setHex() {} }, emissive: { setHex() {} }, emissiveIntensity: 0 } },
+    nativeHeap: { scale: { y: 0 }, position: { y: 0 } },
     dispose: vi.fn(),
   } as unknown as WardMeshes
 }
@@ -58,6 +61,28 @@ describe('WardManager', () => {
     deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
     expect(manager.wards()).toHaveLength(1)
     expect(manager.wards()[0]).toMatchObject({ app: 'chat', pid: 1, plot: 0 })
+  })
+
+  it('JNI calls grow the native heap, and Force GC never reclaims it', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.callNative('chat')
+    manager.callNative('chat')
+    const afterCalls = manager.wardStats().find(w => w.app === 'chat')!.nativeKb
+    expect(afterCalls).toBeGreaterThan(0)
+    manager.forceGc('chat')
+    // The whole point of the native heap: ART's GC cannot see it.
+    expect(manager.wardStats().find(w => w.app === 'chat')!.nativeKb).toBe(afterCalls)
+  })
+
+  it('a native crash reports the app so the caller can kill the process', () => {
+    const deps = makeDeps()
+    const onNativeCrash = vi.fn()
+    const manager = createWardManager({ ...deps, onNativeCrash })
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    manager.nativeCrash('chat')
+    expect(onNativeCrash).toHaveBeenCalledWith('chat')
   })
 
   it('demolishes and removes the ward on process:killed after the animation elapses', () => {

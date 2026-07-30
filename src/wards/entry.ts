@@ -21,6 +21,12 @@ export interface WardEntry {
   // matches the 3 pre-built stackCards in WardMeshes.
   backStack: number
   heap: HeapState
+  // Native (NDK) side: bytes malloc'd across the JNI bridge. Grows on native
+  // calls and is NEVER reclaimed by forceGc — ART's GC cannot see it. Only
+  // process death frees it, which is the teaching point.
+  nativeKb: number
+  // JNI-crossing afterglow (ms) so the bridge visibly lights per call.
+  jniFlashMs: number
   db: DbState
   frame: FrameRun | null
   dying: boolean
@@ -86,7 +92,10 @@ export function trimLog(s: ActivityState): ActivityState {
 }
 
 export function narrationFor(entry: WardEntry): string {
-  const base = `${entry.activity.phase} · main queue ${entry.looper.queue.length} waiting · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB`
+  // Native heap shown only once it exists — otherwise it's noise on the 90% of
+  // wards that never cross the JNI bridge.
+  const nativeSuffix = entry.nativeKb > 0 ? ` · native ${entry.nativeKb}KB (no GC)` : ''
+  const base = `${entry.activity.phase} · main queue ${entry.looper.queue.length} waiting · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB${nativeSuffix}`
   const line = entry.looper.anr ? `${base} · ANR! main thread blocked 5s+` : base
   const withRestored = entry.restored ? `Restored — saved state + ViewModel made this cheap.\n${line}` : line
   const withService = entry.serviceRunning

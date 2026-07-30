@@ -22,6 +22,11 @@ export interface CityEvents {
   'frame:submitted': { app: string; dropped: boolean }
   'frame:composited': { app: string }
   'gc:swept': { app: string; freedKb: number }
+  // NDK/JNI: a managed thread crossed into the .so (nativeKb = running total of
+  // malloc'd native bytes, which no GC will reclaim).
+  'jni:called': { app: string; nativeKb: number }
+  // SIGSEGV inside native code — the whole process dies, no onDestroy.
+  'native:crashed': { app: string }
   'anr': { app: string }
   'memory:trim': Record<string, never>
   'memory:pressure': Record<string, never>

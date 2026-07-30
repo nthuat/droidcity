@@ -6,6 +6,8 @@ export interface WardPanelActions {
   blockMainThread(app: string, ms: number): void
   rotate(app: string): void
   forceGc(app: string): void
+  callNative(app: string): void
+  nativeCrash(app: string): void
   refreshData(app: string): void
   goHome(app: string): void
   toggleService(app: string): boolean
@@ -39,6 +41,8 @@ export function buildWardPanel(
   panel.addButton('Open (singleTop)', () => actions.pushActivity(app, 'singleTop'))
   panel.addButton('Back', () => actions.popActivity(app))
   panel.addButton('Force GC', () => actions.forceGc(app))
+  panel.addButton('JNI → native', () => actions.callNative(app))
+  panel.addButton('Native crash (SIGSEGV)', () => actions.nativeCrash(app))
   panel.addButton('Refresh data', () => actions.refreshData(app))
   const serviceBtn = panel.addButton(serviceRunning ? 'Stop service' : 'Start service', () => actions.toggleService(app))
   const bindBtn = panel.addButton('Bind to —', () => actions.toggleBind(app))

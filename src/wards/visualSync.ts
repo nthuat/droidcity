@@ -293,3 +293,24 @@ export function syncFlashes(state: FlashState, anrOn: boolean, anrFlashT: number
     state.sweepMesh.visible = false
   }
 }
+
+// Native side: the JNI bridge lights while a crossing is in flight, and the
+// native-heap pile grows with malloc'd bytes. It never shrinks on GC — the
+// only thing that clears it is process death (which demolishes the ward).
+const JNI_LIT = 0x3ddc84
+const JNI_IDLE = 0x6e7681
+const NATIVE_HEAP_FULL_KB = 2000
+export function syncNative(meshes: WardMeshes, nativeKb: number, jniFlashMs: number): void {
+  const bridgeMat = meshes.jniBridge.material as THREE.MeshStandardMaterial
+  const lit = jniFlashMs > 0
+  bridgeMat.color.setHex(lit ? JNI_LIT : JNI_IDLE)
+  bridgeMat.emissive.setHex(lit ? JNI_LIT : 0x000000)
+  bridgeMat.emissiveIntensity = lit ? 0.7 : 0
+  const shopMat = meshes.nativeShop.material as THREE.MeshStandardMaterial
+  shopMat.emissive.setHex(lit ? JNI_LIT : 0x000000)
+  shopMat.emissiveIntensity = lit ? 0.35 : 0
+  // 0.1 floor keeps the pile visible (and hoverable) at zero bytes.
+  const frac = Math.min(1, nativeKb / NATIVE_HEAP_FULL_KB)
+  meshes.nativeHeap.scale.y = 0.1 + frac * 2.4
+  meshes.nativeHeap.position.y = 0.05 + (0.1 + frac * 2.4) * 0.5
+}

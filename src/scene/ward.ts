@@ -20,6 +20,9 @@ export interface WardMeshes {
   readonly workerRoad: THREE.Mesh
   readonly stackCards: readonly THREE.Mesh[]
   readonly threadPosts: readonly THREE.Mesh[]
+  readonly nativeShop: THREE.Mesh
+  readonly jniBridge: THREE.Mesh
+  readonly nativeHeap: THREE.Mesh
   dispose(): void
 }
 
@@ -311,6 +314,53 @@ export function buildWardMeshes(app: string): WardMeshes {
   cratesParent.userData.info = heapInfo
   group.add(cratesParent)
 
+  // Native side (NDK): a workshop across a JNI bridge, with its own heap pile.
+  // Separate structure on purpose — native code runs in the SAME process and
+  // address space, but outside ART: not managed, not garbage-collected.
+  const nativeGeo = new THREE.BoxGeometry(2.2, 1.4, 2.2)
+  const nativeMat = new THREE.MeshStandardMaterial({ color: 0x8d7b6b, roughness: 0.7 })
+  disposables.push(nativeGeo, nativeMat)
+  const nativeShop = new THREE.Mesh(nativeGeo, nativeMat)
+  nativeShop.name = 'nativeShop'
+  nativeShop.position.set(-6.2, 0.7, 3.2)
+  nativeShop.userData.info = {
+    title: 'Native library (.so)',
+    note: 'NDK code — C/C++ compiled per ABI, shipped in the APK\'s lib/ dir. System.loadLibrary() dlopen()s it: the pages are mmap\'d straight off the DISK into this process. Same process, same address space, but outside ART: no GC, no exceptions, no lifecycle.',
+  }
+  group.add(nativeShop)
+  const nativeLabel = makeLabel('native (.so)', 0.4)
+  nativeLabel.position.set(-6.2, 1.8, 3.2)
+  group.add(nativeLabel)
+
+  // JNI bridge: the managed <-> native boundary. Every crossing marshals
+  // arguments and pins/copies anything the native side must see.
+  const bridgeGeo = new THREE.BoxGeometry(0.7, 0.18, 3.4)
+  const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x6e7681, roughness: 0.6 })
+  disposables.push(bridgeGeo, bridgeMat)
+  const jniBridge = new THREE.Mesh(bridgeGeo, bridgeMat)
+  jniBridge.name = 'jniBridge'
+  jniBridge.position.set(-6.2, 0.5, 0.6)
+  jniBridge.userData.info = {
+    title: 'JNI bridge',
+    note: 'The managed/native boundary. Each crossing costs: arguments are marshalled, objects pinned or copied, and a JNIEnv* is needed per thread (AttachCurrentThread for native-born threads). Chatty JNI in a loop is a classic hotspot — batch across the bridge, don\'t cross per item.',
+  }
+  group.add(jniBridge)
+
+  // Native heap pile: malloc\'d bytes. Counts against the process's RAM and
+  // against the LMK's view of it, but Force GC will never shrink it.
+  const nativeHeapGeo = new THREE.BoxGeometry(1.5, 1, 1.5)
+  const nativeHeapMat = new THREE.MeshStandardMaterial({ color: 0xb08d57, roughness: 0.8 })
+  disposables.push(nativeHeapGeo, nativeHeapMat)
+  const nativeHeap = new THREE.Mesh(nativeHeapGeo, nativeHeapMat)
+  nativeHeap.name = 'nativeHeap'
+  nativeHeap.position.set(-3.6, 0.05, 3.2)
+  nativeHeap.scale.y = 0.1
+  nativeHeap.userData.info = {
+    title: 'Native heap',
+    note: 'malloc/new from native code. Real RAM in this process, visible in PSS — but ART\'s GC cannot touch it: a missed free() leaks until the process dies. Force GC frees the managed heap only.',
+  }
+  group.add(nativeHeap)
+
   // Room shed with a door plane that flashes on query.
   const shedGeo = new THREE.BoxGeometry(2, 1.5, 2)
   const shedMat = new THREE.MeshStandardMaterial({ color: 0x9aa7b0, roughness: 0.7 })
@@ -439,6 +489,9 @@ export function buildWardMeshes(app: string): WardMeshes {
     workerRoad,
     stackCards,
     threadPosts,
+    nativeShop,
+    jniBridge,
+    nativeHeap,
     dispose,
   }
 }

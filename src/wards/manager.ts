@@ -12,7 +12,7 @@ import { DEFAULT_STAGES, startFrame, advanceFrame, withHeavyDraw } from '../sim/
 import { buildWardPanel } from './panel'
 import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import {
-  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards,
+  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards, syncNative,
   setAppFloorLit, setServiceAnnexLit, setProviderSlabLit, disposeMesh, clearPool,
   syncSingleTopFlash, syncThreadPosts, sweepBarX, SHED_FLASH_MS, SCREEN_FLASH_MS, SINGLE_TOP_FLASH_MS, SWEEP_MS,
 } from './visualSync'
@@ -30,13 +30,15 @@ export interface WardManager {
   wards(): readonly WardHandles[]
   wardStats(): {
     app: string; plot: number; busy: boolean; anr: boolean; phase: Phase; backStack: number
-    heapUsedKb: number; heapCapacityKb: number; panelMessage: string
+    heapUsedKb: number; heapCapacityKb: number; nativeKb: number; panelMessage: string
   }[]
   wardGroupFor(app: string): THREE.Group | null
   wardAppFromObject(obj: THREE.Object3D): string | null
   panelFor(app: string): HTMLElement | null
   blockMainThread(app: string, ms: number): void
   forceGc(app: string): void
+  callNative(app: string): void
+  nativeCrash(app: string): void
   rotate(app: string): void
   refreshData(app: string): void
   runHeavyFrame(app: string): void
@@ -71,10 +73,14 @@ export interface WardManagerDeps {
   // proc lives on with no ward and the launcher stays 'launching' forever —
   // main.ts wires this to foundry.killApp so the whole flow unwinds.
   onSpawnDropped?: (app: string, pid: number) => void
+  // A native SIGSEGV takes the process down; main.ts wires this to
+  // foundry.killApp so the whole city unwinds exactly like an LMK kill.
+  onNativeCrash?: (app: string) => void
 }
 
 const RISE_MS = 800
 const BUSY_GLOW_MS = 400
+const JNI_FLASH_MS = 500
 const RESTORE_WINDOW_MS = 60000
 const FRAME_VISUAL_SCALE = 0.02
 const DEMOLISH_MS = 600
@@ -106,7 +112,7 @@ const TETHER_Y = 2
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
 
 export function createWardManager(deps: WardManagerDeps): WardManager {
-  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled, setAppPriority, onStartType, onSpawnDropped } = deps
+  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled, setAppPriority, onStartType, onSpawnDropped, onNativeCrash } = deps
   const buildMeshes = deps.buildMeshes ?? buildWardMeshes
   // Default mirrors pre-routes.ts behavior: a straight two-point hop between the
   // named anchors/plot slots. Real routing is wired in from main.ts via routePath.
@@ -274,6 +280,8 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       activity: createActivity(),
       backStack: 0,
       heap: createHeap(HEAP_CAPACITY_KB),
+      nativeKb: 0,
+      jniFlashMs: 0,
       db: createDb(),
       frame: null,
       dying: false,
@@ -480,8 +488,35 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.sweepMs = SWEEP_MS
     bus.emit('gc:swept', { app, freedKb: entry.heap.lastFreedKb })
     setPanelMessage(entry, entry.heap.lastFreedKb > 0
-      ? `GC — freed ${entry.heap.lastFreedKb}KB`
-      : 'GC — nothing unreachable')
+      ? `GC — freed ${entry.heap.lastFreedKb}KB (native heap ${entry.nativeKb}KB untouched)`
+      : `GC — nothing unreachable (native heap ${entry.nativeKb}KB untouched)`)
+  }
+
+  // JNI call: a managed thread crosses into the .so. Costs a main-thread
+  // message (marshalling + the native work itself) and mallocs native bytes
+  // that no GC will ever reclaim.
+  const JNI_WORK_MS = 40
+  const JNI_MALLOC_KB = 160
+  function callNative(app: string): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return
+    entry.looper = post(entry.looper, 'jniCall', JNI_WORK_MS)
+    entry.nativeKb += JNI_MALLOC_KB
+    entry.jniFlashMs = JNI_FLASH_MS
+    entry.busyGlowMs = BUSY_GLOW_MS
+    bus.emit('jni:called', { app, nativeKb: entry.nativeKb })
+    setPanelMessage(entry, `JNI → native: +${JNI_MALLOC_KB}KB native heap (${entry.nativeKb}KB total, GC can't free it)`)
+  }
+
+  // Native crash: SIGSEGV in the .so takes the whole process down — no Java
+  // exception to catch, no onDestroy, just a tombstone. Same demolition path as
+  // an LMK kill because from the city's view it IS the same: process gone.
+  function nativeCrash(app: string): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return
+    setPanelMessage(entry, 'SIGSEGV in native code — process gone, tombstone written, no onDestroy')
+    bus.emit('native:crashed', { app })
+    onNativeCrash?.(app)
   }
 
   function rotateWard(app: string): void {
@@ -745,6 +780,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.shedFlashMs = Math.max(0, entry.shedFlashMs - dtMs)
     entry.screenFlashMs = Math.max(0, entry.screenFlashMs - dtMs)
     entry.sweepMs = Math.max(0, entry.sweepMs - dtMs)
+    entry.jniFlashMs = Math.max(0, entry.jniFlashMs - dtMs)
     entry.singleTopFlashMs = Math.max(0, entry.singleTopFlashMs - dtMs)
     entry.binderPulseMs = Math.max(0, entry.binderPulseMs - dtMs)
     entry.panelMessageMs = Math.max(0, entry.panelMessageMs - dtMs)
@@ -785,6 +821,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     syncSingleTopFlash(entry.meshes, entry.backStack, entry.singleTopFlashMs)
     entry.meshes.viewModelOrb.visible = entry.activity.viewModelValue !== null
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots, entry.sweepMs > 0, sweepBarX(entry.sweepMs))
+    syncNative(entry.meshes, entry.nativeKb, entry.jniFlashMs)
     syncFlashes(entry, entry.looper.anr, entry.anrFlashT, entry.app === foregroundApp && entry.activity.phase === 'resumed')
     syncThreadPosts(entry.meshes, {
       main: entry.busyGlowMs > 0,
@@ -824,6 +861,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       return [...wards.values()].filter(e => !e.dying).map(e => ({
         app: e.app, plot: e.plot, busy: e.busyGlowMs > 0 || e.looper.current !== null, anr: e.looper.anr, phase: e.activity.phase,
         backStack: e.backStack, heapUsedKb: usedKb(e.heap), heapCapacityKb: e.heap.capacityKb,
+        nativeKb: e.nativeKb,
         panelMessage: e.panelMessageMs > 0 ? e.panelMessage : '',
       }))
     },
@@ -845,7 +883,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (!entry.panel) {
         entry.panel = buildWardPanel(
           app,
-          { blockMainThread, rotate: rotateWard, forceGc, refreshData, goHome, toggleService, pushActivity, popActivity, toggleBind },
+          { blockMainThread, rotate: rotateWard, forceGc, callNative, nativeCrash, refreshData, goHome, toggleService, pushActivity, popActivity, toggleBind },
           narrationFor(entry),
           entry.serviceRunning,
         )
@@ -854,6 +892,8 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     },
     blockMainThread,
     forceGc,
+    callNative,
+    nativeCrash,
     rotate: rotateWard,
     refreshData,
     runHeavyFrame,

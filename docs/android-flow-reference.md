@@ -184,6 +184,8 @@ The flow above is one path through the system. These are the concepts an Android
 
 **🏙 Tasks & back stack**: tasks (Recents entries), back stack of activities, `launchMode` (standard / singleTop / singleTask / singleInstance), task affinity, predictive back. Explains what "back" actually does — a stack of floors/rooms metaphor fits the tower naturally. **v4:** modeled — push/pop stack cards, Back to finish-root leaves process alive (warm), launchMode still doc-only.
 
+**🏙 NDK / JNI** *(modeled)*: native code ships as per-ABI `.so` files in the APK's `lib/` dir; `System.loadLibrary()` → `dlopen()` mmaps its pages straight off the DISK into the process. It runs in the SAME process and address space but OUTSIDE ART: no GC, no Java exceptions, no lifecycle. Every managed↔native crossing goes through the **JNI bridge** — arguments marshalled, objects pinned or copied, a `JNIEnv*` per thread (`AttachCurrentThread` for native-born threads); chatty per-item JNI in a loop is a classic hotspot, so batch across the boundary. The **native heap** (malloc/new) is real RAM counted in PSS and by the LMK, but ART's GC can never reclaim it — a missed `free()` leaks until process death. A **SIGSEGV** in native code takes the whole process down: tombstone, no catchable exception, no `onDestroy`. **In the city:** every ward has a native workshop across a JNI bridge with its own heap pile; `JNI → native` lights the bridge and grows the pile (Force GC explicitly reports it as untouched), `Native crash (SIGSEGV)` unwinds the process exactly like an LMK kill, and a `.so` page-in from DISK fires on every fork.
+
 **📖 Install & ART compilation pipeline**: APK (zip: dex, resources, native libs, manifest) → `installd` → **dex2oat**: install-time partial AOT, then **JIT** at runtime with **profile-guided AOT** re-compiles during idle-charge (baseline profiles ship those hot-path profiles with the app for fast first launches). Interpreter → JIT → AOT tiers.
 
 **📖 Compose pipeline** (the doc's render path is View-centric): Compose = declarative UI over the same lower half — **composition → layout → draw** phases per frame, driven by **snapshot state** invalidations (recomposition scopes, skipping via stable types). Below `draw` it joins the exact same RenderThread → SF path. Choreographer/vsync unchanged.
@@ -224,7 +226,7 @@ The developer.android.com platform-architecture diagram (System Apps / Java API 
 | Framework: ResourceManager | ⚠️ | One clause in Zygote preload narration |
 | Android Runtime: ART | ✅ | GC modeled in depth; CMC/JIT/AOT/baseline profiles doc-only |
 | Android Runtime: Core Libraries | ⚠️ | Implied in Zygote preload, not named |
-| Native: libc | ❌ | Absent |
+| Native: libc | ⚠️ | Native workshop + native heap model malloc/free and the .so, not libc itself |
 | Native: WebKit | ❌ | Absent |
 | Native: Media Framework | ❌ | Absent |
 | Native: OpenMAX | ❌ | Absent |

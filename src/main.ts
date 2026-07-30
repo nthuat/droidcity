@@ -418,6 +418,14 @@ bus.on('data:fetched', ({ app }) => {
 })
 // Room cache hit: plot -> DISK -> plot, a quick round-trip pair (both hops fired
 // immediately — no timers — reading as one flight there and one back).
+// System.loadLibrary at process start: the .so's pages are mmap'd off the DISK
+// into this process — a real disk read, before any of the app's code runs.
+bus.on('process:forked', ({ app }) => {
+  const g = wardManager.wardGroupFor(app)
+  if (!g) return
+  hardwareRow.diskBlink(false)
+  packets.fly([DISK_POS, g.position], { color: 0x8d7b6b, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
+})
 bus.on('data:cacheHit', ({ app }) => {
   const g = wardManager.wardGroupFor(app)
   if (!g) return

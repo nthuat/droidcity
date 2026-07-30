@@ -31,6 +31,7 @@ Every running app is its own walled **ward** — the metaphor for a sandboxed pr
 - **Render bench** — races each frame to SurfaceFlinger
 - **Heap yard** — allocations, with GC sweeps traveling through
 - **Room DB shed** — cache hits; its file lives on the DISK, reached over the storage bus
+- **Native workshop + JNI bridge** — the NDK side: a `.so` dlopen'd off the DISK, running in the same process but outside ART. Its **native heap** pile grows on every JNI call and no GC will ever reclaim it; a native SIGSEGV takes the whole process down
 
 Wards rise on launch and are demolished on kill or eviction. `oom_adj` scores and PSI pressure set the LMK kill order; the Zygote foundry stamps out the next one.
 
