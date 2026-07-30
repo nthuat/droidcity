@@ -14,6 +14,7 @@ import { makeBootRowScenario } from './scenarios/bootRow'
 import { makeHardwareRowScenario } from './scenarios/hardwareRow'
 import { makeFoundryScenario } from './scenarios/foundry'
 import { makeCityHallScenario } from './scenarios/cityHall'
+import { createReclaim, reclaimPass, resetReclaim, type ReclaimState } from './sim/reclaim'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
 import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
@@ -218,7 +219,21 @@ function updateGhosts(dtMs: number): void {
 
 const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
 const hardwareRow = makeHardwareRowScenario()
-const cityHall = makeCityHallScenario(bus)
+// Doze gates the ambient city; a dispatched job runs inside its app's process.
+const cityHall = makeCityHallScenario(bus, {
+  onDozeChanged(doze) {
+    dozeActive = doze
+    // Doze cuts the radio and defers everything: no ambient launches, no idle
+    // fetches. That IS the concept — not a cosmetic dimming.
+    launcherPlaza.setIdle(!doze && !cityManual && !storyActive)
+    networkTower.setIdle(!doze && !storyActive)
+  },
+  onJobDispatched(app) {
+    const plotKey = plotKeyFor(app)
+    if (plotKey) flyRoute(routes.path('cityhall', plotKey), 0xd29922)
+  },
+})
+let dozeActive = false
 const launcherPlaza = makeLauncherPlazaScenario(bus)
 // Subscription order matters: wardManager (constructed above) gets data:requested
 // first — the worker car must exist before a full queue's nested, synchronous
@@ -263,6 +278,21 @@ const hwWiring = attachHardwareWiring(
 // PSI-driven LMK: crossing 0.85 upward (edge-triggered, rearms below 0.7) fires
 // memory:pressure — foundry reclaims a cached process in response.
 const pressureTrigger = createEdgeTrigger(0.85, 0.7)
+// Before anything dies: kswapd compresses cold pages into zram. Only when
+// reclaim can no longer keep up does lmkd get a turn — the real ladder, which
+// the city used to skip entirely (PSI edge -> kill).
+const ZRAM_FULL_KB = 4000
+let reclaim: ReclaimState = createReclaim()
+function onPressureEdge(): void {
+  const pass = reclaimPass(reclaim, hwWiring.getPressure())
+  reclaim = pass.state
+  hardwareRow.setZram(reclaim.zramKb / ZRAM_FULL_KB)
+  hardwareRow.pulseReclaim()
+  if (!pass.exhausted) return
+  // Reclaim exhausted: now the kill.
+  bus.emit('memory:pressure', {})
+  reclaim = resetReclaim(reclaim)
+}
 function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, networkTower, surfaceFlinger, launcherPlaza)
   refreshOomTable()
@@ -271,7 +301,7 @@ function refreshHud(): void {
   // Gated while a story is open (paused implies storyActive too): an ambient
   // PSI kill mid-chapter would pre-consume a chapter's process:killed wait.
   // ch6's own explicit ctx.bus.emit('memory:pressure') is unaffected.
-  if (!storyActive && pressureTrigger(hwWiring.getPressure())) bus.emit('memory:pressure', {})
+  if (!storyActive && pressureTrigger(hwWiring.getPressure())) onPressureEdge()
   hud.setLine('hardware', hwWiring.label())
   const procList = foundry.stats().procList
   const now = Date.now()
@@ -561,7 +591,7 @@ cityModeBtn.title = 'Manual: nothing launches or dies on its own — you drive e
 cityModeBtn.addEventListener('click', () => {
   cityManual = !cityManual
   cityModeBtn.textContent = cityManual ? 'City: manual' : 'City: auto'
-  launcherPlaza.setIdle(!cityManual)
+  launcherPlaza.setIdle(!cityManual && !dozeActive)
   foundry.setIdle(!cityManual)
 })
 switcherEl.appendChild(cityModeBtn)
@@ -870,7 +900,7 @@ function stopStory(): void {
   playAllMode = false
   storyActive = false
   storyPaused = false
-  if (!cityManual) {
+  if (!cityManual && !dozeActive) {
     launcherPlaza.setIdle(true)
     foundry.setIdle(true)
   }
