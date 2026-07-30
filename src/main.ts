@@ -825,7 +825,7 @@ interface StoryMenuItem {
 
 const storyMenuItems: StoryMenuItem[] = [
   { label: '1 · Power On', chapter: makeCh1(storyCtx) },
-  { label: '2 · A Ward Is Born', chapter: makeCh2(storyCtx) },
+  { label: '2 · A Process Is Born', chapter: makeCh2(storyCtx) },
   { label: '3 · Getting Data', chapter: makeCh3(storyCtx) },
   { label: '4 · The 16ms Race', chapter: makeCh4(storyCtx) },
   { label: '5 · Coming Back', chapter: makeCh5(storyCtx) },

@@ -57,7 +57,7 @@ Wards rise on launch and are demolished on kill or eviction. `oom_adj` scores an
 A guided tour through seven chapters:
 
 1. **Power On** — the boot sequence
-2. **A Ward Is Born** — tap → Intent → fork → first frame
+2. **A Process Is Born** — tap → Intent → fork → first frame (the new process rises as its own walled ward)
 3. **Getting Data** — cache-then-network, stale-while-revalidate
 4. **The 16ms Race** — frame pipeline, jank, ANR
 5. **Coming Back** — cold/warm/hot starts, services, LMK survival

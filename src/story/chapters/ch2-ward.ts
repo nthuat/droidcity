@@ -4,7 +4,7 @@ import type { StoryCtx } from './ctx'
 export function makeCh2(ctx: StoryCtx): Chapter {
   return {
     id: 'ch2',
-    title: 'A Ward Is Born',
+    title: 'A Process Is Born',
     setup: () => { ctx.setCityDim(false); ctx.launcher.resetApps(); ctx.killApp('chat') },
     steps: [
       {
