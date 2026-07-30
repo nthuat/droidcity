@@ -21,7 +21,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
 } {
   const group = new THREE.Group()
   group.userData.info = {
-    title: 'Zygote Foundry',
+    title: 'Zygote',
     note: 'Warm process template — apps fork from here, not from scratch.',
   }
   let state: SystemState = createSystem(CAPACITY_MB)
@@ -61,7 +61,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
       const kit = new THREE.Mesh(kitGeo, kitMat)
       kit.position.set(colX, 0.8, 3 + row * 5) // local z 3/8 = world -32/-27 — stays on the core band (plate ends at -25)
       kit.userData.info = {
-        title: 'Ward blanks',
+        title: 'Preloaded process templates',
         note: 'Pre-warmed process templates — what a Zygote fork stamps into a live ward. Copy-on-write: each blank shares the framework pages until written.',
       }
       group.add(kit)
@@ -95,7 +95,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     return state.procs.map(p => `${p.name}(${p.priority})`).join(', ')
   }
 
-  const panel = makePanel('Zygote — the foundry — every app forks from here')
+  const panel = makePanel('Zygote — the foundry every app forks from')
   panel.setNarration(DEFAULT_NARRATION)
 
   // Forking one hop per frame (instead of synchronously in the event handler) keeps

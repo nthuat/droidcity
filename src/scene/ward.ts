@@ -64,7 +64,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   // Group-level fallback: covers untagged children (labels/sprites, shedGlow).
   // The inspector's wall-yield logic keys on mesh name 'wardWall', and the wall
   // carries its own info — this fallback never masks either.
-  group.userData.info = { title: 'App ward', note: 'One app, one process, one sandbox.' }
+  group.userData.info = { title: 'App process', note: 'One app, one process, one sandbox — a "ward" in the city metaphor: its own walls, memory, and main road.' }
 
   // ContentProvider slab: plinth ring under the Application floor. Providers are
   // instantiated before Application.onCreate — the classic hidden startup tax —

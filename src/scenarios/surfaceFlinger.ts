@@ -46,7 +46,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
 } {
   const group = new THREE.Group()
   group.userData.info = {
-    title: 'SurfaceFlinger district',
+    title: 'SurfaceFlinger',
     note: 'Frames queue here as buffers before compositing.',
   }
   let totalComposited = 0
@@ -56,7 +56,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   compositor.position.y = 0.3
   compositor.userData.info = {
     title: 'SurfaceFlinger',
-    note: 'One compositor for every ward; tiles = apps on screen. Frames arrive through BufferQueues — triple buffering absorbs hiccups. Real SF latches at every vsync (60/s while anything animates); here frames are event-driven, so the counter only ticks when an app actually draws.',
+    note: 'One compositor for every app process; tiles = apps on screen. Frames arrive through BufferQueues — triple buffering absorbs hiccups. Real SF latches at every vsync (60/s while anything animates); here frames are event-driven, so the counter only ticks when an app actually draws.',
   }
   group.add(compositor)
 

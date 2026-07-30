@@ -51,7 +51,7 @@ const PLATE_INFO: Record<string, InspectorInfo> = {
   wards: { title: 'App process band', note: 'Four plots, one sandboxed app process each — a "ward" in the city metaphor: own walls, own memory, own main road.' },
   boot: { title: 'Boot strip', note: 'Recessed on purpose — bootloader/kernel/init run before userspace exists.' },
   hardware: { title: 'Hardware strip', note: 'The silicon. Framework never touches it directly — HALs and drivers sit between.' },
-  foundry: { title: 'Foundry plate', note: 'Zygote district — process factory floor.' },
+  foundry: { title: 'Zygote plate', note: 'Where every process is forked from the warm template — the city\'s foundry floor.' },
   cityhall: { title: 'system_server plate', note: 'The core-process band — system_server (the city\'s "city hall") lives beside the foundry that cast it; every Binder road ends here.' },
   surfaceflinger: { title: 'Compositor plate', note: 'SurfaceFlinger district — every frame\'s last stop before glass.' },
   network: { title: 'Network plate', note: 'Radio edge district — every fetch leaves the board from here.' },

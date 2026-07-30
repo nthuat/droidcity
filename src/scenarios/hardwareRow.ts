@@ -77,7 +77,7 @@ function buildCpu(group: THREE.Group): Slot[] {
     new THREE.MeshStandardMaterial({ color: HOUSING_COLOR, roughness: 0.6 }),
   )
   housing.position.set(CPU_X, PLATE_TOP + 1, 0)
-  housing.userData.info = { title: 'CPU', note: 'Cores that run every ward’s main thread — red means stuck. Framework never touches this directly — calls go through HALs and kernel drivers.' }
+  housing.userData.info = { title: 'CPU', note: 'Cores that run every app process’s main thread — red means stuck. Framework never touches this directly — calls go through HALs and kernel drivers.' }
   group.add(housing)
 
   const slotTop = PLATE_TOP + 2 + 0.2
@@ -294,7 +294,7 @@ export function makeHardwareRowScenario(): Scenario & {
             title: `Core — running ${s.app}`,
             note: s.stuck ? 'Main thread blocked >5s — ANR territory.' : 'Executing this ward\'s main-thread messages.',
           }
-        : { title: 'Core — idle', note: 'No ward is executing right now.' }
+        : { title: 'Core — idle', note: 'No app process is executing right now.' }
     }
     if (s.stuck) {
       mat.color.setHex(CORE_STUCK)
