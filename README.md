@@ -2,9 +2,9 @@
 
 **How Android runs, as an explorable 3D city.** Live at **[thuat.dev/droidcity](https://thuat.dev/droidcity/)** · inspired by [PGSimCity](https://nikolays.github.io/PGSimCity/).
 
-[![DroidCity — four app wards running, the phone screen at the front edge](docs/overview.jpg)](https://thuat.dev/droidcity/)
+[![DroidCity — the board as the Android stack, with the phone screen at the front edge](docs/overview.jpg)](https://thuat.dev/droidcity/)
 
-*Four apps running: each is a walled ward on the app band, every Binder road hops one band down to City Hall, and the phone at the front shows the foreground app — with the live `oom_adj` kill order bottom-right.*
+*Two apps running. Read the board back to front: the hardware strip and boot row across the top, the core-process band (Zygote · system_server · SurfaceFlinger) below them, app processes on the next band down, the installed-package shelves and SystemUI off to the west, the radio edge east — and the phone itself at the front, mid permission dialog. Bottom-right is the live `oom_adj` kill order.*
 
 One machine board, laid out as the Android stack itself — read it north to south: hardware → kernel/boot → core processes → app wards → the glass. Every running app rises as its own walled ward, and the display at the front edge is a working phone screen. Everything is live: hover any structure for what it teaches, tap an icon on the glass and follow the launch across the board.
 
