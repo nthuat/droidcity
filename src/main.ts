@@ -55,15 +55,17 @@ export const PLOT_ANCHORS: THREE.Vector3[] = [
   new THREE.Vector3(33.75, 0.3, -10),
 ]
 
-// One offset per entry in `scenarios` below, same order.
+// One offset per entry in `scenarios` below, same order. Both arrays follow the
+// board's own north->south stack order (hardware -> kernel -> core processes ->
+// radio edge -> the glass) so the switcher row reads like the layout.
 const SCENARIO_OFFSETS: THREE.Vector3[] = [
-  ANCHORS.boot, // bootRow
   ANCHORS.hardware, // hardwareRow
+  ANCHORS.boot, // bootRow
   ANCHORS.zygote, // foundry
   ANCHORS.cityhall, // cityHall
-  ANCHORS.launcher, // launcherPlaza
-  ANCHORS.network, // networkTower
   ANCHORS.surfaceflinger, // surfaceFlinger
+  ANCHORS.network, // networkTower
+  ANCHORS.launcher, // launcherPlaza (the glass)
 ]
 
 const OVERVIEW_POS = new THREE.Vector3(0, 85, 105)
@@ -256,13 +258,13 @@ bus.on('boot:stageDone', ({ stage }) => {
 })
 
 const scenarios: Scenario[] = [
-  bootRow,
   hardwareRow,
+  bootRow,
   foundry,
   cityHall,
-  launcherPlaza,
-  networkTower,
   surfaceFlinger,
+  networkTower,
+  launcherPlaza,
 ]
 
 attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)

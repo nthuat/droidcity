@@ -63,7 +63,7 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   panel.setNarration(DEFAULT_NARRATION)
 
   return {
-    name: 'Launcher',
+    name: 'Display',
     group,
     panel: panel.root,
     cameraPos: new THREE.Vector3(0, 8, 16),
