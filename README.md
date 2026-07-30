@@ -31,6 +31,7 @@ Every running app is its own walled **ward** — the metaphor for a sandboxed pr
 - **Render bench** — races each frame to SurfaceFlinger
 - **Heap yard** — allocations, with GC sweeps traveling through
 - **Room DB shed** — cache hits; its file lives on the DISK, reached over the storage bus
+- **Service annex** promotion — a running Service can go **foreground**: it posts an ongoing notification you can't swipe away, takes `oom_adj` 200 so it outranks cached wards, and its ANR timer tightens to 20s
 - **Native workshop + JNI bridge** — the NDK side: a `.so` dlopen'd off the DISK, running in the same process but outside ART. Its **native heap** pile grows on every JNI call and no GC will ever reclaim it; a native SIGSEGV takes the whole process down
 
 Wards rise on launch and are demolished on kill or eviction. `oom_adj` scores and PSI pressure set the LMK kill order; the Zygote foundry stamps out the next one.
@@ -44,6 +45,12 @@ Wards rise on launch and are demolished on kill or eviction. `oom_adj` scores an
 - **▢ Recents** shows one task card per live process; tap one to hot-start it.
 - **Notifications** — a background fetch posts one: a dot on the status bar, a row in the shade, and tapping it fires the PendingIntent. It outlives the process, so a killed app cold-starts from its own notification.
 - **Runtime permissions** — the camera's first launch raises a system dialog the app can neither draw nor auto-accept; Allow/Deny is recorded by PackageManager.
+
+## Background work, and the memory ladder
+
+- **JobScheduler depot** in system_server — WorkManager enqueues; the system decides when. Jobs wait on constraints (network, charging, idle) as amber crates, then light green when dispatched to their app. Killing a process takes its jobs with it.
+- **Doze** — a dome over the whole board: the radio goes quiet, ambient launches stop, and nothing deferred runs until you open a **maintenance window**. That's the concept, not a tint.
+- **Reclaim before the kill** — memory pressure no longer jumps straight to a death. Each PSI edge runs a kswapd pass that compresses cold pages into the **zram** block (with diminishing returns); only when reclaim can't keep up does lmkd pick a victim off the `oom_adj` ladder.
 
 ## Story mode
 
