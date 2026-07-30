@@ -113,7 +113,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | **init forks Zygote; system_server forked FROM Zygote** | ch1: init "warms the foundry"; system_server "the foundry's first casting" | ✅ (fixed) |
 | servicemanager / Binder name service | City Hall tooltip | ✅ (v4, note-level) |
 | SurfaceFlinger starts at init stage | SF district un-dims at init stage during boot replay | ✅ (fixed) |
-| PMS APK scan at boot | — | ❌ minor |
+| PMS APK scan at boot | Packages layer + its road to system_server (scan at boot, match on every tap) | ✅ |
 | BOOT_COMPLETED broadcast | broadcast fan-out fires on boot:complete (v3) | ✅ |
 | HALs / drivers | Hardware row (CPU/RAM/DISK) | ⚠️ radio HAL missing; network tower implies it |
 
@@ -186,7 +186,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 **🏙 NDK / JNI** *(modeled)*: native code ships as per-ABI `.so` files in the APK's `lib/` dir; `System.loadLibrary()` → `dlopen()` mmaps its pages straight off the DISK into the process. It runs in the SAME process and address space but OUTSIDE ART: no GC, no Java exceptions, no lifecycle. Every managed↔native crossing goes through the **JNI bridge** — arguments marshalled, objects pinned or copied, a `JNIEnv*` per thread (`AttachCurrentThread` for native-born threads); chatty per-item JNI in a loop is a classic hotspot, so batch across the boundary. The **native heap** (malloc/new) is real RAM counted in PSS and by the LMK, but ART's GC can never reclaim it — a missed `free()` leaks until process death. A **SIGSEGV** in native code takes the whole process down: tombstone, no catchable exception, no `onDestroy`. **In the city:** every ward has a native workshop across a JNI bridge with its own heap pile; `JNI → native` lights the bridge and grows the pile (Force GC explicitly reports it as untouched), `Native crash (SIGSEGV)` unwinds the process exactly like an LMK kill, and a `.so` page-in from DISK fires on every fork.
 
-**📖 Install & ART compilation pipeline**: APK (zip: dex, resources, native libs, manifest) → `installd` → **dex2oat**: install-time partial AOT, then **JIT** at runtime with **profile-guided AOT** re-compiles during idle-charge (baseline profiles ship those hot-path profiles with the app for fast first launches). Interpreter → JIT → AOT tiers.
+**🏙 Install & ART compilation pipeline** *(modeled)*: APK (zip: dex, resources, native libs, manifest) → `installd` → **dex2oat**: install-time partial AOT, then **JIT** at runtime with **profile-guided AOT** re-compiles during idle-charge (baseline profiles ship those hot-path profiles with the app for fast first launches). Interpreter → JIT → AOT tiers. **In the city:** a Packages layer on the west board — one shelf per installed APK (contents named in its tooltip), a dex2oat block for the compile tiers, and a road to system_server: every tap lights the matching package as PMS resolves the Intent, and the fork mmaps its code.
 
 **📖 Compose pipeline** (the doc's render path is View-centric): Compose = declarative UI over the same lower half — **composition → layout → draw** phases per frame, driven by **snapshot state** invalidations (recomposition scopes, skipping via stable types). Below `draw` it joins the exact same RenderThread → SF path. Choreographer/vsync unchanged.
 

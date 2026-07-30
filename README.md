@@ -16,6 +16,7 @@ One machine board, laid out as the Android stack itself — read it north to sou
 | **Boot Row** | bootloader → kernel → init → system_server |
 | **Core processes** | **Zygote** (the foundry) forks every process · **system_server** (the city hall) — cast next door and residing next door: ActivityManager approves launches and writes `oom_adj`, WindowManager owns the starting window, PackageManager resolves Intents · **SurfaceFlinger** — every frame's last stop before glass |
 | **App processes** | One ward per running app, sitting directly on top of the framework band — so every Binder road is a short hop down to system_server |
+| **Packages** (west board) | `/data/app` — one shelf per installed APK (dex · resources · `lib/<abi>` · manifest) and **dex2oat**: install-time AOT, JIT at runtime, profile-guided recompiles while idle-charging. Its road carries PMS's Intent resolution |
 | **Network Tower** (radio edge) | DNS → connect → TLS → TTFB → download, retries with backoff, pooled connections skip the handshakes |
 | **The Glass** (front) | The phone screen, plus **SystemUI** (its own process: status bar, nav bar, shade, Recents). The launcher has no building of its own — its body *is* the icon grid on that screen. Every tap runs the **input path** north to InputDispatcher in system_server |
 

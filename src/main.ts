@@ -14,6 +14,7 @@ import { makeBootRowScenario } from './scenarios/bootRow'
 import { makeHardwareRowScenario } from './scenarios/hardwareRow'
 import { makeFoundryScenario } from './scenarios/foundry'
 import { makeCityHallScenario } from './scenarios/cityHall'
+import { makePackageStoreScenario } from './scenarios/packageStore'
 import { createReclaim, reclaimPass, resetReclaim, type ReclaimState } from './sim/reclaim'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
@@ -41,6 +42,7 @@ export const ANCHORS: Record<string, THREE.Vector3> = {
   network: new THREE.Vector3(65, 0, 17),
   launcher: new THREE.Vector3(0, 0, 48.5),
   displaywall: new THREE.Vector3(0, 0, 58),
+  packages: new THREE.Vector3(-58, 0, 22),
 }
 
 const WARDS_ANCHOR = new THREE.Vector3(0, 5, -10)
@@ -63,6 +65,7 @@ const SCENARIO_OFFSETS: THREE.Vector3[] = [
   ANCHORS.boot, // bootRow
   ANCHORS.zygote, // foundry
   ANCHORS.cityhall, // cityHall
+  ANCHORS.packages, // packageStore
   ANCHORS.surfaceflinger, // surfaceFlinger
   ANCHORS.network, // networkTower
   ANCHORS.launcher, // launcherPlaza (the glass)
@@ -252,6 +255,7 @@ const launcherPlaza = makeLauncherPlazaScenario(bus)
 // data:dropped tries to remove it.
 const networkTower = makeNetworkTowerScenario(bus)
 const surfaceFlinger = makeSurfaceFlingerScenario(bus)
+const packageStore = makePackageStoreScenario(bus)
 bus.on('boot:complete', () => setCityDim(false))
 // bootRow's update() only emits boot:complete from its replaying branch (see
 // bootRow.ts) — the pre-booted first-load state never calls update() with
@@ -271,6 +275,7 @@ const scenarios: Scenario[] = [
   bootRow,
   foundry,
   cityHall,
+  packageStore,
   surfaceFlinger,
   networkTower,
   launcherPlaza,
@@ -352,6 +357,8 @@ function flyRoute(path: THREE.Vector3[], color: number): void {
 // (same pattern WardManager uses for ward->cityhall->launcher) so it reads as
 // one continuous packet, not two independent flights.
 bus.on('app:launchRequested', () => {
+  // PMS resolves the Intent against the package database before anything forks.
+  flyRoute(routes.path('packages', 'cityhall'), 0xd29922)
   const toCityhall = routes.path('launcher', 'cityhall')
   const toZygote = routes.path('cityhall', 'zygote')
   flyRoute([...toCityhall, ...toZygote.slice(1)], 0x3fb950)

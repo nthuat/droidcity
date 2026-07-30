@@ -147,6 +147,19 @@ const ROUTES: RouteDef[] = [
     ],
     draw: [v(x, 0, 14), v(x, 0, 7), v(x, PLATE_Y, 5), v(x, PLATE_Y, PLOT_Z)],
   })),
+  // /data/app -> PMS: manifests are scanned at boot and matched on every tap.
+  // Steps up onto the app band at the z 5 seam, then runs north to the hall.
+  {
+    from: 'packages', to: 'cityhall',
+    waypoints: [
+      ANCHORS.packages, v(-58, 0, 10), v(-58, 0, 7), v(-58, PLATE_Y, 5),
+      v(-58, PLATE_Y, -30), v(-24, PLATE_Y, -30), ANCHORS.cityhall,
+    ],
+    info: {
+      title: 'Package database road',
+      note: 'PackageManager scans every installed manifest at boot and keeps the result. Your tap is matched against those intent-filters here — then the fork mmaps the winning package\'s dex and native libs into the new process.',
+    },
+  },
   // The input path — the leg every tap actually takes, and the reason apps can
   // never read the touchscreen themselves. Runs up the x=0 gap between the two
   // middle ward plots (which span x -20.25..-2.25 and 2.25..20.25).
