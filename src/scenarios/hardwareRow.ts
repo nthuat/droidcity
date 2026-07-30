@@ -211,6 +211,32 @@ function buildRadio(group: THREE.Group): THREE.MeshStandardMaterial {
   return tipMat
 }
 
+// zram: a compressed swap area inside RAM. Under pressure kswapd compresses
+// cold pages here INSTEAD of killing — slower memory beats a dead process.
+// x 20 sits between PSI (14) and DISK (30), clear of both.
+const ZRAM_X = 20
+const ZRAM_MAX_H = 3.2
+function buildZram(group: THREE.Group): { shell: THREE.Mesh; fill: THREE.Mesh; mat: THREE.MeshStandardMaterial } {
+  const zramGroup = new THREE.Group()
+  zramGroup.userData.info = {
+    title: 'zram — compressed swap in RAM',
+    note: 'kswapd\'s first answer to memory pressure: compress cold anonymous pages into this area instead of killing anything. Costs CPU on every touch, but the process lives. lmkd only gets a turn once reclaim can no longer keep up.',
+  }
+  group.add(zramGroup)
+  const shell = new THREE.Mesh(
+    new THREE.BoxGeometry(2.6, ZRAM_MAX_H, 1.6),
+    new THREE.MeshStandardMaterial({ color: 0x5a636e, roughness: 0.7, transparent: true, opacity: 0.5 }),
+  )
+  shell.position.set(ZRAM_X, PLATE_TOP + ZRAM_MAX_H / 2, 0)
+  zramGroup.add(shell)
+  const mat = new THREE.MeshStandardMaterial({ color: 0x6ea8d8, emissive: 0x6ea8d8, emissiveIntensity: 0.15, roughness: 0.5 })
+  const fill = new THREE.Mesh(new THREE.BoxGeometry(2.2, ZRAM_MAX_H, 1.2), mat)
+  fill.scale.y = 0.02
+  fill.position.set(ZRAM_X, PLATE_TOP + ZRAM_MAX_H * 0.01, 0)
+  zramGroup.add(fill)
+  return { shell, fill, mat }
+}
+
 function buildPsi(group: THREE.Group): { bar: THREE.Mesh; mat: THREE.MeshStandardMaterial } {
   const mat = new THREE.MeshStandardMaterial({
     color: PSI_GREEN, emissive: PSI_GREEN, emissiveIntensity: 0.5, roughness: 0.5,
@@ -225,7 +251,7 @@ function buildPsi(group: THREE.Group): { bar: THREE.Mesh; mat: THREE.MeshStandar
   return { bar, mat }
 }
 
-const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each ward’s main thread, RAM segments (center) fill as processes are spawned, the disk (east) blinks on every Room read/write, and the radio mast (far east) turns the network district’s pipeline into RF — the silicon underneath everything else in the city.'
+const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each ward’s main thread, RAM segments (center) fill as processes are spawned, the disk (east) blinks on every Room read/write, zram compresses cold pages before anything is killed, and the radio mast (far east) turns the network district’s pipeline into RF — the silicon underneath everything else in the city.'
 
 export function makeHardwareRowScenario(): Scenario & {
   setCoreStates(s: CoreState[]): void
@@ -234,6 +260,8 @@ export function makeHardwareRowScenario(): Scenario & {
   diskBlink(write: boolean): void
   radioBlink(): void
   setPressure(frac: number): void
+  setZram(frac: number): void
+  pulseReclaim(): void
 } {
   const group = new THREE.Group()
 
@@ -242,6 +270,8 @@ export function makeHardwareRowScenario(): Scenario & {
   const diskLedMat = buildDisk(group)
   const radioTipMat = buildRadio(group)
   const { bar: psiBar, mat: psiMat } = buildPsi(group)
+  const { fill: zramFill, mat: zramMat } = buildZram(group)
+  let zramPulseT = 0
 
   let coreStates: CoreState[] = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
   // paintCore runs per-frame via syncCores — only rebuild the userData.info
@@ -339,6 +369,16 @@ export function makeHardwareRowScenario(): Scenario & {
       radioT = RADIO_DECAY_MS
       paintRadio()
     },
+    setZram(frac) {
+      const clamped = THREE.MathUtils.clamp(frac, 0, 1)
+      const h = Math.max(0.02, clamped) * ZRAM_MAX_H
+      zramFill.scale.y = h / ZRAM_MAX_H
+      zramFill.position.y = PLATE_TOP + h / 2
+    },
+    pulseReclaim() {
+      zramPulseT = 500
+      zramMat.emissiveIntensity = 0.9
+    },
     setPressure(frac) {
       const clamped = THREE.MathUtils.clamp(frac, 0, 1)
       const h = PSI_BASE_H + clamped * PSI_MAX_H
@@ -363,6 +403,10 @@ export function makeHardwareRowScenario(): Scenario & {
       if (radioT > 0) {
         radioT = Math.max(0, radioT - dtMs)
         paintRadio()
+      }
+      if (zramPulseT > 0) {
+        zramPulseT = Math.max(0, zramPulseT - dtMs)
+        zramMat.emissiveIntensity = 0.15 + (zramPulseT / 500) * 0.75
       }
       ramSlots.forEach((slot) => {
         if (slot.pulseT <= 0) return
