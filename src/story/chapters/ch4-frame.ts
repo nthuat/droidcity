@@ -33,9 +33,9 @@ export function makeCh4(ctx: StoryCtx): Chapter {
         focus: 'ward:chat',
         fire: () => ctx.wards.blockMainThread('chat', 8000),
         waitFor: { event: 'anr', app: 'chat' },
-        // ANR_MS is 5000 SIM ms; story mode runs the sim at 0.35x, so the
-        // watchdog needs ~14s of wall time plus slack before it gives up.
-        timeoutMs: 22000,
+        // ANR_MS is 5000 SIM ms and story mode runs the sim at 0.35x: ~14s of
+        // wall time on a 60fps machine, and 2-3x that on a software renderer.
+        timeoutMs: 60000,
       },
       {
         narration: 'That\'s the whole machine: boot, fork, ward, data, frames — and when memory runs out, a ward is demolished and the foundry stands ready to stamp a new one. The city breathes.',

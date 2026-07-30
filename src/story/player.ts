@@ -74,7 +74,12 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
   // An event that never arrives used to hang the chapter forever — the only way
   // out was Escape. Any wait longer than this force-advances so the tour always
   // finishes; the warning is the signal that a step's event wiring broke.
-  const EVENT_WAIT_TIMEOUT_MS = 12000
+  //
+  // Generous on purpose: story beats are driven by SIM time (and story mode runs
+  // the sim at 0.35x), so on a slow renderer the same beat takes several times
+  // longer in wall-clock. This budget must exceed the slowest honest beat on a
+  // software-rendered machine, or the watchdog cries wolf.
+  const EVENT_WAIT_TIMEOUT_MS = 25000
 
   // Peek-only: is the current step's wait satisfiable right now? Never mutates
   // consumed counts — safe to call repeatedly across ticks.
