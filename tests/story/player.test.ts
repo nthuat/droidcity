@@ -81,6 +81,23 @@ describe('storyPlayer', () => {
     expect(stuck[0][2]).toBe('boot:complete')
   })
 
+  it('respects a per-step watchdog budget', () => {
+    const bus = createBus()
+    const stuck: string[] = []
+    const p = createPlayer(bus, {
+      onStep: () => {},
+      onChapterDone: () => {},
+      onStuckStep: (_id, _i, ev) => stuck.push(ev),
+    })
+    p.play(chapter([
+      { narration: 'a', focus: 'boot', waitFor: { event: 'anr' }, timeoutMs: 20000 },
+    ]))
+    for (let i = 0; i < 15; i++) p.update(1000) // 15s — past the default, inside this step's budget
+    expect(stuck).toEqual([])
+    for (let i = 0; i < 6; i++) p.update(1000)
+    expect(stuck).toEqual(['anr'])
+  })
+
   it('next force-advances; stop halts; restartChapter replays from step 0', () => {
     const bus = createBus()
     const onStep = vi.fn()

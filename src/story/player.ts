@@ -10,6 +10,10 @@ export interface Step {
   // 'chat'. Omit `app` for events with no per-app payload (boot:*) or where
   // only one app can be in flight.
   readonly waitFor: { event: CityEventName; app?: string } | { ms: number }
+  // Watchdog budget for THIS step's event wait, when the beat is legitimately
+  // slower than the default (e.g. the ANR step: 5s of blocked looper at story
+  // slow-mo is ~14s of wall time). Omit for normal steps.
+  readonly timeoutMs?: number
 }
 
 export interface Chapter {
@@ -103,7 +107,7 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
       return
     }
     // Watchdog: a stuck event wait advances anyway rather than dead-ending.
-    if (isEventWait(step.waitFor) && state.waitElapsed >= EVENT_WAIT_TIMEOUT_MS) {
+    if (isEventWait(step.waitFor) && state.waitElapsed >= (step.timeoutMs ?? EVENT_WAIT_TIMEOUT_MS)) {
       cbs.onStuckStep?.(state.chapter.id, state.index, step.waitFor.event)
       advance()
     }
