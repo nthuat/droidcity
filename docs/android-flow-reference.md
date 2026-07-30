@@ -204,7 +204,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 **📖 IPC menu beyond Binder**: ContentProvider (structured data), Messenger (Binder-wrapped Handler), shared memory (`ashmem`/`SharedMemory` for big blobs — how providers pass cursors), Unix sockets (Zygote's own command channel is one).
 
-**Background Half shipped: JobScheduler depot + Doze + maintenance windows, kswapd/zram reclaim ahead of every LMK kill, foreground services with their ongoing notification. v4 shipped:** Binder mechanics beats, ANR ladder, tasks & back stack. **v5 (gap sweep) shipped:** ContentProvider init beat, worker→main post-back rule, launchMode singleTop, bound-service tether with visibility inheritance, RAM fill tanks, CPU afterglow, single-foreground display. Remaining doc-only: the 📖 set below plus multi-window, Compose recomposition, predictive back, JobScheduler/Doze.
+**Chapter 7 ("While You Sleep") narrates the background half in the guided tour. Background Half shipped: JobScheduler depot + Doze + maintenance windows, kswapd/zram reclaim ahead of every LMK kill, foreground services with their ongoing notification. v4 shipped:** Binder mechanics beats, ANR ladder, tasks & back stack. **v5 (gap sweep) shipped:** ContentProvider init beat, worker→main post-back rule, launchMode singleTop, bound-service tether with visibility inheritance, RAM fill tanks, CPU afterglow, single-foreground display. Remaining doc-only: the 📖 set below plus multi-window, Compose recomposition, predictive back, JobScheduler/Doze.
 
 ---
 

@@ -54,7 +54,7 @@ Wards rise on launch and are demolished on kill or eviction. `oom_adj` scores an
 
 ## Story mode
 
-A guided tour through six chapters:
+A guided tour through seven chapters:
 
 1. **Power On** — the boot sequence
 2. **A Ward Is Born** — tap → Intent → fork → first frame
@@ -62,8 +62,9 @@ A guided tour through six chapters:
 4. **The 16ms Race** — frame pipeline, jank, ANR
 5. **Coming Back** — cold/warm/hot starts, services, LMK survival
 6. **The Metal** — cores, RAM, disk, PSI pressure → lmkd
+7. **While You Sleep** — deferred jobs, Doze and maintenance windows, background notifications, foreground services, and reclaim-before-the-kill
 
-Play chapters individually from the Story menu, or **Play all** to chain all six with narration. The whole city runs in slow motion so the action matches the words.
+Play chapters individually from the Story menu, or **Play all** to chain all seven with narration. The whole city runs in slow motion so the action matches the words.
 
 ## City controls
 

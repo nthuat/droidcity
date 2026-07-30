@@ -34,6 +34,10 @@ export interface CityHallHooks {
 export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scenario & {
   jobStats(): { pending: number; running: number; done: number; doze: boolean }
   clearDoze(): void
+  // Story hooks (ch7): drive the queue and Doze from a chapter script.
+  enqueue(constraint: JobConstraint): void
+  setDoze(on: boolean): void
+  openWindow(): void
 } {
   const { onDozeChanged, onJobDispatched } = hooks
   const group = new THREE.Group()
@@ -259,8 +263,18 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
     jobStats() {
       return { pending: jobs.pending.length, running: jobs.running.length, done: jobs.done, doze: jobs.doze }
     },
+    enqueue(constraint) { enqueue(constraint) },
+    setDoze(on) {
+      if (jobs.doze === on) return
+      jobs = setDoze(jobs, on)
+      dozeBtn.textContent = on ? 'Doze off' : 'Doze on'
+      paintJobs()
+      onDozeChanged?.(on)
+    },
+    openWindow() { windowMs = WINDOW_MS },
     // A story is a scripted tour of an awake device — leaving Doze on would
-    // contradict chapters that fetch data and launch apps.
+    // contradict chapters that fetch data and launch apps. ch7 turns it on
+    // deliberately mid-chapter, which is fine: this only clears it at start.
     clearDoze() {
       if (!jobs.doze) return
       jobs = setDoze(jobs, false)

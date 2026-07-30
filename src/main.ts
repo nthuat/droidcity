@@ -30,6 +30,7 @@ import { makeCh3 } from './story/chapters/ch3-data'
 import { makeCh4 } from './story/chapters/ch4-frame'
 import { makeCh5 } from './story/chapters/ch5-back'
 import { makeCh6 } from './story/chapters/ch6-metal'
+import { makeCh7 } from './story/chapters/ch7-background'
 
 export const ANCHORS: Record<string, THREE.Vector3> = {
   boot: new THREE.Vector3(0, 0, -52),
@@ -807,6 +808,14 @@ const storyCtx: StoryCtx = {
   killApp: foundry.killApp,
   resetCity() { for (const p of foundry.stats().procList) foundry.killApp(p.name) },
   injectTap,
+  jobs: {
+    enqueue: (c) => cityHall.enqueue(c),
+    setDoze: (on) => cityHall.setDoze(on),
+    openWindow: () => cityHall.openWindow(),
+  },
+  // ch7 needs the pressure edge on demand: run the ladder directly rather than
+  // waiting for ambient RAM growth to cross the PSI threshold.
+  squeezeMemory: () => onPressureEdge(),
 }
 
 interface StoryMenuItem {
@@ -821,6 +830,7 @@ const storyMenuItems: StoryMenuItem[] = [
   { label: '4 · The 16ms Race', chapter: makeCh4(storyCtx) },
   { label: '5 · Coming Back', chapter: makeCh5(storyCtx) },
   { label: '6 · The Metal', chapter: makeCh6(storyCtx) },
+  { label: '7 · While You Sleep', chapter: makeCh7(storyCtx) },
 ]
 
 function focusCamera(focus: string): void {
