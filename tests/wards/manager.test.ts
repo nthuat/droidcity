@@ -76,6 +76,18 @@ describe('WardManager', () => {
     expect(manager.wardStats().find(w => w.app === 'chat')!.nativeKb).toBe(afterCalls)
   })
 
+  it('emits anr when the main thread stays blocked past the 5s threshold', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    const anrs: string[] = []
+    deps.bus.on('anr', ({ app }) => anrs.push(app))
+    manager.blockMainThread('chat', 8000)
+    // 6s of sim time in 100ms ticks — past ANR_MS (5000), short of the 8s message.
+    for (let i = 0; i < 60; i++) manager.update(100)
+    expect(anrs).toEqual(['chat'])
+  })
+
   it('refuses to promote a service that is not running', () => {
     const deps = makeDeps()
     const manager = createWardManager(deps)

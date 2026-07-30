@@ -1014,6 +1014,17 @@ const debugEl = new URLSearchParams(location.search).has('debug')
   : null
 let frameCount = 0
 
+// ?debug also exposes a small handle for automated verification runs: the event
+// bus (to watch what actually fires) and live ward stats. Prod builds without
+// the param expose nothing.
+if (debugEl) {
+  ;(window as unknown as { __droid: unknown }).__droid = {
+    bus,
+    wardStats: () => wardManager.wardStats(),
+    jobStats: () => cityHall.jobStats(),
+  }
+}
+
 city.start((dtMs) => {
   frameCount++
   if (tweenT < tweenDurationMs) {
