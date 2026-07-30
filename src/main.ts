@@ -941,6 +941,11 @@ function startStory(chapter: Chapter): void {
 }
 
 const player = createPlayer(bus, {
+  // The watchdog fired: a step's event never arrived. The tour keeps going;
+  // this is the breadcrumb for whoever debugs the wiring.
+  onStuckStep(chapterId, index, event) {
+    console.warn(`[story] ${chapterId} step ${index + 1} timed out waiting for "${event}" — advancing anyway`)
+  },
   onStep(step, index, total, title) {
     storyTitleEl.textContent = title
     storyNarrationEl.textContent = step.narration

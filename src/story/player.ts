@@ -21,6 +21,9 @@ export interface Chapter {
 
 export interface PlayerCallbacks {
   onStep(step: Step, index: number, total: number, title: string): void
+  // Fired when the watchdog force-advances a step whose event never arrived —
+  // a wiring bug, surfaced instead of hanging the tour.
+  onStuckStep?(chapterId: string, index: number, event: CityEventName): void
   onChapterDone(): void
 }
 
@@ -64,6 +67,11 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
     return app ? `${event}:${app}` : event
   }
 
+  // An event that never arrives used to hang the chapter forever — the only way
+  // out was Escape. Any wait longer than this force-advances so the tour always
+  // finishes; the warning is the signal that a step's event wiring broke.
+  const EVENT_WAIT_TIMEOUT_MS = 12000
+
   // Peek-only: is the current step's wait satisfiable right now? Never mutates
   // consumed counts — safe to call repeatedly across ticks.
   function isSatisfied(step: Step): boolean {
@@ -91,6 +99,12 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
     const step = state.chapter.steps[state.index]
     if (isSatisfied(step) && state.dwellElapsed >= minStepMs) {
       consumeIfEvent(step)
+      advance()
+      return
+    }
+    // Watchdog: a stuck event wait advances anyway rather than dead-ending.
+    if (isEventWait(step.waitFor) && state.waitElapsed >= EVENT_WAIT_TIMEOUT_MS) {
+      cbs.onStuckStep?.(state.chapter.id, state.index, step.waitFor.event)
       advance()
     }
   }
@@ -202,7 +216,9 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
 
     const step = state.chapter.steps[state.index]
     state.dwellElapsed += dtMs * state.speed
-    if (!isEventWait(step.waitFor)) state.waitElapsed += dtMs * state.speed
+    // Accumulates for BOTH wait kinds: ms waits use it as their clock, event
+    // waits use it as the watchdog timer.
+    state.waitElapsed += dtMs * state.speed
 
     checkAndAdvance()
   }

@@ -61,6 +61,26 @@ describe('storyPlayer', () => {
     p.resume()
     expect(done).toHaveBeenCalled()
   })
+  it('force-advances a step whose event never arrives, and reports it', () => {
+    const bus = createBus()
+    const stuck: Array<[string, number, string]> = []
+    const seen: string[] = []
+    const p = createPlayer(bus, {
+      onStep: (step) => seen.push(step.narration),
+      onChapterDone: () => {},
+      onStuckStep: (id, i, ev) => stuck.push([id, i, ev]),
+    })
+    p.play(chapter([
+      { narration: 'a', focus: 'boot', waitFor: { event: 'boot:complete' } },
+      { narration: 'b', focus: 'boot', waitFor: { ms: 10 } },
+    ]))
+    // Nothing ever emits boot:complete; the watchdog must still get us to 'b'.
+    for (let i = 0; i < 30; i++) p.update(1000)
+    expect(seen).toContain('b')
+    expect(stuck).toHaveLength(1)
+    expect(stuck[0][2]).toBe('boot:complete')
+  })
+
   it('next force-advances; stop halts; restartChapter replays from step 0', () => {
     const bus = createBus()
     const onStep = vi.fn()
