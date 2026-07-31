@@ -43,6 +43,8 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   setOngoing(app: string | null): void
   isOngoing(app: string): boolean
   setScreen(state: ScreenState): void
+  // Split screen: two apps visible and BOTH resumed (multi-resume, Android 10+).
+  setSplit(apps: readonly string[]): void
 } {
   const group = new THREE.Group()
   group.userData.info = {
@@ -182,6 +184,18 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   }
   appPanel.visible = false
   wallGroup.add(appPanel)
+  // Second half-panel, used only in split screen. The primary app panel shrinks
+  // to the top half and this takes the bottom.
+  const splitPanelMat = new THREE.MeshStandardMaterial({ color: APP_COLOR_FALLBACK, roughness: 0.5 })
+  const splitPanel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.75, 8.6), splitPanelMat)
+  splitPanel.position.set(-0.38, 1.5, 0)
+  splitPanel.userData.info = {
+    title: 'Split screen',
+    note: 'Two apps share the glass. Since Android 10 BOTH are RESUMED (multi-resume) — before that only the focused one was. Both hold oom_adj 0, both submit frames, and SurfaceFlinger composites two bright layers instead of one.',
+  }
+  splitPanel.visible = false
+  wallGroup.add(splitPanel)
+
   const appPanelLabels: THREE.Sprite[] = APPS.map((app) => {
     const lbl = makeLabel(app, 0.6)
     lbl.position.set(-0.55, 2.5, 0)
@@ -337,6 +351,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   denyLbl.position.set(-0.5, 1.9, -1.5)
   permGroup.add(denyLbl)
 
+  let splitApps: readonly string[] = []
   let screenState: ScreenState = { mode: 'home', app: null }
   function paintScreen(): void {
     homeGroup.visible = screenState.mode === 'home'
@@ -347,6 +362,20 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       appPanelMat.color.setHex(APP_COLORS[screenState.app] ?? APP_COLOR_FALLBACK)
       appPanelMat.emissive.setHex(APP_COLORS[screenState.app] ?? APP_COLOR_FALLBACK)
       appPanelMat.emissiveIntensity = 0.35
+    }
+    // Split: primary takes the top half, the second app the bottom.
+    const split = splitApps.length > 1 && screenState.mode === 'app'
+    splitPanel.visible = split
+    if (split) {
+      appPanel.scale.y = 0.5
+      appPanel.position.y = 3.35
+      const other = splitApps.find(a => a !== screenState.app) ?? splitApps[1]
+      splitPanelMat.color.setHex(APP_COLORS[other] ?? APP_COLOR_FALLBACK)
+      splitPanelMat.emissive.setHex(APP_COLORS[other] ?? APP_COLOR_FALLBACK)
+      splitPanelMat.emissiveIntensity = 0.35
+    } else {
+      appPanel.scale.y = 1
+      appPanel.position.y = 2.5
     }
     // Alive lamps mirror the compositor's tile knowledge: any non-dark tile is a
     // live process — the launcher shows which apps are already running.
@@ -514,6 +543,16 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     setNotifications(apps) {
       pendingNotifs = apps
       paintScreen()
+    },
+    setSplit(apps) {
+      splitApps = apps
+      // Both split apps are on screen, so both tiles are bright — the
+      // single-bright-tile rule only holds outside multi-window.
+      for (const a of apps) {
+        const i = APPS.indexOf(a)
+        if (i >= 0 && tiles[i].state !== 'dark') tiles[i].state = 'bright'
+      }
+      paint()
     },
     setOngoing(app) {
       ongoingApp = app

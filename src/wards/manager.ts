@@ -40,6 +40,8 @@ export interface WardManager {
   callNative(app: string): void
   allocateBigChunk(app: string): void
   toggleCompose(app: string): boolean
+  setSplitScreen(on: boolean): void
+  splitApps(): readonly string[]
   nativeCrash(app: string): void
   rotate(app: string): void
   refreshData(app: string): void
@@ -135,16 +137,49 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   // decide whether a fresh fork of a just-killed app counts as a "restore".
   let nowMs = 0
   const recentlyKilled = new Map<string, number>()
-  // Android allows exactly one resumed Activity system-wide. Every path that
-  // resumes an app routes through bringToForeground() so the previously
-  // foreground app is auto-backgrounded (onPause/onStop + foundry priority
-  // drop) instead of relying on each caller to remember to do it.
+  // Android allows exactly one resumed Activity system-wide — UNLESS the device
+  // is in multi-window. Since Android 10 ("multi-resume") every visible window
+  // in split screen is RESUMED, so the invariant becomes "at most `foregroundCap`
+  // resumed apps" and the oldest is evicted when a third arrives.
   let foregroundApp: string | null = null
+  let splitApp: string | null = null // the second resumed app while split
+  let foregroundCap = 1
+
+  function setSplitScreen(on: boolean): void {
+    foregroundCap = on ? 2 : 1
+    if (!on && splitApp) {
+      // Leaving split: the secondary window goes away, its Activity pauses.
+      const entry = wards.get(splitApp)
+      splitApp = null
+      if (entry && !entry.dying && entry.activity.phase === 'resumed') {
+        entry.activity = background(entry.activity)
+        setAppPriority?.(entry.app, backgroundPriority(entry))
+        bus.emit('activity:backgrounded', { app: entry.app })
+      }
+    }
+  }
 
   function bringToForeground(app: string): void {
     if (foregroundApp === app) return
     const previous = foregroundApp
     foregroundApp = app
+    // Split screen: the previous app KEEPS running and stays resumed alongside
+    // this one — that is exactly what multi-resume means. Only a third app
+    // evicts the older of the two.
+    if (foregroundCap > 1 && previous !== null) {
+      const prev = wards.get(previous)
+      if (prev && !prev.dying && prev.activity.phase === 'resumed') {
+        const evicted = splitApp && splitApp !== previous ? wards.get(splitApp) : null
+        splitApp = previous
+        setAppPriority?.(previous, 'foreground')
+        if (evicted && !evicted.dying && evicted.activity.phase === 'resumed') {
+          evicted.activity = background(evicted.activity)
+          setAppPriority?.(evicted.app, backgroundPriority(evicted))
+          bus.emit('activity:backgrounded', { app: evicted.app })
+        }
+        return
+      }
+    }
     if (previous === null) return
     const prevEntry = wards.get(previous)
     if (!prevEntry || prevEntry.dying || prevEntry.activity.phase !== 'resumed') return
@@ -966,6 +1001,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     nativeCrash,
     allocateBigChunk,
     toggleCompose,
+    setSplitScreen,
+    splitApps() {
+      return [foregroundApp, splitApp].filter((a): a is string => a !== null)
+    },
     rotate: rotateWard,
     refreshData,
     runHeavyFrame,

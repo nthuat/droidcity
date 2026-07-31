@@ -126,7 +126,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | ActivityThread.main / Looper created at process start | Ward spawns with road pre-built | ⚠️ fine |
 | attach → bindApplication → **Application.onCreate** | Application base floor lights at rise-complete, before lifecycle floors | ✅ (fixed) |
 | Activity onCreate/onStart/onResume | Tower floors | ✅ |
-| ViewRootImpl + window registered with WMS | — | ❌ City Hall has a WMS wing label only |
+| ViewRootImpl + window registered with WMS | Window-token mast per ward + the addWindow → WMS → SurfaceFlinger handshake as packets on resume | ✅ |
 | Surface allocated from SF | implicit | ⚠️ |
 | First frame via full pipeline | bench → SF → tile | ✅ |
 
@@ -166,7 +166,7 @@ Legend: ✅ modeled · ⚠️ simplified (acceptable/on purpose) · ❌ missing 
 | Threads + per-thread stacks | ward thread rack (main/render/binder/worker posts, live-lit) + stacks doc | ✅ (v5.1) |
 
 ### Not modeled at all (out of scope so far, fine for v-next list)
-JobScheduler/WorkManager/Doze · SELinux · ART JIT/AOT profiles · multi-window. (Started services, broadcasts-minimal, kill→restore shipped in v3; runtime permissions + notifications + named input-dispatch path shipped in Glass-OS.)
+SELinux · deeper ART profile details. (Started services, broadcasts-minimal, kill→restore shipped in v3; runtime permissions + notifications + named input-dispatch path shipped in Glass-OS.)
 
 ---
 
@@ -176,7 +176,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 **🏙 Binder mechanics** (we use it as "roads via City Hall" but the machine itself): kernel `/dev/binder` driver; **one-copy** transfers via mmap'd receive buffers; each process owns a **binder thread pool** (default max ~16) — incoming calls run on those, not your main thread; `oneway` (async) vs synchronous calls; the **~1MB transaction buffer** shared per process — `TransactionTooLargeException` when a Parcel (e.g. a giant Bundle in `onSaveInstanceState`) blows it; **death recipients** (`linkToDeath`) — how system_server notices an app died; AIDL generates the Parcel marshalling. **v4:** thread pool/1MB buffer/TransactionTooLarge in City Hall tooltips; death-recipient pulse on process death.
 
-**🏙 The four components + Intents**: Activity, **Service** (started vs bound; **foreground services** — modeled: promotion requires a running Service, posts an ongoing notification the user cannot swipe away, takes oom_adj 200 so it outranks cached wards, and tightens its ANR timer from 200s to 20s), **BroadcastReceiver** (system events; registered vs manifest), **ContentProvider** (data sharing across UIDs; initialized before `Application.onCreate` — startup cost). **Intents**: explicit vs implicit, resolution by PMS against manifest intent-filters. This is THE textbook Android abstraction set and DroidCity models only Activity. **v3:** started Services modeled (ward annex, oom_adj 500 keep-alive, LMK survival); broadcasts minimally (City Hall fan-out, BOOT_COMPLETED); Intents named in ch2 narration. BroadcastReceiver/ContentProvider still doc-only. **v5:** ContentProvider init beat (providers slab lights before Application), bound services with visibility inheritance (oom_adj 100), launchMode singleTop.
+**🏙 The four components + Intents** *(all four now modeled)*: Activity, **BroadcastReceiver** — modeled: each ward has a mailbox, `onReceive` posts a real main-thread message with its 10s/60s ANR budget, and a **manifest-declared** receiver starts a dead process just to deliver (context-registered vs manifest is the tooltip's core point), **Service** (started vs bound; **foreground services** — modeled: promotion requires a running Service, posts an ongoing notification the user cannot swipe away, takes oom_adj 200 so it outranks cached wards, and tightens its ANR timer from 200s to 20s), **BroadcastReceiver** (system events; registered vs manifest), **ContentProvider** (data sharing across UIDs; initialized before `Application.onCreate` — startup cost). **Intents**: explicit vs implicit, resolution by PMS against manifest intent-filters. This is THE textbook Android abstraction set and DroidCity models only Activity. **v3:** started Services modeled (ward annex, oom_adj 500 keep-alive, LMK survival); broadcasts minimally (City Hall fan-out, BOOT_COMPLETED); Intents named in ch2 narration. BroadcastReceiver/ContentProvider still doc-only. **v5:** ContentProvider init beat (providers slab lights before Application), bound services with visibility inheritance (oom_adj 100), launchMode singleTop.
 
 **🏙 Cold / warm / hot start**: Phase 2 above is a **cold** start (fork everything). **Warm** = process alive, Activity recreated (no fork, no Application.onCreate). **Hot** = everything alive, just brought to front. Launcher tap on a cached ward should NOT rebuild the ward — instant hot start would teach why cached processes exist (ties directly into oom_adj 700/900 and LMK). **v3:** modeled — warm relight, hot pulse, Home button, Chapter 5 ladder.
 
@@ -188,7 +188,7 @@ The flow above is one path through the system. These are the concepts an Android
 
 **🏙 Install & ART compilation pipeline** *(modeled)*: APK (zip: dex, resources, native libs, manifest) → `installd` → **dex2oat**: install-time partial AOT, then **JIT** at runtime with **profile-guided AOT** re-compiles during idle-charge (baseline profiles ship those hot-path profiles with the app for fast first launches). Interpreter → JIT → AOT tiers. **In the city:** a Packages layer on the west board — one shelf per installed APK (contents named in its tooltip), a dex2oat block for the compile tiers, and a road to system_server: every tap lights the matching package as PMS resolves the Intent, and the fork mmaps its code.
 
-**📖 Compose pipeline** (the doc's render path is View-centric): Compose = declarative UI over the same lower half — **composition → layout → draw** phases per frame, driven by **snapshot state** invalidations (recomposition scopes, skipping via stable types). Below `draw` it joins the exact same RenderThread → SF path. Choreographer/vsync unchanged.
+**🏙 Compose pipeline** *(modeled)*: Compose = declarative UI over the same lower half — **composition → layout → draw** phases per frame, driven by **snapshot state** invalidations (recomposition scopes, skipping via stable types). Below `draw` it joins the exact same RenderThread → SF path. Choreographer/vsync unchanged. **In the city:** a per-ward `UI: Views ⇄ Compose` toggle relabels the render bench and swaps the tooltips; the frame sim underneath is untouched, which is the point.
 
 **📖 Fragments**: sub-controllers within an Activity — own lifecycle nested in the Activity's (onViewCreated/onDestroyView), FragmentManager back stack distinct from the task back stack. City metaphor would be rooms within a floor; doc-only for now.
 

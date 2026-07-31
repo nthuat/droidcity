@@ -91,6 +91,38 @@ describe('WardManager', () => {
     expect(anrs).toEqual(['chat'])
   })
 
+  it('split screen keeps both apps resumed (multi-resume), and a third evicts the oldest', () => {
+    const deps = makeDeps()
+    const priorities: Array<[string, string]> = []
+    const manager = createWardManager({ ...deps, setAppPriority: (a, p) => priorities.push([a, p]) })
+    manager.setSplitScreen(true)
+    for (const [app, pid] of [['chat', 1], ['maps', 2]] as const) {
+      deps.bus.emit('process:forked', { app, pid })
+    }
+    // Both forks resume through bringToForeground; with a cap of 2 neither is
+    // backgrounded by the other.
+    for (let i = 0; i < 40; i++) manager.update(100)
+    expect(manager.splitApps().sort()).toEqual(['chat', 'maps'])
+    deps.bus.emit('process:forked', { app: 'camera', pid: 3 })
+    for (let i = 0; i < 40; i++) manager.update(100)
+    expect(manager.splitApps()).toHaveLength(2)
+    expect(manager.splitApps()).toContain('camera')
+  })
+
+  it('leaving split screen backgrounds the secondary app', () => {
+    const deps = makeDeps()
+    const manager = createWardManager(deps)
+    manager.setSplitScreen(true)
+    deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
+    deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
+    for (let i = 0; i < 40; i++) manager.update(100)
+    const backgrounded: string[] = []
+    deps.bus.on('activity:backgrounded', ({ app }) => backgrounded.push(app))
+    manager.setSplitScreen(false)
+    expect(manager.splitApps()).toHaveLength(1)
+    expect(backgrounded).toHaveLength(1)
+  })
+
   it('refuses to promote a service that is not running', () => {
     const deps = makeDeps()
     const manager = createWardManager(deps)

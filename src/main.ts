@@ -423,6 +423,7 @@ bus.on('service:foreground', ({ app, fgs }) => {
   surfaceFlinger.setOngoing(fgs ? app : null)
 })
 bus.on('process:killed', ({ app }) => {
+  if (splitOn) surfaceFlinger.setSplit(wardManager.splitApps())
   promptedThisVisit.delete(app)
   notifs = dismissNotification(notifs, app)
   surfaceFlinger.setNotifications(notifs.pending)
@@ -664,6 +665,20 @@ cityModeBtn.addEventListener('click', () => {
   foundry.setIdle(!cityManual)
 })
 switcherEl.appendChild(cityModeBtn)
+
+// Multi-window: two apps visible and both resumed. Lives beside the city
+// controls because it changes a system-wide rule, not one app's state.
+let splitOn = false
+const splitBtn = document.createElement('button')
+splitBtn.textContent = 'Split screen: off'
+splitBtn.addEventListener('click', () => {
+  if (storyActive) return
+  splitOn = !splitOn
+  splitBtn.textContent = splitOn ? 'Split screen: on' : 'Split screen: off'
+  wardManager.setSplitScreen(splitOn)
+  surfaceFlinger.setSplit(splitOn ? wardManager.splitApps() : [])
+})
+switcherEl.appendChild(splitBtn)
 
 const resetCityBtn = document.createElement('button')
 resetCityBtn.textContent = 'Reset city'

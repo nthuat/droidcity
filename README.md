@@ -32,6 +32,8 @@ Every running app is its own walled **ward** — the metaphor for a sandboxed pr
 - **Render bench** — races each frame to SurfaceFlinger
 - **Heap yard** — allocations, with GC sweeps traveling through
 - **Room DB shed** — cache hits; its file lives on the DISK, reached over the storage bus
+- **Mailbox** — the app's BroadcastReceiver: `onReceive` runs on the main thread with its own ANR budget, and a manifest-declared receiver lets the system start the process just to deliver
+- **Window token** — registering the window with WMS is its own step: `addView` → ViewRootImpl → WMS → a Surface allocated by SurfaceFlinger
 - **Service annex** promotion — a running Service can go **foreground**: it posts an ongoing notification you can't swipe away, takes `oom_adj` 200 so it outranks cached wards, and its ANR timer tightens to 20s
 - **Native workshop + JNI bridge** — the NDK side: a `.so` dlopen'd off the DISK, running in the same process but outside ART. Its **native heap** pile grows on every JNI call and no GC will ever reclaim it; a native SIGSEGV takes the whole process down
 
@@ -46,6 +48,8 @@ Wards rise on launch and are demolished on kill or eviction. `oom_adj` scores an
 - **▢ Recents** shows one task card per live process; tap one to hot-start it.
 - **Notifications** — a background fetch posts one: a dot on the status bar, a row in the shade, and tapping it fires the PendingIntent. It outlives the process, so a killed app cold-starts from its own notification.
 - **Runtime permissions** — the camera's first launch raises a system dialog the app can neither draw nor auto-accept; Allow/Deny is recorded by PackageManager.
+
+**Two toggles worth trying:** every ward panel has **UI: Views ⇄ Compose** (relabels the render bench to composition → layout → draw; everything below `draw` is deliberately identical), and the top bar has **Split screen**, which puts two apps on the glass with *both* resumed — Android 10's multi-resume — and lights two bright compositor tiles.
 
 ## Background work, and the memory ladder
 
