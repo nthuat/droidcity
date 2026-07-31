@@ -51,7 +51,7 @@ Wards rise on launch and are demolished on kill or eviction. `oom_adj` scores an
 
 - **JobScheduler depot** in system_server — WorkManager enqueues; the system decides when. Jobs wait on constraints (network, charging, idle) as amber crates, then light green when dispatched to their app. Killing a process takes its jobs with it.
 - **Doze** — a dome over the whole board: the radio goes quiet, ambient launches stop, and nothing deferred runs until you open a **maintenance window**. That's the concept, not a tint.
-- **Reclaim before the kill** — memory pressure no longer jumps straight to a death. Each PSI edge runs a kswapd pass that compresses cold pages into the **zram** block (with diminishing returns); only when reclaim can't keep up does lmkd pick a victim off the `oom_adj` ladder.
+- **Reclaim before the kill** — memory pressure never jumps straight to a death. While PSI sits high, each step runs a kswapd pass that compresses cold pages into the **zram** block (with diminishing returns); only when reclaim can't keep up does lmkd pick a victim off the `oom_adj` ladder. Press **Allocate 150MB** in any ward a few times to fill memory and watch the whole ladder run.
 
 ## Story mode
 

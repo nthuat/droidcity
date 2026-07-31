@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { createSystem, fork, setPriority, usedMb, type Priority, type SystemState } from '../sim/processes'
+import { createSystem, growProcess, fork, setPriority, usedMb, type Priority, type SystemState } from '../sim/processes'
 import { makeBuilding } from '../scene/builders'
 import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
@@ -17,6 +17,7 @@ const OOM_ADJ: Record<Priority, number> = { foreground: 0, visible: 100, fgservi
 export function makeFoundryScenario(bus: Bus): Scenario & {
   killApp(app: string): void
   setAppPriority(app: string, priority: Priority): void
+  allocate(app: string, mb: number): void
   stats(): { usedMb: number; capacityMb: number; procs: number; procList: { name: string; memoryMb: number; oomAdj: number }[] }
 } {
   const group = new THREE.Group()
@@ -193,6 +194,7 @@ export function makeFoundryScenario(bus: Bus): Scenario & {
     },
     killApp,
     setAppPriority,
+    allocate(app, mb) { state = growProcess(state, app, mb) },
     stats() {
       return {
         usedMb: usedMb(state),

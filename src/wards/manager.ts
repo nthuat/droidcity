@@ -38,6 +38,7 @@ export interface WardManager {
   blockMainThread(app: string, ms: number): void
   forceGc(app: string): void
   callNative(app: string): void
+  allocateBigChunk(app: string): void
   nativeCrash(app: string): void
   rotate(app: string): void
   refreshData(app: string): void
@@ -77,6 +78,9 @@ export interface WardManagerDeps {
   // A native SIGSEGV takes the process down; main.ts wires this to
   // foundry.killApp so the whole city unwinds exactly like an LMK kill.
   onNativeCrash?: (app: string) => void
+  // The ward asked for more memory: the foundry grows its RSS, which is what
+  // raises PSI and eventually starts the reclaim/LMK ladder.
+  onAllocate?: (app: string, mb: number) => void
 }
 
 const RISE_MS = 800
@@ -113,7 +117,7 @@ const TETHER_Y = 2
 const APP_STAGES = DEFAULT_STAGES.filter(s => !['gpu', 'surfaceFlinger'].includes(s.name))
 
 export function createWardManager(deps: WardManagerDeps): WardManager {
-  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled, setAppPriority, onStartType, onSpawnDropped, onNativeCrash } = deps
+  const { bus, scene, packets, anchors, plotAnchors, onWardSpawned, onWardKilled, setAppPriority, onStartType, onSpawnDropped, onNativeCrash, onAllocate } = deps
   const buildMeshes = deps.buildMeshes ?? buildWardMeshes
   // Default mirrors pre-routes.ts behavior: a straight two-point hop between the
   // named anchors/plot slots. Real routing is wired in from main.ts via routePath.
@@ -500,6 +504,19 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   // that no GC will ever reclaim.
   const JNI_WORK_MS = 40
   const JNI_MALLOC_KB = 160
+  // "Allocate a big chunk": a bitmap, a cache, a decode buffer. Grows the heap
+  // AND the process's RSS — hold enough and the whole device goes into reclaim.
+  const BIG_CHUNK_MB = 150
+  function allocateBigChunk(app: string): void {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return
+    // Six chunks on the managed heap so the heap yard visibly fills too — the
+    // RSS growth below is what the hardware strip and PSI actually react to.
+    allocateN(entry, app, 6, 120)
+    onAllocate?.(app, BIG_CHUNK_MB)
+    setPanelMessage(entry, `Allocated ${BIG_CHUNK_MB}MB — watch PSI climb on the hardware strip`)
+  }
+
   function callNative(app: string): void {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
@@ -910,7 +927,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (!entry.panel) {
         entry.panel = buildWardPanel(
           app,
-          { blockMainThread, rotate: rotateWard, forceGc, callNative, nativeCrash, refreshData, goHome, toggleService, toggleForegroundService, pushActivity, popActivity, toggleBind },
+          { blockMainThread, rotate: rotateWard, forceGc, callNative, nativeCrash, allocateBigChunk, refreshData, goHome, toggleService, toggleForegroundService, pushActivity, popActivity, toggleBind },
           narrationFor(entry),
           entry.serviceRunning,
         )
@@ -921,6 +938,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     forceGc,
     callNative,
     nativeCrash,
+    allocateBigChunk,
     rotate: rotateWard,
     refreshData,
     runHeavyFrame,

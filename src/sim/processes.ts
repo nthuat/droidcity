@@ -27,6 +27,21 @@ export function usedMb(s: SystemState): number {
   return s.procs.reduce((sum, p) => sum + p.memoryMb, 0)
 }
 
+// An app allocating more: its RSS grows. Deliberately does NOT kill anyone here
+// — pressure rising is the input to the reclaim/LMK ladder, not a kill itself.
+// Capped at capacity so a runaway allocation can't produce nonsense totals.
+export function growProcess(s: SystemState, name: string, addMb: number): SystemState {
+  const proc = s.procs.find(p => p.name === name)
+  if (!proc || addMb <= 0) return s
+  const headroom = Math.max(0, s.capacityMb - usedMb(s))
+  const grantedMb = Math.min(addMb, headroom)
+  if (grantedMb === 0) return s
+  return {
+    ...s,
+    procs: s.procs.map(p => (p.pid === proc.pid ? { ...p, memoryMb: p.memoryMb + grantedMb } : p)),
+  }
+}
+
 function reclaim(s: SystemState, memoryMb: number): SystemState {
   let procs = [...s.procs]
   let killed = [...s.killedPids]
