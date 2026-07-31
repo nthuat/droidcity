@@ -7,7 +7,7 @@ import { createPacketSystem } from './scene/packet'
 import { createHud, makeWardLabel, type WardLabel } from './ui/hud'
 import { createInspector } from './ui/inspector'
 import { attachZoneLabels, updateHudLines } from './ui/hudWiring'
-import { attachHardwareWiring, createEdgeTrigger } from './ui/hardwareWiring'
+import { attachHardwareWiring } from './ui/hardwareWiring'
 import { createBus } from './core/bus'
 import type { Scenario } from './scenarios/types'
 import { makeBootRowScenario } from './scenarios/bootRow'
@@ -15,7 +15,7 @@ import { makeHardwareRowScenario } from './scenarios/hardwareRow'
 import { makeFoundryScenario } from './scenarios/foundry'
 import { makeCityHallScenario } from './scenarios/cityHall'
 import { makePackageStoreScenario } from './scenarios/packageStore'
-import { createReclaim, type ReclaimState } from './sim/reclaim'
+import { createReclaim, resetReclaim, type ReclaimState } from './sim/reclaim'
 import { stepPressureLadder } from './sim/pressureLadder'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
@@ -295,7 +295,15 @@ const hwWiring = attachHardwareWiring(
 )
 // PSI-driven LMK: crossing 0.85 upward (edge-triggered, rearms below 0.7) fires
 // memory:pressure — foundry reclaims a cached process in response.
-const pressureTrigger = createEdgeTrigger(0.85, 0.7)
+// Sustained pressure, not a single edge: an edge-triggered ladder could only
+// ever run ONE reclaim pass, because the pressure never falls back below the
+// rearm threshold until something is killed — and the kill is what the later
+// passes lead to. So while PSI sits high, step the ladder on a timer; when
+// pressure clears, kswapd gets its budget back.
+const PRESSURE_HI = 0.85
+const PRESSURE_CLEAR = 0.7
+const LADDER_STEP_MS = 2000
+let ladderAccMs = 0
 // Before anything dies: kswapd compresses cold pages into zram. Only when
 // reclaim can no longer keep up does lmkd get a turn — the real ladder, which
 // the city used to skip entirely (PSI edge -> kill).
@@ -317,7 +325,20 @@ function refreshHud(): void {
   // Gated while a story is open (paused implies storyActive too): an ambient
   // PSI kill mid-chapter would pre-consume a chapter's process:killed wait.
   // ch6's own explicit ctx.bus.emit('memory:pressure') is unaffected.
-  if (!storyActive && pressureTrigger(hwWiring.getPressure())) onPressureEdge()
+  if (!storyActive) {
+    const pressure = hwWiring.getPressure()
+    if (pressure >= PRESSURE_HI) {
+      ladderAccMs += HUD_UPDATE_MS
+      if (ladderAccMs >= LADDER_STEP_MS) {
+        ladderAccMs = 0
+        onPressureEdge()
+      }
+    } else {
+      ladderAccMs = 0
+      // Pressure relieved: the next squeeze starts with reclaim again.
+      if (pressure < PRESSURE_CLEAR && reclaim.attempts > 0) reclaim = resetReclaim(reclaim)
+    }
+  }
   hud.setLine('hardware', hwWiring.label())
   const procList = foundry.stats().procList
   const now = Date.now()
