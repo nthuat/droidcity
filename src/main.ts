@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { createOomTable } from './ui/oomTable'
+import { createGhosts } from './scene/ghosts'
 import { createCity } from './scene/city'
 import { buildBoard } from './scene/board'
 import { buildRoutes, pathLength } from './scene/routes'
@@ -82,6 +84,7 @@ const WARD_CAMERA_OFFSET = new THREE.Vector3(10, 9, 12)
 const WARD_TARGET_OFFSET = new THREE.Vector3(0, 2, 0)
 
 const city = createCity(document.querySelector<HTMLDivElement>('#app')!)
+const ghosts = createGhosts(city.scene)
 city.scene.add(buildBoard())
 const routes = buildRoutes()
 city.scene.add(routes.group)
@@ -103,32 +106,6 @@ const panelEl = document.querySelector<HTMLDivElement>('#panel')!
 // Live oom_adj table (kill-order view, like a tiny dumpsys): pseudo-rows for the
 // untouchable/system tiers plus one row per live proc, sorted so the next LMK
 // victim sits on top. Updated on the 500ms HUD tick.
-const oomTableEl = document.createElement('div')
-oomTableEl.id = 'oom-table'
-document.body.appendChild(oomTableEl)
-function refreshOomTable(): void {
-  // Every row, live processes AND the two the city doesn't simulate as wards -
-  // goes through ONE sort. Appending the static rows after sorting used to put
-  // launcher (600) below a foreground app (0), which contradicted the title:
-  // lmkd walks this list from the top.
-  const rows = [
-    ...foundry.stats().procList.map(p => ({ name: p.name, score: p.oomAdj, static: false })),
-    { name: 'launcher', score: 600, static: true },
-    { name: 'system_server', score: -900, static: true },
-  ].sort((a, b) => b.score - a.score)
-  const line = (score: number | string, name: string, cls = '') =>
-    `<div class="oom-row ${cls}"><span>${String(score).padStart(4)}</span><span>${name}</span></div>`
-  const victimIdx = rows.findIndex(r => !r.static && r.score >= 900)
-  oomTableEl.innerHTML =
-    '<div class="oom-title">oom_adj · kill order</div>'
-    + '<div class="oom-sub">first to die, top down</div>'
-    + rows.map((r, i) => line(
-      r.score,
-      r.name,
-      [r.static ? 'oom-static' : '', i === victimIdx ? 'oom-victim' : ''].filter(Boolean).join(' '),
-    )).join('')
-}
-
 const bus = createBus()
 // Tracks "a story is on screen" independent of player.playing, the player goes
 // idle (playing=false) as soon as the last step's wait resolves, but the card
@@ -145,6 +122,7 @@ const startTypeExpiry = new Map<string, number>()
 // Foundry constructed first so WardManager can call its setAppPriority on
 // warm/hot brought-to-front and on Home.
 const foundry = makeFoundryScenario(bus)
+const oomTable = createOomTable(foundry)
 // Constructed before any bus.on() below, so its process:forked handler (which spawns
 // the ward group synchronously) always runs before main.ts's own handlers.
 const wardManager = createWardManager({
@@ -182,8 +160,8 @@ function setCityDim(dim: boolean): void {
     const g = wardManager.wardGroupFor(w.app)
     if (g) g.visible = !dim
   }
-  for (const ghost of startingGhosts.values()) ghost.mesh.visible = !dim
-  oomTableEl.style.display = dim ? 'none' : ''
+  ghosts.setVisible(!dim)
+  oomTable.setVisible(!dim)
   hud.setDimmed(dim)
 }
 
@@ -191,48 +169,9 @@ function setCityDim(dim: boolean): void {
 // is known (process:forked), stands in for the app while the ward rises, and fades
 // out on the app's first composited frame, teaches why cold launches "feel" instant
 // (WMS shows the splash long before the real Activity is ready).
-const GHOST_SIZE = { w: 5, h: 6, d: 5 }
-const GHOST_OPACITY = 0.25
-const GHOST_FADE_MS = 400
-interface StartingGhost { mesh: THREE.Mesh; fading: boolean; fadeMs: number }
-const startingGhosts = new Map<string, StartingGhost>()
 
-function disposeGhost(app: string): void {
-  const ghost = startingGhosts.get(app)
-  if (!ghost) return
-  city.scene.remove(ghost.mesh)
-  ghost.mesh.geometry.dispose()
-  ;(ghost.mesh.material as THREE.Material).dispose()
-  startingGhosts.delete(app)
-}
 
-function spawnGhost(app: string): void {
-  disposeGhost(app) // guards a re-fork landing before the previous ghost finished fading
-  const g = wardManager.wardGroupFor(app)
-  if (!g) return
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(GHOST_SIZE.w, GHOST_SIZE.h, GHOST_SIZE.d),
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff, transparent: true, opacity: GHOST_OPACITY,
-      emissive: 0xffffff, emissiveIntensity: 0.3,
-    }),
-  )
-  mesh.position.set(g.position.x, g.position.y + GHOST_SIZE.h / 2, g.position.z)
-  mesh.visible = !dimmed
-  mesh.userData.info = { title: 'Starting window (WMS)', note: 'WindowManager shows this splash instantly: the real app is still forking behind it.' }
-  city.scene.add(mesh)
-  startingGhosts.set(app, { mesh, fading: false, fadeMs: 0 })
-}
 
-function updateGhosts(dtMs: number): void {
-  for (const [app, ghost] of [...startingGhosts]) {
-    if (!ghost.fading) continue
-    ghost.fadeMs += dtMs
-    const mat = ghost.mesh.material as THREE.MeshStandardMaterial
-    mat.opacity = GHOST_OPACITY * Math.max(0, 1 - ghost.fadeMs / GHOST_FADE_MS)
-    if (ghost.fadeMs >= GHOST_FADE_MS) disposeGhost(app)
-  }
-}
 
 const bootRow = makeBootRowScenario(bus, () => setCityDim(true))
 const hardwareRow = makeHardwareRowScenario()
@@ -320,7 +259,7 @@ function onPressureEdge(): void {
 }
 function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, cityHall, networkTower, surfaceFlinger, launcherPlaza)
-  refreshOomTable()
+  oomTable.refresh()
   hwWiring.syncRam()
   hwWiring.syncPressure(HUD_UPDATE_MS)
   // Gated while a story is open (paused implies storyActive too): an ambient
@@ -439,7 +378,9 @@ bus.on('process:forked', ({ app }) => {
   // request dropped by the manager (old entry stays in its map under the same
   // app key, still `dying`), wardStats() excludes dying entries, so this only
   // spawns a ghost for a fork that actually produced a live ward.
-  if (wardManager.wardStats().some(w => w.app === app)) spawnGhost(app)
+  if (!wardManager.wardStats().some(w => w.app === app)) return
+  const plot = wardManager.wardGroupFor(app)
+  if (plot) ghosts.spawn(app, plot.position, !dimmed)
   // Memory pages get handed to the new process: RAM -> plot.
   if (g) packets.fly([RAM_POS, g.position], { color: 0xbc8cff, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
 })
@@ -449,16 +390,15 @@ bus.on('process:forked', ({ app }) => {
 // app's already-queued frame can still composite late, harmless here since
 // disposeGhost already ran via process:killed below, making this a no-op.)
 bus.on('frame:composited', ({ app }) => {
-  const ghost = startingGhosts.get(app)
-  if (ghost) ghost.fading = true
+  ghosts.fade(app)
 })
 // Edge case: app backgrounded before its first frame ever composited, no
 // composite will come while stopped, so the ghost would stand forever.
-bus.on('activity:backgrounded', ({ app }) => disposeGhost(app))
+bus.on('activity:backgrounded', ({ app }) => ghosts.dispose(app))
 // Edge case: app killed before its first frame ever composited, the fade trigger
 // above never fires, so drop the ghost immediately instead of leaving it stuck.
 bus.on('process:killed', ({ app }) => {
-  disposeGhost(app)
+  ghosts.dispose(app)
   // Freed pages return to RAM: plot -> RAM. wardGroupFor still resolves here -
   // the manager keeps the entry (and its group) alive through the demolition
   // animation, only deleting it once that finishes (see wards/manager.ts).
@@ -1157,7 +1097,7 @@ city.start((dtMs) => {
     for (const s of scenarios) s.update(simDt)
     wardManager.update(simDt)
     hwWiring.syncCores(simDt)
-    updateGhosts(simDt)
+    ghosts.update(simDt)
   }
   player.update(dtMs)
   inspectorAccMs += dtMs
