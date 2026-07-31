@@ -13,10 +13,10 @@
 - 108 existing tests keep passing; commit per task.
 
 ### Task 1: notifications sim
-`src/sim/notifications.ts`: `NotificationState = { readonly pending: readonly string[] }` (app names, one slot per app, newest kept). `createNotifications()`, `postNotification(s, app)` (idempotent), `dismissNotification(s, app)`, `hasNotification(s, app)`. Notifications survive process death (teaching point — no clear-on-kill). Tests: post/dedupe/dismiss/survive-kill semantics (kill just doesn't touch it).
+`src/sim/notifications.ts`: `NotificationState = { readonly pending: readonly string[] }` (app names, one slot per app, newest kept). `createNotifications()`, `postNotification(s, app)` (idempotent), `dismissNotification(s, app)`, `hasNotification(s, app)`. Notifications survive process death (teaching point, no clear-on-kill). Tests: post/dedupe/dismiss/survive-kill semantics (kill just doesn't touch it).
 
 ### Task 2: permissions sim
-`src/sim/permissions.ts`: `PermissionState = Record<string, 'unasked' | 'granted' | 'denied'>` starting `{ camera: 'unasked' }` (only camera models a dangerous permission). `createPermissions()`, `grantPermission`, `denyPermission`, `needsPrompt(s, app)` — true while not granted (denied re-asks next foreground, roughly real). Tests.
+`src/sim/permissions.ts`: `PermissionState = Record<string, 'unasked' | 'granted' | 'denied'>` starting `{ camera: 'unasked' }` (only camera models a dangerous permission). `createPermissions()`, `grantPermission`, `denyPermission`, `needsPrompt(s, app)`, true while not granted (denied re-asks next foreground, roughly real). Tests.
 
 ### Task 3: screen modes shade + permission
 `screen.ts` mode union grows `'shade' | 'permission'`. `screenOnShade(s)` (keeps underlying app like recents), `screenOnShadeDismissed`, `screenOnPermissionRequest(s, app)` → `{mode:'permission', app}`, `screenOnPermissionResolved(s)` → `{mode:'app', app}`. Kill semantics mirror recents. Tests.

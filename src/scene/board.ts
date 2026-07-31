@@ -4,7 +4,7 @@ import { mergeStaticGroup } from './merge'
 import type { InspectorInfo } from '../ui/inspector'
 
 // Static machine-board geometry: one contiguous plate-tiled floor replacing the old
-// ground+grid. Built once and added to the scene from main.ts — no disposal needed,
+// ground+grid. Built once and added to the scene from main.ts, no disposal needed,
 // this lives for the page lifetime (see plan's disposal-discipline note).
 
 const BOARD_COLOR = 0xd8d5cf
@@ -20,7 +20,7 @@ const COLORS = {
   surfaceflinger: 0xb18cbd,
   network: 0xd09a63,
   launcher: 0x9cc47e,
-  hardware: 0x3b4954, // kernel space deliberately stays dark — the one shadowed region
+  hardware: 0x3b4954, // kernel space deliberately stays dark, the one shadowed region
 }
 
 function plateMaterial(color: number): THREE.MeshStandardMaterial {
@@ -33,7 +33,7 @@ function plateMaterial(color: number): THREE.MeshStandardMaterial {
 }
 
 // A board slab segment: matte box whose top face sits at `topY`, footprint [x0,x1] x [z0,z1].
-// Real geometry (not a thin overlay) so the recessed z-segments actually step down —
+// Real geometry (not a thin overlay) so the recessed z-segments actually step down -
 // their side faces render as the visible "cliff" between segments.
 function makeSlab(x0: number, x1: number, z0: number, z1: number, topY: number): THREE.Mesh {
   const mesh = new THREE.Mesh(
@@ -48,18 +48,18 @@ function makeSlab(x0: number, x1: number, z0: number, z1: number, topY: number):
 // board (slabs, rims, silk texts, deck, ramp) falls back to the group-level info
 // via the inspector's parent-chain walk.
 const PLATE_INFO: Record<string, InspectorInfo> = {
-  wards: { title: 'App process band', note: 'Four plots, one sandboxed app process each — a "ward" in the city metaphor: own walls, own memory, own main road.' },
-  boot: { title: 'Boot strip', note: 'Recessed on purpose — bootloader/kernel/init run before userspace exists.' },
-  hardware: { title: 'Hardware strip', note: 'The silicon. Framework never touches it directly — HALs and drivers sit between.' },
-  foundry: { title: 'Zygote plate', note: 'Where every process is forked from the warm template — the city\'s foundry floor.' },
-  cityhall: { title: 'system_server plate', note: 'The core-process band — system_server (the city\'s "city hall") lives beside the foundry that cast it; every Binder road ends here.' },
-  surfaceflinger: { title: 'Compositor plate', note: 'SurfaceFlinger district — every frame\'s last stop before glass.' },
-  network: { title: 'Network plate', note: 'Radio edge district — every fetch leaves the board from here.' },
-  launcher: { title: 'The Glass', note: 'The phone\'s screen and the launcher process live here — everything north of this strip exists to light it up.' },
+  wards: { title: 'App process band', note: 'Four plots, one sandboxed app process each: a "ward" in the city metaphor: own walls, own memory, own main road.' },
+  boot: { title: 'Boot strip', note: 'Recessed on purpose: bootloader/kernel/init run before userspace exists.' },
+  hardware: { title: 'Hardware strip', note: 'The silicon. Framework never touches it directly, HALs and drivers sit between.' },
+  foundry: { title: 'Zygote plate', note: 'Where every process is forked from the warm template, the city\'s foundry floor.' },
+  cityhall: { title: 'system_server plate', note: 'The core-process band: system_server (the city\'s "city hall") lives beside the foundry that cast it; every Binder road ends here.' },
+  surfaceflinger: { title: 'Compositor plate', note: 'SurfaceFlinger district: every frame\'s last stop before glass.' },
+  network: { title: 'Network plate', note: 'Radio edge district: every fetch leaves the board from here.' },
+  launcher: { title: 'The Glass', note: 'The phone\'s screen and the launcher process live here, everything north of this strip exists to light it up.' },
 }
 const BOARD_INFO: InspectorInfo = {
   title: 'The device',
-  note: 'One machine board — everything above this PCB is software.',
+  note: 'One machine board: everything above this PCB is software.',
 }
 
 // A flat zone plate: box top face sits at `topY`, footprint is [x0,x1] x [z0,z1].
@@ -74,7 +74,7 @@ function tagged(mesh: THREE.Mesh, info: InspectorInfo): THREE.Mesh {
   return mesh
 }
 
-// A ramp/rim wedge whose top face tilts linearly from `from` to `to` (any axis) —
+// A ramp/rim wedge whose top face tilts linearly from `from` to `to` (any axis) -
 // `thickness` is the flat width of the ramp perpendicular to travel. Orientation via
 // lookAt (not hand-rolled trig): robust regardless of which world axis the slope runs
 // along, and keeps the perpendicular edge level since the default up vector is (0,1,0).
@@ -110,10 +110,10 @@ function makeEdgeText(
 
 // The Glass strip: a flat launcher-green apron at board level along the south
 // rim, home to the display wall and the launcher process shed. The old elevated
-// deck is gone — the launcher's UI moved onto the display itself.
+// deck is gone, the launcher's UI moved onto the display itself.
 function buildGlassApron(): THREE.Object3D[] {
-  // Top y 0.1 — under ROAD_RAISE (0.15) so roads crossing the apron stay visible.
-  // Sized to the display alone — the launcher has no building; its UI is the
+  // Top y 0.1, under ROAD_RAISE (0.15) so roads crossing the apron stay visible.
+  // Sized to the display alone, the launcher has no building; its UI is the
   // icon grid on the glass.
   const apron = new THREE.Mesh(
     new THREE.BoxGeometry(26, 0.1, 12),
@@ -131,11 +131,11 @@ export function buildBoard(): THREE.Group {
 
   // The board reads as the Android stack, north -> south: hardware -> kernel/boot
   // -> core processes (Zygote · system_server · SurfaceFlinger) -> app wards ->
-  // the glass. One flat main slab (no pit — City Hall sits ON the core band now),
+  // the glass. One flat main slab (no pit, City Hall sits ON the core band now),
   // plus the two recessed back strips.
   group.add(makeSlab(-85, 85, -45, 60, 0)) // main userspace slab
   // Recessed slabs sit one PLATE_H below their plate tops so the plates rest ON
-  // the slab instead of embedding flush in it — coplanar top faces z-fight (visible
+  // the slab instead of embedding flush in it, coplanar top faces z-fight (visible
   // as shimmering scanline flicker across the strip).
   group.add(makeSlab(-85, 85, -60, -45, -0.2 - PLATE_H)) // boot segment, recessed
   group.add(makeSlab(-85, 85, -80, -60, -0.5 - PLATE_H)) // hardware segment, deeper recess
@@ -152,23 +152,23 @@ export function buildBoard(): THREE.Group {
   group.add(tagged(makePlate(COLORS.network, 45, 85, -25, 35, 0.3), PLATE_INFO.network))
   for (const o of buildGlassApron()) group.add(o)
 
-  group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 66)) // south of the Glass shelf — at z 57 it ran under the display
+  group.add(makeEdgeText('DROIDCITY · ANDROID USERSPACE', 70, 6, 0, 0.06, 66)) // south of the Glass shelf, at z 57 it ran under the display
   group.add(makeEdgeText('THE GLASS', 12, 2, 0, 0.16, 51.5))
   group.add(makeEdgeText('INTERNET →', 16, 6, 76, 0.36, 17))
-  // The hardware strip sits at the board's far edge in a recess — the scene's
+  // The hardware strip sits at the board's far edge in a recess, the scene's
   // single directional light grazes past it and the ambient alone leaves it
   // unreadably dark. A dedicated soft overhead light keeps the metal legible.
   const stripLight = new THREE.PointLight(0xaec6dd, 400, 70, 1.8)
   stripLight.position.set(0, 14, -67)
   group.add(stripLight)
 
-  // Light-grey, not the dark default ink — this label prints on the dark plate.
+  // Light-grey, not the dark default ink, this label prints on the dark plate.
   group.add(makeEdgeText('HARDWARE', 30, 6, 0, -0.44, -73, '#8b98a5')) // on the hardware plate (top -0.5)
 
-  // Silk-screen sub-labels under each hardware block — dimmer than the section
+  // Silk-screen sub-labels under each hardware block, dimmer than the section
   // title above, x's mirror hardwareRow.ts's CPU_X/RAM_X/DISK_X (and PSI_X).
   const HW_LABEL_DIM = '#4d5560'
-  // Sits between the title (-73) and the CPU/RAM/PSI/DISK row (-62) — names the
+  // Sits between the title (-73) and the CPU/RAM/PSI/DISK row (-62), names the
   // layer beneath this physical strip without claiming to model it (see docs).
   group.add(makeEdgeText('HAL · drivers · physical', 40, 1.6, 0, -0.44, -70, HW_LABEL_DIM))
   group.add(makeEdgeText('CPU', 8, 1.6, -30, -0.44, -62, HW_LABEL_DIM))

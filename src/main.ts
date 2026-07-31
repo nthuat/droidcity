@@ -51,7 +51,7 @@ const WARDS_ANCHOR = new THREE.Vector3(0, 5, -10)
 const HUD_UPDATE_MS = 500
 const START_TYPE_FLASH_MS = 3000
 
-// y 0.3 = wards plate top (board.ts) — at y 0 the wards' lower 0.3 sat buried in the plate.
+// y 0.3 = wards plate top (board.ts), at y 0 the wards' lower 0.3 sat buried in the plate.
 export const PLOT_ANCHORS: THREE.Vector3[] = [
   new THREE.Vector3(-33.75, 0.3, -10),
   new THREE.Vector3(-11.25, 0.3, -10),
@@ -88,10 +88,10 @@ city.scene.add(routes.group)
 const traces = buildTraces()
 city.scene.add(traces.group)
 
-// Hardware component world positions — mirrors hardwareRow.ts's private RAM_X/DISK_X
+// Hardware component world positions, mirrors hardwareRow.ts's private RAM_X/DISK_X
 // plus ANCHORS.hardware's z and board.ts's hardware-strip plate top (-0.5). Duplicated
 // as plain numbers (not imported) for the same reason ANCHORS/PLOT_ANCHORS are
-// duplicated between main.ts and routes.ts (see routes.ts's header) — these two points
+// duplicated between main.ts and routes.ts (see routes.ts's header), these two points
 // are used only for the small-packet flights below.
 const RAM_POS = new THREE.Vector3(0, -0.5, -68)
 const DISK_POS = new THREE.Vector3(30, -0.5, -68)
@@ -107,7 +107,7 @@ const oomTableEl = document.createElement('div')
 oomTableEl.id = 'oom-table'
 document.body.appendChild(oomTableEl)
 function refreshOomTable(): void {
-  // Every row — live processes AND the two the city doesn't simulate as wards —
+  // Every row, live processes AND the two the city doesn't simulate as wards -
   // goes through ONE sort. Appending the static rows after sorting used to put
   // launcher (600) below a foreground app (0), which contradicted the title:
   // lmkd walks this list from the top.
@@ -130,7 +130,7 @@ function refreshOomTable(): void {
 }
 
 const bus = createBus()
-// Tracks "a story is on screen" independent of player.playing — the player goes
+// Tracks "a story is on screen" independent of player.playing, the player goes
 // idle (playing=false) as soon as the last step's wait resolves, but the card
 // stays up showing "Chapter done"; ✕ and Esc must both be able to dismiss it.
 // Declared early: refreshHud (called before story mode is set up) reads it.
@@ -139,7 +139,7 @@ const packets = createPacketSystem(city.scene)
 const hud = createHud(city.scene)
 const wardLabels = new Map<string, WardLabel>()
 // Wall-clock (not sim-time) expiry per app for the ward label's start-type flash
-// — this is pure UI feedback, not part of the simulation, so it shouldn't be
+//, this is pure UI feedback, not part of the simulation, so it shouldn't be
 // affected by story-mode's sim-time slowdown. Cleared by the 500ms HUD tick.
 const startTypeExpiry = new Map<string, number>()
 // Foundry constructed first so WardManager can call its setAppPriority on
@@ -151,7 +151,7 @@ const wardManager = createWardManager({
   bus, scene: city.scene, packets, anchors: ANCHORS, plotAnchors: PLOT_ANCHORS, routePath: routes.path,
   setAppPriority: foundry.setAppPriority,
   // Kill→retap race: a fork that lands while the old ward still holds its plot
-  // gets its ward spawn dropped — kill the orphan proc so process:killed flows
+  // gets its ward spawn dropped, kill the orphan proc so process:killed flows
   // (launcher markStopped revives the kiosk, foundry frees RAM/PSI).
   onSpawnDropped(app) { foundry.killApp(app) },
   onStartType(app, type) {
@@ -189,7 +189,7 @@ function setCityDim(dim: boolean): void {
 
 // Starting-window splash: a translucent ghost box appears the instant a ward's plot
 // is known (process:forked), stands in for the app while the ward rises, and fades
-// out on the app's first composited frame — teaches why cold launches "feel" instant
+// out on the app's first composited frame, teaches why cold launches "feel" instant
 // (WMS shows the splash long before the real Activity is ready).
 const GHOST_SIZE = { w: 5, h: 6, d: 5 }
 const GHOST_OPACITY = 0.25
@@ -219,7 +219,7 @@ function spawnGhost(app: string): void {
   )
   mesh.position.set(g.position.x, g.position.y + GHOST_SIZE.h / 2, g.position.z)
   mesh.visible = !dimmed
-  mesh.userData.info = { title: 'Starting window (WMS)', note: 'WindowManager shows this splash instantly — the real app is still forking behind it.' }
+  mesh.userData.info = { title: 'Starting window (WMS)', note: 'WindowManager shows this splash instantly: the real app is still forking behind it.' }
   city.scene.add(mesh)
   startingGhosts.set(app, { mesh, fading: false, fadeMs: 0 })
 }
@@ -241,7 +241,7 @@ const cityHall = makeCityHallScenario(bus, {
   onDozeChanged(doze) {
     dozeActive = doze
     // Doze cuts the radio and defers everything: no ambient launches, no idle
-    // fetches. That IS the concept — not a cosmetic dimming.
+    // fetches. That IS the concept, not a cosmetic dimming.
     launcherPlaza.setIdle(!doze && !cityManual && !storyActive)
     networkTower.setIdle(!doze && !storyActive)
   },
@@ -253,14 +253,14 @@ const cityHall = makeCityHallScenario(bus, {
 let dozeActive = false
 const launcherPlaza = makeLauncherPlazaScenario(bus)
 // Subscription order matters: wardManager (constructed above) gets data:requested
-// first — the worker car must exist before a full queue's nested, synchronous
+// first, the worker car must exist before a full queue's nested, synchronous
 // data:dropped tries to remove it.
 const networkTower = makeNetworkTowerScenario(bus)
 const surfaceFlinger = makeSurfaceFlingerScenario(bus)
 const packageStore = makePackageStoreScenario(bus)
 bus.on('boot:complete', () => setCityDim(false))
 // bootRow's update() only emits boot:complete from its replaying branch (see
-// bootRow.ts) — the pre-booted first-load state never calls update() with
+// bootRow.ts), the pre-booted first-load state never calls update() with
 // replaying=true, so this never fires before a story/panel-triggered replay.
 // Acceptable: "the OS finished booting" is only newsworthy the first time a
 // replay actually runs in this session.
@@ -285,7 +285,7 @@ const scenarios: Scenario[] = [
 
 attachZoneLabels(hud, ANCHORS, WARDS_ANCHOR)
 // Single combined HARDWARE chip (CPU/RAM/DISK on one line) rather than three
-// sub-labels — matches the other zone chips' one-title/one-line shape.
+// sub-labels, matches the other zone chips' one-title/one-line shape.
 hud.attach('hardware', ANCHORS.hardware, 'HARDWARE')
 // Subscription order matters: hwWiring's process:forked handler looks up the
 // app's plot via wardStats(), so wardManager's onForked (subscribed at
@@ -295,10 +295,10 @@ const hwWiring = attachHardwareWiring(
   traces.setCpuTraceGlow, traces.setRamTraceGlow, traces.setDiskTraceGlow, traces.setCpuRamBusGlow, traces.setRamDiskBusGlow,
 )
 // PSI-driven LMK: crossing 0.85 upward (edge-triggered, rearms below 0.7) fires
-// memory:pressure — foundry reclaims a cached process in response.
+// memory:pressure, foundry reclaims a cached process in response.
 // Sustained pressure, not a single edge: an edge-triggered ladder could only
 // ever run ONE reclaim pass, because the pressure never falls back below the
-// rearm threshold until something is killed — and the kill is what the later
+// rearm threshold until something is killed, and the kill is what the later
 // passes lead to. So while PSI sits high, step the ladder on a timer; when
 // pressure clears, kswapd gets its budget back.
 const PRESSURE_HI = 0.85
@@ -306,7 +306,7 @@ const PRESSURE_CLEAR = 0.7
 const LADDER_STEP_MS = 2000
 let ladderAccMs = 0
 // Before anything dies: kswapd compresses cold pages into zram. Only when
-// reclaim can no longer keep up does lmkd get a turn — the real ladder, which
+// reclaim can no longer keep up does lmkd get a turn, the real ladder, which
 // the city used to skip entirely (PSI edge -> kill).
 const ZRAM_FULL_KB = 4000
 let reclaim: ReclaimState = createReclaim()
@@ -361,7 +361,7 @@ scenarios.forEach((s, i) => {
 })
 
 // Story-independent packet routing: activity:resumed (ward→cityhall→launcher) and
-// frame:submitted (ward→surfaceflinger) are already flown by WardManager itself —
+// frame:submitted (ward→surfaceflinger) are already flown by WardManager itself -
 // not duplicated here. Packets here follow the physical roads (routes.path) rather
 // than straight anchor-to-anchor hops; duration scales with the routed distance.
 function plotKeyFor(app: string): string | null {
@@ -373,7 +373,7 @@ function flyRoute(path: THREE.Vector3[], color: number): void {
   packets.fly(path, { color, arcHeight: 1, durationMs: Math.max(700, 12 * pathLength(path)) })
 }
 
-// Launcher never talks to Zygote — it files the request with AMS (city hall),
+// Launcher never talks to Zygote, it files the request with AMS (city hall),
 // which is the one that tells Zygote to fork. Flown as two concatenated legs
 // (same pattern WardManager uses for ward->cityhall->launcher) so it reads as
 // one continuous packet, not two independent flights.
@@ -397,11 +397,11 @@ let notifs = createNotifications()
 let perms = createPermissions()
 // Apps already asked during THIS foreground session: WardManager emits
 // activity:resumed several times per launch (rise, foreground, hot start), and
-// without this an already-open dialog got clobbered — or a denied app was
+// without this an already-open dialog got clobbered, or a denied app was
 // re-prompted on every one of those events.
 const promptedThisVisit = new Set<string>()
 bus.on('activity:resumed', ({ app }) => {
-  // A dialog already up for this app stays up — the app is underneath it.
+  // A dialog already up for this app stays up, the app is underneath it.
   if (screen.mode === 'permission' && screen.app === app) return
   syncScreen(screenOnResumed(screen, app))
   // Runtime permission: the system throws its dialog over the app's first
@@ -415,7 +415,7 @@ bus.on('activity:backgrounded', ({ app }) => {
   promptedThisVisit.delete(app) // next foreground visit may ask again
   if (screen.mode === 'app' && screen.app === app) syncScreen(screenOnHome(screen))
 })
-// A foreground service MUST show an ongoing notification — that's the deal it
+// A foreground service MUST show an ongoing notification. That's the deal it
 // makes for outranking cached work. Demoting (or the process dying) clears it.
 bus.on('service:foreground', ({ app, fgs }) => {
   notifs = fgs ? postNotification(notifs, app) : dismissNotification(notifs, app)
@@ -437,29 +437,29 @@ bus.on('process:forked', ({ app }) => {
   if (plotKey) flyRoute(routes.path('zygote', plotKey), 0x3fb950)
   // A re-fork landing while the old instance is still demolishing gets its plot
   // request dropped by the manager (old entry stays in its map under the same
-  // app key, still `dying`) — wardStats() excludes dying entries, so this only
+  // app key, still `dying`), wardStats() excludes dying entries, so this only
   // spawns a ghost for a fork that actually produced a live ward.
   if (wardManager.wardStats().some(w => w.app === app)) spawnGhost(app)
   // Memory pages get handed to the new process: RAM -> plot.
   if (g) packets.fly([RAM_POS, g.position], { color: 0xbc8cff, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
 })
-// First composited frame only — updateGhosts flips `fading` once, so later
+// First composited frame only, updateGhosts flips `fading` once, so later
 // frame:composited events for the same app are no-ops (ghost already gone).
 // (SurfaceFlinger's own submit queue isn't purged on kill either, so a killed
-// app's already-queued frame can still composite late — harmless here since
+// app's already-queued frame can still composite late, harmless here since
 // disposeGhost already ran via process:killed below, making this a no-op.)
 bus.on('frame:composited', ({ app }) => {
   const ghost = startingGhosts.get(app)
   if (ghost) ghost.fading = true
 })
-// Edge case: app backgrounded before its first frame ever composited — no
+// Edge case: app backgrounded before its first frame ever composited, no
 // composite will come while stopped, so the ghost would stand forever.
 bus.on('activity:backgrounded', ({ app }) => disposeGhost(app))
-// Edge case: app killed before its first frame ever composited — the fade trigger
+// Edge case: app killed before its first frame ever composited, the fade trigger
 // above never fires, so drop the ghost immediately instead of leaving it stuck.
 bus.on('process:killed', ({ app }) => {
   disposeGhost(app)
-  // Freed pages return to RAM: plot -> RAM. wardGroupFor still resolves here —
+  // Freed pages return to RAM: plot -> RAM. wardGroupFor still resolves here -
   // the manager keeps the entry (and its group) alive through the demolition
   // animation, only deleting it once that finishes (see wards/manager.ts).
   const g = wardManager.wardGroupFor(app)
@@ -485,7 +485,7 @@ bus.on('data:fetched', ({ app }) => {
   if (plotKey) flyRoute(routes.path('network', plotKey), 0xd29922)
   pulseRadio()
   // Background sync pattern: data arriving while the app is NOT on screen
-  // posts a notification — ward -> NotificationManagerService (City Hall) ->
+  // posts a notification, ward -> NotificationManagerService (City Hall) ->
   // the glass. Foreground apps just show the data.
   if (screen.app !== app) {
     notifs = postNotification(notifs, app)
@@ -498,9 +498,9 @@ bus.on('data:fetched', ({ app }) => {
   }
 })
 // Room cache hit: plot -> DISK -> plot, a quick round-trip pair (both hops fired
-// immediately — no timers — reading as one flight there and one back).
+// immediately, no timers, reading as one flight there and one back).
 // System.loadLibrary at process start: the .so's pages are mmap'd off the DISK
-// into this process — a real disk read, before any of the app's code runs.
+// into this process, a real disk read, before any of the app's code runs.
 bus.on('process:forked', ({ app }) => {
   const g = wardManager.wardGroupFor(app)
   if (!g) return
@@ -533,8 +533,8 @@ bus.on('broadcast:sent', () => {
 
 // Input's system-side trip: a tap starts at hardware and is dispatched by
 // system_server's InputDispatcher before an app ever sees it. Flies that leg
-// immediately, then — after a browser-layer delay (story logic itself stays
-// event-driven, no Date-dependent timers there) — flies the dispatcher→ward leg
+// immediately, then, after a browser-layer delay (story logic itself stays
+// event-driven, no Date-dependent timers there), flies the dispatcher→ward leg
 // (only once the ward's plot is known; a cold run can fire this in the same
 // tick as the launch, before the fork lands) and posts the app-side message.
 // Two-stage flight matches reality: dispatcher hop, then app hop.
@@ -566,7 +566,7 @@ let tweenToPos = OVERVIEW_POS.clone()
 let tweenFromTarget = city.controls.target.clone()
 let tweenToTarget = OVERVIEW_TARGET.clone()
 let tweenDurationMs = 0
-let tweenT = 0 // starts "done" (0 >= 0) — initial camera is set directly below
+let tweenT = 0 // starts "done" (0 >= 0), initial camera is set directly below
 
 let hudAccMs = 0
 const INSPECTOR_UPDATE_MS = 80
@@ -577,7 +577,7 @@ function smoothstep(t: number): number {
 }
 
 // Longer flights get more tween time so the camera doesn't whip across the
-// whole map in the same 600ms as a short hop — clamped so short hops stay
+// whole map in the same 600ms as a short hop, clamped so short hops stay
 // snappy and long ones don't drag on forever.
 function flyTo(pos: THREE.Vector3, target: THREE.Vector3): void {
   tweenFromPos = city.camera.position.clone()
@@ -601,7 +601,7 @@ function overviewPanel(): HTMLElement {
     + 'New here? <b>▶ Story</b> takes the guided tour.</p>'
     + '<p class="panel-narration">Something wrong, or a piece of Android missing? '
     + '<a href="https://github.com/nthuat/droidcity/issues/new" target="_blank" rel="noopener">Open an issue</a>'
-    + ' — corrections and PRs welcome.</p>'
+    + ', corrections and PRs welcome.</p>'
     + '<p class="panel-narration"><a href="https://github.com/nthuat/droidcity" target="_blank" rel="noopener">GitHub</a>'
     + ' · <a href="https://github.com/nthuat/droidcity/blob/main/docs/android-flow-reference.md" target="_blank" rel="noopener">reference</a>'
     + ' · inspired by <a href="https://nikolays.github.io/PGSimCity/" target="_blank" rel="noopener">PGSimCity</a></p>'
@@ -649,7 +649,7 @@ scenarios.forEach((s, i) => {
 
 // Population controls: watch one app's flow in an empty city, then grow it
 // manually. Manual mode only touches launcher/foundry idle (auto-launch,
-// auto-reclaim) — per-ward idle and every event flow are untouched.
+// auto-reclaim), per-ward idle and every event flow are untouched.
 let cityManual = false
 const divider = document.createElement('span')
 divider.className = 'switcher-divider'
@@ -657,7 +657,7 @@ switcherEl.appendChild(divider)
 
 const cityModeBtn = document.createElement('button')
 cityModeBtn.textContent = 'City: auto'
-cityModeBtn.title = 'Manual: nothing launches or dies on its own — you drive every event'
+cityModeBtn.title = 'Manual: nothing launches or dies on its own: you drive every event'
 cityModeBtn.addEventListener('click', () => {
   cityManual = !cityManual
   cityModeBtn.textContent = cityManual ? 'City: manual' : 'City: auto'
@@ -682,7 +682,7 @@ switcherEl.appendChild(splitBtn)
 
 const resetCityBtn = document.createElement('button')
 resetCityBtn.textContent = 'Reset city'
-resetCityBtn.title = 'SIGKILL every ward — empty plots, fresh start'
+resetCityBtn.title = 'SIGKILL every ward: empty plots, fresh start'
 resetCityBtn.addEventListener('click', () => {
   if (storyActive) return // also .disabled via setSwitcherLocked while a story is open
   for (const p of foundry.stats().procList) foundry.killApp(p.name)
@@ -716,7 +716,7 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   raycaster.setFromCamera(ndc, city.camera)
   // The permission dialog is MODAL and therefore tested first: the icon grid is
   // hidden behind it, but raycaster.intersectObjects() only consults each
-  // object's own .visible flag — a mesh whose PARENT is hidden still gets hit.
+  // object's own .visible flag, a mesh whose PARENT is hidden still gets hit.
   // Testing icons first meant "allow" also launched whatever icon sat under it.
   if (screen.mode === 'permission') {
     const pb = surfaceFlinger.permissionButtons()
@@ -735,7 +735,7 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     }
     return
   }
-  // Taps on the glass: the display IS the input surface. Only at home — the
+  // Taps on the glass: the display IS the input surface. Only at home, the
   // grid is hidden in every other mode, and hidden things must not be clickable.
   if (screen.mode === 'home') {
     const iconHits = raycaster.intersectObjects(surfaceFlinger.screenIconMeshes(), false)
@@ -756,7 +756,7 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     if (rowHits.length > 0) {
       const app = rowHits[0].object.userData.app as string | undefined
       if (app) {
-        // An ongoing (foreground-service) notification can't be swiped away —
+        // An ongoing (foreground-service) notification can't be swiped away -
         // tapping it still opens the app, which is exactly Android's behavior.
         if (!surfaceFlinger.isOngoing(app)) {
           notifs = dismissNotification(notifs, app)
@@ -795,8 +795,8 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
     } else if (btn === nav.back) {
       if (screen.mode === 'recents') syncScreen(screenOnRecentsDismissed(screen))
       else if (screen.mode === 'shade') syncScreen(screenOnShadeDismissed(screen))
-      // (Permission mode never reaches here — its modal block above intercepts.)
-      // popActivity pops the stack, or at the root finishes the Activity —
+      // (Permission mode never reaches here, its modal block above intercepts.)
+      // popActivity pops the stack, or at the root finishes the Activity -
       // which emits activity:backgrounded and drops the screen to home.
       else if (screen.mode === 'app' && screen.app) wardManager.popActivity(screen.app)
     } else {
@@ -808,7 +808,7 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   if (kioskHits.length > 0) {
     const app = kioskHits[0].object.userData.app as string | undefined
     if (app) {
-      // Every tap enters via hardware + system_server, even a launcher icon tap —
+      // Every tap enters via hardware + system_server, even a launcher icon tap -
       // visualize that leg alongside the existing launcher→zygote launch request.
       flyRoute(routes.path('hardware', 'launcher'), 0xf2cc60)
       launcherPlaza.clickKiosk(app)
@@ -818,7 +818,7 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
   const hits = raycaster.intersectObjects(city.scene.children, true)
   for (const hit of hits) {
     // The display belongs to the SF scenario group, but clicking the phone
-    // should bring you face-to-face with the phone — not fly to SurfaceFlinger.
+    // should bring you face-to-face with the phone, not fly to SurfaceFlinger.
     let d: THREE.Object3D | null = hit.object
     while (d) {
       if (d.userData.displayWall) {
@@ -828,7 +828,7 @@ city.renderer.domElement.addEventListener('pointerdown', (ev) => {
       d = d.parent
     }
     const app = wardManager.wardAppFromObject(hit.object)
-    // wardStats() excludes dying wards — clicking a mid-demolition ward must not
+    // wardStats() excludes dying wards, clicking a mid-demolition ward must not
     // fly/open a panel for it; fall through to district resolution instead.
     if (app && wardManager.wardStats().some(w => w.app === app)) {
       const g = wardManager.wardGroupFor(app)
@@ -862,7 +862,7 @@ let pointerIsDown = false
 let lastPointerX = 0
 let lastPointerY = 0
 let hasHoverPointer = false
-// Last raycast position — with a still pointer and a still camera the hover
+// Last raycast position, with a still pointer and a still camera the hover
 // result can't change, so the 80ms tick skips the raycast entirely.
 let lastCastX = -1
 let lastCastY = -1
@@ -942,7 +942,7 @@ function focusCamera(focus: string): void {
 function setSwitcherLocked(locked: boolean): void {
   for (const el of switcherEl.children) {
     el.classList.toggle('disabled', locked)
-    // .disabled class only kills pointer-events — keyboard Enter on a focused
+    // .disabled class only kills pointer-events, keyboard Enter on a focused
     // button bypassed it; real disabled covers both.
     if (el instanceof HTMLButtonElement) el.disabled = locked
   }
@@ -967,13 +967,13 @@ function mkStoryButton(label: string, onClick: () => void): HTMLButtonElement {
 let playAllMode = false
 let playAllQueue: Chapter[] = []
 let playAllIdx = 0
-// (storyActive is declared near the top of the file — refreshHud needs it.)
-// True while the story card's ⏸ is showing — freezes the city sim (scenarios,
+// (storyActive is declared near the top of the file, refreshHud needs it.)
+// True while the story card's ⏸ is showing, freezes the city sim (scenarios,
 // wards, packets) so paused time can't outrun the player, which only arms one
 // event wait at a time; events firing while paused would be lost forever.
 let storyPaused = false
 // Story steps hold ≥3.5s for readability but chained sim events (fork→rise→
-// resume→data→frame) finish in ~4s of realtime — resolving mid-dwell and
+// resume→data→frame) finish in ~4s of realtime, resolving mid-dwell and
 // leaving later steps narrating action that already happened. Slow the sim
 // during chapters so it takes roughly as long as the narration.
 const STORY_SIM_SCALE = 0.35
@@ -1025,13 +1025,13 @@ function stopStory(): void {
 
 function startStory(chapter: Chapter): void {
   clearInjectTapTimer()
-  // Chapters fetch data and launch apps — a sleeping device contradicts them.
+  // Chapters fetch data and launch apps, a sleeping device contradicts them.
   cityHall.clearDoze()
   storyActive = true
   storyPaused = false
   launcherPlaza.setIdle(false)
   wardManager.setIdle(false)
-  // foundry idle too — its 25s cached-reclaim would otherwise fire mid-chapter,
+  // foundry idle too, its 25s cached-reclaim would otherwise fire mid-chapter,
   // pre-consuming ch6's process:killed wait with a kill the narration didn't cause.
   foundry.setIdle(false)
   panelEl.style.display = 'none'
@@ -1045,7 +1045,7 @@ const player = createPlayer(bus, {
   // The watchdog fired: a step's event never arrived. The tour keeps going;
   // this is the breadcrumb for whoever debugs the wiring.
   onStuckStep(chapterId, index, event) {
-    console.warn(`[story] ${chapterId} step ${index + 1} timed out waiting for "${event}" — advancing anyway`)
+    console.warn(`[story] ${chapterId} step ${index + 1} timed out waiting for "${event}", advancing anyway`)
   },
   onStep(step, index, total, title) {
     storyTitleEl.textContent = title
@@ -1059,7 +1059,7 @@ const player = createPlayer(bus, {
       startStory(playAllQueue[playAllIdx])
     } else {
       playAllMode = false
-      storyNarrationEl.textContent = 'Chapter done — ✕ to exit'
+      storyNarrationEl.textContent = 'Chapter done: ✕ to exit'
     }
   },
 }, { minStepMs: 3500 })
@@ -1111,7 +1111,7 @@ for (const item of storyMenuItems) {
 storyBarEl.append(storyToggleBtn, storyMenuEl)
 
 // ?debug readout: fps/draws/tris, refreshed by the existing 500ms HUD tick.
-// Zero cost without the param — debugEl is null and frameCount++ is all that runs.
+// Zero cost without the param, debugEl is null and frameCount++ is all that runs.
 const debugEl = new URLSearchParams(location.search).has('debug')
   ? document.body.appendChild(Object.assign(document.createElement('div'), {
       style: 'position:fixed;left:8px;bottom:8px;font:11px monospace;color:#57606a;z-index:99;pointer-events:none',

@@ -48,16 +48,16 @@ const APP_FLOOR_D = 2.8
 const BENCH_LABELS = ['input', 'animation', 'measure/layout', 'draw', 'renderThread']
 // Compose replaces the middle stages; everything below `draw` is the same code.
 const COMPOSE_NOTES: Record<string, string> = {
-  composition: 'Composition: run the @Composable functions whose snapshot state changed. Recomposition scopes let Compose SKIP subtrees whose inputs are unchanged — the reason stable types and lambdas matter for performance.',
+  composition: 'Composition: run the @Composable functions whose snapshot state changed. Recomposition scopes let Compose SKIP subtrees whose inputs are unchanged, the reason stable types and lambdas matter for performance.',
   layout: 'Layout: measure and place, single-pass per node (no double-measure like nested Views). Same job as measure/layout in the View world.',
-  draw: 'Draw: record drawing commands into the same display list the View pipeline produces. From here down — RenderThread, Skia/HWUI, SurfaceFlinger, vsync — Compose and Views are identical.',
+  draw: 'Draw: record drawing commands into the same display list the View pipeline produces. From here down, RenderThread, Skia/HWUI, SurfaceFlinger, vsync, Compose and Views are identical.',
 }
 const BENCH_GAP = 1.6
 const BENCH_NOTES: Record<string, string> = {
   input: 'Choreographer picks up the tap at the next vsync tick.',
   animation: 'Animators tick.',
   'measure/layout': 'Views measure and position themselves.',
-  draw: 'Display list recorded — heavy here = jank.',
+  draw: 'Display list recorded: heavy here = jank.',
   renderThread: 'GPU commands issued off the UI thread.',
 }
 
@@ -74,17 +74,17 @@ export function buildWardMeshes(app: string): WardMeshes {
   group.userData.app = app
   // Group-level fallback: covers untagged children (labels/sprites, shedGlow).
   // The inspector's wall-yield logic keys on mesh name 'wardWall', and the wall
-  // carries its own info — this fallback never masks either.
-  group.userData.info = { title: 'App process', note: 'One app, one process, one sandbox — a "ward" in the city metaphor: its own walls, memory, and main road.' }
+  // carries its own info, this fallback never masks either.
+  group.userData.info = { title: 'App process', note: 'One app, one process, one sandbox: a "ward" in the city metaphor: its own walls, memory, and main road.' }
 
   // ContentProvider slab: plinth ring under the Application floor. Providers are
-  // instantiated before Application.onCreate — the classic hidden startup tax —
+  // instantiated before Application.onCreate, the classic hidden startup tax -
   // so it lights a beat before the appFloor above it. Footprint 3.2 (wider than
   // appFloor's 2.8) at local y -0.05..0.25: the ward group now sits on the plate
   // top (PLOT_ANCHORS y 0.3), so the old -0.3..0 slab would be flush-buried in
-  // the plate — instead it pokes above as a visible plinth, with a tiny 0.05
+  // the plate, instead it pokes above as a visible plinth, with a tiny 0.05
   // sink hiding the plate seam. appFloor's base (local 0) and the plinth top
-  // (0.25) are different planes — no z-fight.
+  // (0.25) are different planes, no z-fight.
   const providerSlabGeo = new THREE.BoxGeometry(3.2, 0.3, 3.2)
   const providerSlabMat = new THREE.MeshStandardMaterial({
     color: 0x8b6c3f, roughness: 0.6, emissive: 0x8b6c3f, emissiveIntensity: 0,
@@ -95,11 +95,11 @@ export function buildWardMeshes(app: string): WardMeshes {
   providerSlab.position.set(TOWER_X, 0.1, TOWER_Z)
   providerSlab.userData.info = {
     title: 'ContentProviders',
-    note: 'Initialize BEFORE Application.onCreate — the classic hidden startup tax.',
+    note: 'Initialize BEFORE Application.onCreate: the classic hidden startup tax.',
   }
   group.add(providerSlab)
 
-  // Application floor: base of the tower, created once at bindApplication —
+  // Application floor: base of the tower, created once at bindApplication -
   // before any Activity exists. Slightly wider than the lifecycle floors above it.
   const appFloorGeo = new THREE.BoxGeometry(APP_FLOOR_W, FLOOR_H, APP_FLOOR_D)
   const appFloorMat = new THREE.MeshStandardMaterial({
@@ -111,7 +111,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   appFloor.position.set(TOWER_X, FLOOR_H / 2, TOWER_Z)
   appFloor.userData.info = {
     title: 'Application',
-    note: 'Created once per process at bindApplication — before any Activity.',
+    note: 'Created once per process at bindApplication: before any Activity.',
   }
   group.add(appFloor)
 
@@ -127,7 +127,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   serviceAnnex.position.set(TOWER_X - 3.2, 0.9, TOWER_Z)
   serviceAnnex.userData.info = {
     title: 'Service',
-    note: 'Runs with no UI. Keeps the process off the kill list — oom_adj 500 instead of 900.',
+    note: 'Runs with no UI. Keeps the process off the kill list, oom_adj 500 instead of 900.',
   }
   group.add(serviceAnnex)
   const annexLabel = makeLabel('service', 0.35)
@@ -150,7 +150,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   }
   const towerTop = FLOOR_H * 4
 
-  // Back stack: 3 pre-built, hidden translucent plates stacked behind the tower —
+  // Back stack: 3 pre-built, hidden translucent plates stacked behind the tower -
   // toggled visible per entry.backStack (no dynamic build/dispose churn per push/pop).
   const stackCards: THREE.Mesh[] = []
   for (let i = 0; i < 3; i++) {
@@ -162,12 +162,12 @@ export function buildWardMeshes(app: string): WardMeshes {
     const card = new THREE.Mesh(geo, mat)
     card.name = `stackCard${i}`
     // x +2.7 / z -1.4: clear of the bench stations' z row and the providerSlab's
-    // east face (slab spans x -6.6..-3.4, bench row at z -8) — no coplanar faces.
+    // east face (slab spans x -6.6..-3.4, bench row at z -8), no coplanar faces.
     card.position.set(TOWER_X + 2.7, 0.15 + i * 0.3, TOWER_Z - 1.4)
     card.visible = false
     card.userData.info = {
       title: 'Back stack',
-      note: 'Activities stack in a task. Back pops the top one; the last pop leaves the process alive — a warm start next time. launchMode singleTop reuses the top instance instead of stacking a new one.',
+      note: 'Activities stack in a task. Back pops the top one; the last pop leaves the process alive, a warm start next time. launchMode singleTop reuses the top instance instead of stacking a new one.',
     }
     group.add(card)
     stackCards.push(card)
@@ -186,7 +186,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   viewModelOrb.name = 'viewModelOrb'
   viewModelOrb.position.set(TOWER_X, towerTop + 0.3, TOWER_Z)
   viewModelOrb.visible = false
-  viewModelOrb.userData.info = { title: 'ViewModel', note: 'UI state that survives rotation — the tower rebuilds, this floats.' }
+  viewModelOrb.userData.info = { title: 'ViewModel', note: 'UI state that survives rotation: the tower rebuilds, this floats.' }
   group.add(viewModelOrb)
 
   // Screen panel: tower-top display, dark until lit (frame:composited).
@@ -218,11 +218,11 @@ export function buildWardMeshes(app: string): WardMeshes {
   carsParent.position.set(0, 0, 7)
   carsParent.userData.info = {
     title: 'Main-thread message',
-    note: 'One car per Looper message — the road drains them one at a time.',
+    note: 'One car per Looper message: the road drains them one at a time.',
   }
   group.add(carsParent)
 
-  // Worker pool: a second, narrower road parallel to the main road — real IO
+  // Worker pool: a second, narrower road parallel to the main road, real IO
   // (Room queries, network fetches) runs here, never on the main thread.
   const workerRoadGeo = new THREE.PlaneGeometry(0.6, 4)
   const workerRoadMat = new THREE.MeshStandardMaterial({ color: 0x74838f })
@@ -233,7 +233,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   workerRoad.position.set(1, 0.01, 7)
   workerRoad.userData.info = {
     title: 'Worker pool',
-    note: 'IO and heavy work run here — the main thread only posts and receives. Results must post back to the main road — touching views from a worker throws CalledFromWrongThreadException.',
+    note: 'IO and heavy work run here: the main thread only posts and receives. Results must post back to the main road, touching views from a worker throws CalledFromWrongThreadException.',
   }
   group.add(workerRoad)
 
@@ -251,11 +251,11 @@ export function buildWardMeshes(app: string): WardMeshes {
   trackLabel(workerLabel)
   group.add(workerLabel)
 
-  // Thread rack: 6 posts (main, renderThread, binder×2, worker×2) — the ward's
+  // Thread rack: 6 posts (main, renderThread, binder×2, worker×2), the ward's
   // real thread inventory, lit per-frame by the manager to show which threads
-  // are doing work right now. No post for GC/HeapTaskDaemon — the sweep plane
+  // are doing work right now. No post for GC/HeapTaskDaemon, the sweep plane
   // over the heap yard already covers that. Footprint check (local coords):
-  // rack sits at x -5.85..-1.35, z -1.8 — north of the tower/provider-slab/
+  // rack sits at x -5.85..-1.35, z -1.8, north of the tower/provider-slab/
   // annex block (x -8.5..-3.7, z -6.3..-3.7), west of the main road (x -0.5..
   // 0.5, z 2..12) and north of the heap yard (x 2..8, z -8..-2). Clear on all
   // sides; the "between tower and bench" spot suggested at scoping time
@@ -269,7 +269,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   const THREAD_POST_INFO: Record<string, { title: string; note: string }> = {
     main: {
       title: 'Main thread',
-      note: 'Services the message road. Owns a private ~8MB stack of call frames — freed on return, no GC needed. Blocks it 5s = ANR.',
+      note: 'Services the message road. Owns a private ~8MB stack of call frames, freed on return, no GC needed. Blocks it 5s = ANR.',
     },
     renderThread: {
       title: 'RenderThread',
@@ -277,11 +277,11 @@ export function buildWardMeshes(app: string): WardMeshes {
     },
     binder: {
       title: 'Binder pool thread',
-      note: 'Incoming IPC lands here — never on your main thread. ~15 of these per process.',
+      note: 'Incoming IPC lands here: never on your main thread. ~15 of these per process.',
     },
     worker: {
       title: 'Worker thread',
-      note: 'IO and heavy work. Every thread: private stack, shared heap — stack frames vanish on return; heap objects wait for GC.',
+      note: 'IO and heavy work. Every thread: private stack, shared heap, stack frames vanish on return; heap objects wait for GC.',
     },
   }
   const threadPosts: THREE.Mesh[] = []
@@ -326,7 +326,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   group.add(cratesParent)
 
   // The window: on resume the app calls WindowManager.addView, ViewRootImpl is
-  // created, and it registers this window with WMS — which asks SurfaceFlinger
+  // created, and it registers this window with WMS, which asks SurfaceFlinger
   // for the Surface the app then draws into. Lit = registered.
   const tokenGeo = new THREE.CylinderGeometry(0.12, 0.12, 2.6, 8)
   const tokenMat = new THREE.MeshStandardMaterial({ color: 0x8b98a5, roughness: 0.5 })
@@ -336,7 +336,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   windowToken.position.set(TOWER_X + 2, 1.3, TOWER_Z + 2.2)
   windowToken.userData.info = {
     title: 'Window token (ViewRootImpl ↔ WMS)',
-    note: 'Registering a window is a separate step from starting the Activity: WindowManager.addView creates a ViewRootImpl, which registers the window with WMS and receives a Surface allocated by SurfaceFlinger. From then on ViewRootImpl drives every traversal — measure, layout, draw — into that Surface. The window is removed when the Activity goes away, which is why a backgrounded app stops costing a Surface.',
+    note: 'Registering a window is a separate step from starting the Activity: WindowManager.addView creates a ViewRootImpl, which registers the window with WMS and receives a Surface allocated by SurfaceFlinger. From then on ViewRootImpl drives every traversal, measure, layout, draw, into that Surface. The window is removed when the Activity goes away, which is why a backgrounded app stops costing a Surface.',
   }
   group.add(windowToken)
 
@@ -350,12 +350,12 @@ export function buildWardMeshes(app: string): WardMeshes {
   mailbox.position.set(-2.6, 0.6, 5.4)
   mailbox.userData.info = {
     title: 'BroadcastReceiver',
-    note: 'Two kinds: **context-registered** (alive only while this process is, registered in code) and **manifest-declared** (the system can START this process to deliver — which is why a broadcast can wake a dead app). onReceive runs on the MAIN thread and has its own ANR timer: 10s foreground, 60s background. Most implicit broadcasts have been restricted since Android 8.',
+    note: 'Two kinds: **context-registered** (alive only while this process is, registered in code) and **manifest-declared** (the system can START this process to deliver, which is why a broadcast can wake a dead app). onReceive runs on the MAIN thread and has its own ANR timer: 10s foreground, 60s background. Most implicit broadcasts have been restricted since Android 8.',
   }
   group.add(mailbox)
 
   // Native side (NDK): a workshop across a JNI bridge, with its own heap pile.
-  // Separate structure on purpose — native code runs in the SAME process and
+  // Separate structure on purpose, native code runs in the SAME process and
   // address space, but outside ART: not managed, not garbage-collected.
   const nativeGeo = new THREE.BoxGeometry(2.2, 1.4, 2.2)
   const nativeMat = new THREE.MeshStandardMaterial({ color: 0x8d7b6b, roughness: 0.7 })
@@ -365,7 +365,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   nativeShop.position.set(-6.2, 0.7, 3.2)
   nativeShop.userData.info = {
     title: 'Native library (.so)',
-    note: 'NDK code — C/C++ compiled per ABI, shipped in the APK\'s lib/ dir. System.loadLibrary() dlopen()s it: the pages are mmap\'d straight off the DISK into this process. Same process, same address space, but outside ART: no GC, no exceptions, no lifecycle.',
+    note: 'NDK code: C/C++ compiled per ABI, shipped in the APK\'s lib/ dir. System.loadLibrary() dlopen()s it: the pages are mmap\'d straight off the DISK into this process. Same process, same address space, but outside ART: no GC, no exceptions, no lifecycle.',
   }
   group.add(nativeShop)
   const nativeLabel = makeLabel('native (.so)', 0.4)
@@ -382,7 +382,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   jniBridge.position.set(-6.2, 0.5, 0.6)
   jniBridge.userData.info = {
     title: 'JNI bridge',
-    note: 'The managed/native boundary. Each crossing costs: arguments are marshalled, objects pinned or copied, and a JNIEnv* is needed per thread (AttachCurrentThread for native-born threads). Chatty JNI in a loop is a classic hotspot — batch across the bridge, don\'t cross per item.',
+    note: 'The managed/native boundary. Each crossing costs: arguments are marshalled, objects pinned or copied, and a JNIEnv* is needed per thread (AttachCurrentThread for native-born threads). Chatty JNI in a loop is a classic hotspot, batch across the bridge, don\'t cross per item.',
   }
   group.add(jniBridge)
 
@@ -397,7 +397,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   nativeHeap.scale.y = 0.1
   nativeHeap.userData.info = {
     title: 'Native heap',
-    note: 'malloc/new from native code. Real RAM in this process, visible in PSS — but ART\'s GC cannot touch it: a missed free() leaks until the process dies. Force GC frees the managed heap only.',
+    note: 'malloc/new from native code. Real RAM in this process, visible in PSS, but ART\'s GC cannot touch it: a missed free() leaks until the process dies. Force GC frees the managed heap only.',
   }
   group.add(nativeHeap)
 
@@ -410,7 +410,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   shed.position.set(6, 0.75, 4)
   shed.userData.info = {
     title: 'Room DB',
-    note: 'App-private database. Fast, local, survives process death. The file itself is on the DISK — mmap\'d pages arrive over the storage bus.',
+    note: 'App-private database. Fast, local, survives process death. The file itself is on the DISK, mmap\'d pages arrive over the storage bus.',
   }
   group.add(shed)
   const shedLabel = makeLabel('Room DB', 0.35)
@@ -441,7 +441,7 @@ export function buildWardMeshes(app: string): WardMeshes {
   shedLink.position.set(6.4, 0.04, -2.5)
   shedLink.userData.info = {
     title: 'Storage link',
-    note: 'The shed\'s SQLite file lives on the DISK — its pages ride the storage bus below.',
+    note: 'The shed\'s SQLite file lives on the DISK: its pages ride the storage bus below.',
   }
   group.add(shedLink)
 
@@ -485,11 +485,11 @@ export function buildWardMeshes(app: string): WardMeshes {
   group.add(anrOverlay)
 
   // Sandbox wall: low curb FRAME marking the ward footprint, used for picking.
-  // Was a solid 18×18 slab — its 0.4-alpha tint drew over everything below
+  // Was a solid 18×18 slab, its 0.4-alpha tint drew over everything below
   // y 0.35 (roads, cars, shedLink, heapYard, providerSlab). Four edge boxes
   // leave the interior floor untinted. All four share the name 'wardWall'
   // (inspector wall-yield keys on it) and carry userData.app/info for picking.
-  const wallInfo = { title: 'Sandbox wall', note: 'Process isolation — no other app can reach inside.' }
+  const wallInfo = { title: 'Sandbox wall', note: 'Process isolation: no other app can reach inside.' }
   const wallMat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.4 })
   const wallGeoNS = new THREE.BoxGeometry(18, 0.35, 0.6) // north/south edges
   const wallGeoEW = new THREE.BoxGeometry(0.6, 0.35, 16.8) // east/west edges, inset past the corners

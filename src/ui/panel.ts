@@ -24,7 +24,7 @@ export function makePanel(title: string): Panel {
       return b
     },
     setNarration(text) {
-      // Called per-frame by some scenarios — skip identical writes to avoid DOM churn.
+      // Called per-frame by some scenarios, skip identical writes to avoid DOM churn.
       if (narration.textContent !== text) narration.textContent = text
     },
   }

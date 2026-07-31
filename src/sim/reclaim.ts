@@ -1,6 +1,6 @@
 // What the kernel does BEFORE anything is killed: kswapd walks the LRU list and
 // compresses cold anonymous pages into zram. Slower memory beats a dead
-// process — lmkd only steps in when reclaim can no longer keep up. Pure.
+// process, lmkd only steps in when reclaim can no longer keep up. Pure.
 
 export interface ReclaimState {
   readonly zramKb: number
@@ -31,7 +31,7 @@ export function reclaimPass(s: ReclaimState, pressureFrac: number): ReclaimResul
   const decay = 1 / attempts
   const freedKb = Math.max(0, Math.round(BASE_FREE_KB * decay * (1 - Math.min(1, pressureFrac) * 0.5)))
   const state: ReclaimState = {
-    // Compressed pages live on in zram — roughly half their original size.
+    // Compressed pages live on in zram, roughly half their original size.
     zramKb: s.zramKb + Math.round(freedKb * 0.5),
     reclaimedKb: s.reclaimedKb + freedKb,
     attempts,
@@ -40,7 +40,7 @@ export function reclaimPass(s: ReclaimState, pressureFrac: number): ReclaimResul
 }
 
 // After a kill, pressure drops and kswapd gets a fresh budget. zram totals stay
-// — those pages are still compressed in RAM.
+//, those pages are still compressed in RAM.
 export function resetReclaim(s: ReclaimState): ReclaimState {
   return { ...s, attempts: 0 }
 }

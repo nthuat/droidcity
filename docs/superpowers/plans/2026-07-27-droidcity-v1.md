@@ -4,15 +4,15 @@
 
 **Goal:** Interactive 3D city (PGSimCity-style) that teaches Android internals through 5 animated scenarios: main-thread traffic/ANR, activity lifecycle + rotation, touch-to-pixel frame pipeline, Zygote/LMK process management, and garbage collection.
 
-**Architecture:** Strict two-layer split. `src/sim/` holds pure, immutable, deterministic TypeScript state machines (one per Android concept) — fully unit-tested, zero Three.js imports. `src/scenarios/` + `src/scene/` are a thin Three.js rendering layer that reads sim state each frame and animates the city. Scenarios are self-contained districts registered in a switcher; each ships independently.
+**Architecture:** Strict two-layer split. `src/sim/` holds pure, immutable, deterministic TypeScript state machines (one per Android concept), fully unit-tested, zero Three.js imports. `src/scenarios/` + `src/scene/` are a thin Three.js rendering layer that reads sim state each frame and animates the city. Scenarios are self-contained districts registered in a switcher; each ships independently.
 
 **Tech Stack:** Vite, TypeScript (strict), Three.js, Vitest. Static deploy to GitHub Pages via Actions.
 
 ## Global Constraints
 
-- Project root: `/Users/admin/Projects/Ideas/droidcity` (new git repo — parent dir is not a repo)
+- Project root: `/Users/admin/Projects/Ideas/droidcity` (new git repo, parent dir is not a repo)
 - Dependencies: exactly `three` (runtime) + `vite`, `typescript`, `vitest`, `@types/three` (dev). No React, no physics libs, no UI frameworks.
-- `src/sim/**` NEVER imports `three`. All sim functions are pure: take state, return new state (immutable — never mutate input).
+- `src/sim/**` NEVER imports `three`. All sim functions are pure: take state, return new state (immutable, never mutate input).
 - All time is simulated milliseconds passed as `dtMs: number`. No `Date.now()`/`performance.now()` inside `src/sim/**` (rendering loop may use it).
 - ANR threshold: `5000` ms. Frame budget: `16.67` ms. Constants live in `src/sim/constants.ts`, never inlined.
 - Files under 400 lines. Commit messages: conventional commits (`feat:`, `test:`, `chore:`), no attribution footer.
@@ -204,7 +204,7 @@ describe('looper', () => {
 - [ ] **Step 2: Run tests, verify FAIL**
 
 Run: `npx vitest run tests/sim/looper.test.ts`
-Expected: FAIL — cannot resolve `../../src/sim/looper`.
+Expected: FAIL: cannot resolve `../../src/sim/looper`.
 
 - [ ] **Step 3: Implement**
 
@@ -277,7 +277,7 @@ git add src/sim tests && git commit -m "feat: looper/message-queue sim with ANR 
 
 ---
 
-### Task 3: Scene base — city bootstrap + builders
+### Task 3: Scene base, city bootstrap + builders
 
 **Files:**
 - Create: `src/scene/city.ts`, `src/scene/builders.ts`
@@ -569,7 +569,7 @@ git add -A && git commit -m "feat: scenario framework, switcher and control pane
 
 ---
 
-### Task 5: Scenario 1 — Main thread traffic + ANR
+### Task 5: Scenario 1, Main thread traffic + ANR
 
 **Files:**
 - Create: `src/scenarios/mainThread.ts`
@@ -780,7 +780,7 @@ describe('lifecycle', () => {
 })
 ```
 
-- [ ] **Step 2: Run, verify FAIL** — `npx vitest run tests/sim/lifecycle.test.ts` — module not found.
+- [ ] **Step 2: Run, verify FAIL**, `npx vitest run tests/sim/lifecycle.test.ts`, module not found.
 
 - [ ] **Step 3: Implement**
 
@@ -836,7 +836,7 @@ export function foreground(s: ActivityState): ActivityState {
 }
 ```
 
-- [ ] **Step 4: Run, verify PASS** — 5 passed.
+- [ ] **Step 4: Run, verify PASS**, 5 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -846,7 +846,7 @@ git add -A && git commit -m "feat: activity lifecycle sim with viewmodel surviva
 
 ---
 
-### Task 7: Scenario 2 — Lifecycle building
+### Task 7: Scenario 2, Lifecycle building
 
 **Files:**
 - Create: `src/scenarios/lifecycle.ts`
@@ -957,7 +957,7 @@ export function makeLifecycleScenario(): Scenario {
 }
 ```
 
-- [ ] **Step 2: Register** — add `makeLifecycleScenario()` to the scenarios array in `src/main.ts`.
+- [ ] **Step 2: Register**, add `makeLifecycleScenario()` to the scenarios array in `src/main.ts`.
 
 - [ ] **Step 3: Verify visually**
 
@@ -981,7 +981,7 @@ npm test && git add -A && git commit -m "feat: lifecycle scenario with rotation 
 - Produces:
 ```ts
 export interface Stage { readonly name: string; readonly costMs: number }
-export const DEFAULT_STAGES: readonly Stage[]  // input 1, animation 1, measure/layout 2, draw 2, renderThread 3, gpu 3, surfaceFlinger 2  (total 14 — under budget)
+export const DEFAULT_STAGES: readonly Stage[]  // input 1, animation 1, measure/layout 2, draw 2, renderThread 3, gpu 3, surfaceFlinger 2  (total 14, under budget)
 export interface FrameRun {
   readonly stages: readonly Stage[]
   readonly elapsedMs: number          // progress into the run
@@ -1041,7 +1041,7 @@ describe('framePipeline', () => {
 })
 ```
 
-- [ ] **Step 2: Run, verify FAIL** — module not found.
+- [ ] **Step 2: Run, verify FAIL**, module not found.
 
 - [ ] **Step 3: Implement**
 
@@ -1107,7 +1107,7 @@ export function withHeavyDraw(stages: readonly Stage[], drawCostMs: number): rea
 }
 ```
 
-- [ ] **Step 4: Run, verify PASS** — 5 passed.
+- [ ] **Step 4: Run, verify PASS**, 5 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1117,7 +1117,7 @@ git add -A && git commit -m "feat: touch-to-pixel frame pipeline sim"
 
 ---
 
-### Task 9: Scenario 3 — Touch to pixel assembly line
+### Task 9: Scenario 3, Touch to pixel assembly line
 
 **Files:**
 - Create: `src/scenarios/touchPipeline.ts`
@@ -1208,8 +1208,8 @@ export function makeTouchPipelineScenario(): Scenario {
         if (run.done) {
           resultFlash = 800
           panel.setNarration(run.dropped
-            ? `Frame took ${run.totalMs.toFixed(1)}ms — deadline missed, frame dropped. User sees jank.`
-            : `Frame delivered in ${run.totalMs.toFixed(1)}ms — under budget. Smooth.`)
+            ? `Frame took ${run.totalMs.toFixed(1)}ms: deadline missed, frame dropped. User sees jank.`
+            : `Frame delivered in ${run.totalMs.toFixed(1)}ms, under budget. Smooth.`)
         }
       } else {
         packet.visible = false
@@ -1239,7 +1239,7 @@ export function makeTouchPipelineScenario(): Scenario {
 }
 ```
 
-- [ ] **Step 2: Register** — add `makeTouchPipelineScenario()` to scenarios array.
+- [ ] **Step 2: Register**, add `makeTouchPipelineScenario()` to scenarios array.
 
 - [ ] **Step 3: Verify visually**
 
@@ -1253,7 +1253,7 @@ npm test && git add -A && git commit -m "feat: touch-to-pixel assembly line scen
 
 ---
 
-### Task 10: Process sim — Zygote fork + LMK
+### Task 10: Process sim, Zygote fork + LMK
 
 **Files:**
 - Create: `src/sim/processes.ts`
@@ -1263,7 +1263,7 @@ npm test && git add -A && git commit -m "feat: touch-to-pixel assembly line scen
 - Produces:
 ```ts
 export type Priority = 'foreground' | 'visible' | 'service' | 'cached'
-export const KILL_ORDER: readonly Priority[]  // ['cached','service','visible','foreground'] — LMK kills cached first
+export const KILL_ORDER: readonly Priority[]  // ['cached','service','visible','foreground'], LMK kills cached first
 export interface Proc {
   readonly pid: number
   readonly name: string
@@ -1336,7 +1336,7 @@ describe('processes', () => {
 })
 ```
 
-- [ ] **Step 2: Run, verify FAIL** — module not found.
+- [ ] **Step 2: Run, verify FAIL**, module not found.
 
 - [ ] **Step 3: Implement**
 
@@ -1398,7 +1398,7 @@ export function setPriority(s: SystemState, pid: number, priority: Priority): Sy
 }
 ```
 
-- [ ] **Step 4: Run, verify PASS** — 5 passed. (Check test 3 math: capacity 1000, a+b+c=900 used, big needs 800 → free is 100, need 700 more; killing a (300) → 400 free, still short; kill b → 700 free, short of 800? 700 < 800 → kill c → 1000 free. All three killed. Correct.)
+- [ ] **Step 4: Run, verify PASS**, 5 passed. (Check test 3 math: capacity 1000, a+b+c=900 used, big needs 800 → free is 100, need 700 more; killing a (300) → 400 free, still short; kill b → 700 free, short of 800? 700 < 800 → kill c → 1000 free. All three killed. Correct.)
 
 - [ ] **Step 5: Commit**
 
@@ -1408,7 +1408,7 @@ git add -A && git commit -m "feat: zygote fork + LMK reclaim sim"
 
 ---
 
-### Task 11: Scenario 4 — Zygote district
+### Task 11: Scenario 4, Zygote district
 
 **Files:**
 - Create: `src/scenarios/zygote.ts`
@@ -1505,7 +1505,7 @@ export function makeZygoteScenario(): Scenario {
         if (b.scale.y === 0) {
           group.remove(b)
           dying.delete(pid)
-          panel.setNarration('LMK killed a cached process to free memory. Its saved state lets it restore later — this is why onSaveInstanceState matters.')
+          panel.setNarration('LMK killed a cached process to free memory. Its saved state lets it restore later, this is why onSaveInstanceState matters.')
         }
       }
       const frac = usedMb(state) / CAPACITY_MB
@@ -1524,7 +1524,7 @@ export function makeZygoteScenario(): Scenario {
 }
 ```
 
-- [ ] **Step 2: Register** — add `makeZygoteScenario()` to scenarios array.
+- [ ] **Step 2: Register**, add `makeZygoteScenario()` to scenarios array.
 
 - [ ] **Step 3: Verify visually**
 
@@ -1612,7 +1612,7 @@ describe('heap', () => {
 })
 ```
 
-- [ ] **Step 2: Run, verify FAIL** — module not found.
+- [ ] **Step 2: Run, verify FAIL**, module not found.
 
 - [ ] **Step 3: Implement**
 
@@ -1664,7 +1664,7 @@ export function releaseOldest(s: HeapState, count: number): HeapState {
 }
 ```
 
-- [ ] **Step 4: Run, verify PASS** — 5 passed.
+- [ ] **Step 4: Run, verify PASS**, 5 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1674,7 +1674,7 @@ git add -A && git commit -m "feat: heap allocation + gc sim"
 
 ---
 
-### Task 13: Scenario 5 — GC cleanup crew
+### Task 13: Scenario 5, GC cleanup crew
 
 **Files:**
 - Create: `src/scenarios/gc.ts`
@@ -1744,12 +1744,12 @@ export function makeGcScenario(): Scenario {
         state = result.state
         if (result.gcRan) {
           sweepX = -7
-          panel.setNarration(`Allocation didn't fit — GC #${state.gcCount} ran first, freed ${state.lastFreedKb}KB. On old Android this paused ALL threads; ART keeps pauses sub-ms.`)
+          panel.setNarration(`Allocation didn't fit: GC #${state.gcCount} ran first, freed ${state.lastFreedKb}KB. On old Android this paused ALL threads; ART keeps pauses sub-ms.`)
           void before
         }
       }
     } catch {
-      panel.setNarration('OutOfMemoryError! GC ran but everything is still reachable — nothing to free. This is a leak: references held to objects you no longer need.')
+      panel.setNarration('OutOfMemoryError! GC ran but everything is still reachable, nothing to free. This is a leak: references held to objects you no longer need.')
     }
   }
 
@@ -1761,7 +1761,7 @@ export function makeGcScenario(): Scenario {
     sweepX = -7
     panel.setNarration(`GC #${state.gcCount} freed ${state.lastFreedKb}KB.`)
   })
-  panel.setNarration('Crates = objects. Green = reachable. Grey = garbage (unreachable) — still occupying memory until GC sweeps.')
+  panel.setNarration('Crates = objects. Green = reachable. Grey = garbage (unreachable), still occupying memory until GC sweeps.')
 
   return {
     name: 'Garbage Collector',
@@ -1820,7 +1820,7 @@ export function makeGcScenario(): Scenario {
 }
 ```
 
-- [ ] **Step 2: Register** — add `makeGcScenario()` to scenarios array.
+- [ ] **Step 2: Register**, add `makeGcScenario()` to scenarios array.
 
 - [ ] **Step 3: Verify visually**
 
@@ -1834,13 +1834,13 @@ npm test && git add -A && git commit -m "feat: gc cleanup crew scenario"
 
 ---
 
-### Task 14: Polish pass — intro overlay + camera framing per scenario
+### Task 14: Polish pass, intro overlay + camera framing per scenario
 
 **Files:**
 - Modify: `src/scenarios/types.ts`, `src/main.ts`, `index.html`
 
 **Interfaces:**
-- Modifies `Scenario`: add `readonly cameraPos: THREE.Vector3` and `readonly cameraTarget: THREE.Vector3` fields. Each scenario factory (Tasks 5,7,9,11,13) gets two added lines in its returned object — values below.
+- Modifies `Scenario`: add `readonly cameraPos: THREE.Vector3` and `readonly cameraTarget: THREE.Vector3` fields. Each scenario factory (Tasks 5,7,9,11,13) gets two added lines in its returned object, values below.
 
 - [ ] **Step 1: Extend Scenario interface**
 
@@ -1875,7 +1875,7 @@ In `index.html`, add inside `<body>` before `#app`:
 ```html
 <div id="intro">
   <h1>DroidCity</h1>
-  <p>A working model of how an Android app runs — as a city. Pick a district up top; press the buttons; watch what the OS does. Early prototype: expect inaccuracies, corrections welcome.</p>
+  <p>A working model of how an Android app runs: as a city. Pick a district up top; press the buttons; watch what the OS does. Early prototype: expect inaccuracies, corrections welcome.</p>
   <button id="intro-close">Explore</button>
 </div>
 ```
@@ -1914,7 +1914,7 @@ How an Android app runs, as an explorable 3D city. Inspired by [PGSimCity](https
 
 **Districts:** Main Thread (Looper traffic + ANR) · Activity Lifecycle (rotation rebuild, ViewModel roof) · Touch→Pixel (frame pipeline, 16.67ms deadline) · Zygote & LMK (process fork + eviction) · Garbage Collector (heap sweep).
 
-Early prototype — the model simplifies aggressively and surely contains inaccuracies. Issues/PRs welcome.
+Early prototype: the model simplifies aggressively and surely contains inaccuracies. Issues/PRs welcome.
 
 ## Dev
 

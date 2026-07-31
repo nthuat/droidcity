@@ -3,36 +3,36 @@ import { mergeStaticGroup } from './merge'
 
 // Motherboard "ribbon" traces: thin flat strips connecting the hardware strip
 // (CPU/RAM/DISK, board.ts plate top y -0.5) up through the boot strip (top y -0.2)
-// onto the main plates (top y 0.3). Each ribbon climbs in two short sloped steps —
+// onto the main plates (top y 0.3). Each ribbon climbs in two short sloped steps -
 // one at the hardware/boot seam (z -60), one at the boot/plate seam (z -45), board.ts's
-// real plate boundaries — with flat runs in between, so the strip crossings read as a
+// real plate boundaries, with flat runs in between, so the strip crossings read as a
 // deliberate climb. Nothing sits flush-buried under a plate (learned from MB2/HW1:
 // buried geometry reads as missing, not present-but-hidden).
 //
 // x/z sources duplicate hardwareRow.ts's private CPU_X/RAM_X/DISK_X and main.ts's
-// ANCHORS.hardware.z (-68) as plain numbers rather than importing them — same
+// ANCHORS.hardware.z (-68) as plain numbers rather than importing them, same
 // import-cycle rationale as routes.ts's ANCHORS duplication (see that file's header).
 
 const TRACE_W = 0.5
 const TRACE_H = 0.06
 const TRACE_COLOR = 0x6b7a86
-const TRACE_RAISE = 0.08 // well clear of plate tops — 0.02 sat inside depth-buffer noise at distance
+const TRACE_RAISE = 0.08 // well clear of plate tops, 0.02 sat inside depth-buffer noise at distance
 const BUS_W = 1.2 // CPU-RAM bus wider than per-plot traces
-const CPU_RAM_BUS_INFO = { title: 'Memory bus (CPU ↔ RAM)', note: 'Every instruction and object the CPU touches streams over this bus. Caches hide most trips — a miss stalls the core.' }
-const RAM_DISK_BUS_INFO = { title: 'Storage bus (RAM ↔ DISK)', note: 'Pages move here: Room reads and mmap\'d dex page IN, write-backs and evictions page OUT. DMA — the CPU doesn\'t carry the bytes.' }
+const CPU_RAM_BUS_INFO = { title: 'Memory bus (CPU ↔ RAM)', note: 'Every instruction and object the CPU touches streams over this bus. Caches hide most trips, a miss stalls the core.' }
+const RAM_DISK_BUS_INFO = { title: 'Storage bus (RAM ↔ DISK)', note: 'Pages move here: Room reads and mmap\'d dex page IN, write-backs and evictions page OUT. DMA, the CPU doesn\'t carry the bytes.' }
 
 const Y_HW = -0.5
 const Y_BOOT = -0.2
 const Y_PLATE = 0.3
 const Z_HW_BOOT = -60 // hardware/boot plate seam (board.ts)
 const Z_BOOT_PLATE = -45 // boot/main-plate seam (board.ts)
-// Per-plot fans jog east/west then run straight south into their plot — a single
+// Per-plot fans jog east/west then run straight south into their plot, a single
 // plate-seam->plot-center diagonal crossed neighbor wards (bench/heap clips).
 // Each plot jogs at its OWN z (JOG_Z0 - n * JOG_STEP): with one shared jog z all
-// 12 east-west legs (3 families x 4 plots) sat collinear at the same y — a stack
+// 12 east-west legs (3 families x 4 plots) sat collinear at the same y, a stack
 // of coplanar boxes whose z-fight rendered the whole run as broken hooks.
 // Farther plots jog farther north, so no jog leg ever crosses a south leg.
-// Corridor between the core band's south seam (-25, cosmetic — both bands top
+// Corridor between the core band's south seam (-25, cosmetic, both bands top
 // 0.3) and the ward walls (-19), under the conveyor spine at z -22 (raise 0.5).
 const JOG_Z0 = -24
 const JOG_STEP = 0.6
@@ -60,22 +60,22 @@ const RAM_LANE_OFFSET = 0.8
 const DISK_LANE_OFFSET = 1.6
 // RAM family gets its own narrower fan: CPU's CORE_OFFSETS lane 4 (+4.8, +0.8
 // lane = x 5.6) cut through the 'init' boot station (x ~5..9 on the boot strip).
-// Max here is 3.6 + 0.8 = 4.4 — clear of the station's west face.
+// Max here is 3.6 + 0.8 = 4.4, clear of the station's west face.
 const RAM_FAN_OFFSETS = [-3.6, -1.2, 1.2, 3.6]
 const CPU_TRACE_INFO = { title: 'CPU trace', note: 'Lights while this ward\'s main thread holds a core.' }
-const RAM_TRACE_INFO = { title: 'Memory bus', note: 'Lights when this ward allocates or GC runs — pages moving between heap and physical RAM.' }
-const DISK_TRACE_INFO = { title: 'Storage bus', note: 'Lights on Room reads and write-backs — the ward\'s private DB lives on this flash.' }
+const RAM_TRACE_INFO = { title: 'Memory bus', note: 'Lights when this ward allocates or GC runs: pages moving between heap and physical RAM.' }
+const DISK_TRACE_INFO = { title: 'Storage bus', note: 'Lights on Room reads and write-backs: the ward\'s private DB lives on this flash.' }
 
 const PLOT_X = [-33.75, -11.25, 11.25, 33.75]
 const PLOT_Z = -10
 const WARD_TRUNK = new THREE.Vector3(0, Y_PLATE, PLOT_Z) // ward-strip center, no specific plot
 const ZYGOTE = new THREE.Vector3(-55, Y_PLATE, -35)
 // Radio feed: the network tower's pipeline runs on this silicon (hardwareRow's
-// RADIO_X mast, east of DISK). Feed climbs at x 60 — clear of the DISK per-plot
-// fan (max lane x 36.4) — then runs to the tower on the network plate.
+// RADIO_X mast, east of DISK). Feed climbs at x 60, clear of the DISK per-plot
+// fan (max lane x 36.4), then runs to the tower on the network plate.
 const RADIO_X = 45
 const NETWORK = new THREE.Vector3(65, Y_PLATE, 17)
-const RADIO_TRACE_INFO = { title: 'Radio feed', note: 'The network tower drives the radio mast — DNS, TLS, download all end as RF on the hardware strip.' }
+const RADIO_TRACE_INFO = { title: 'Radio feed', note: 'The network tower drives the radio mast: DNS, TLS, download all end as RF on the hardware strip.' }
 
 function v(x: number, y: number, z: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z)
@@ -89,14 +89,14 @@ function traceMaterial(): THREE.MeshStandardMaterial {
 
 // Sloped tiles get trimmed at both ends: a tilted box's end-face corners poke
 // past the endpoint into the flat tile it meets (coplanar penetration inside
-// the merged mesh — feathered z-fight). Tiles meet at shared endpoints only;
+// the merged mesh, feathered z-fight). Tiles meet at shared endpoints only;
 // the raised joint pad covers the trimmed elbow. Threshold skips the tiny
-// origin-raise tilt (see climbPoints) — only real climb steps trim.
+// origin-raise tilt (see climbPoints), only real climb steps trim.
 const SLOPE_TRIM = 0.06
 const SLOPE_DY_MIN = 0.1
 
 // One flat/sloped ribbon tile between two points, oriented via lookAt (handles the
-// sloped climbing steps the same way board.ts's makeSlope does — no separate math).
+// sloped climbing steps the same way board.ts's makeSlope does, no separate math).
 function segment(mat: THREE.MeshStandardMaterial, from: THREE.Vector3, to: THREE.Vector3): THREE.Mesh {
   const a = from.clone().setY(from.y + TRACE_RAISE)
   const b = to.clone().setY(to.y + TRACE_RAISE)
@@ -117,7 +117,7 @@ function segment(mat: THREE.MeshStandardMaterial, from: THREE.Vector3, to: THREE
 // segment tops so it covers jog notches and trimmed slope elbows without ever
 // sitting coplanar with them (routes.ts jointPad pattern).
 function jointPad(mat: THREE.MeshStandardMaterial, p: THREE.Vector3): THREE.Mesh {
-  // Disc pad — covers jogs at any approach angle (box pads left bowtie notches).
+  // Disc pad, covers jogs at any approach angle (box pads left bowtie notches).
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(TRACE_W * 0.72, TRACE_W * 0.72, TRACE_H, 10), mat)
   pad.position.set(p.x, p.y + TRACE_RAISE + 0.015 - TRACE_H / 2, p.z)
   return pad
@@ -136,7 +136,7 @@ function ribbon(mat: THREE.MeshStandardMaterial, points: readonly THREE.Vector3[
 // the hw strip -> sloped step up to boot level -> flat across the boot strip ->
 // sloped step up to plate level. Each sloped step ENDS exactly at its seam, fully
 // over the LOWER strip: a step centered on the seam only reached the upper level
-// 2 units past it, so its first half tunneled into the upper plate's side wall —
+// 2 units past it, so its first half tunneled into the upper plate's side wall -
 // the lane visually died at the seam and reappeared on the plate top (read as a
 // broken link from any camera that could see the wall face).
 function climbPoints(x: number, srcZ: number, lift = 0): THREE.Vector3[] {
@@ -157,7 +157,7 @@ function climbPoints(x: number, srcZ: number, lift = 0): THREE.Vector3[] {
 // One ribbon per plot from a hardware-strip source block, fanned across the
 // same 4 lane offsets CPU uses (mirrors hardwareRow.ts's slot/slab spread),
 // shifted sideways by laneOffsetX and tagged with a hover tooltip. Mirrors the
-// CPU per-plot loop in buildTraces below — kept separate (not shared with CPU)
+// CPU per-plot loop in buildTraces below, kept separate (not shared with CPU)
 // since CPU predates this lane-offset shape.
 function buildPlotFamily(
   sourceX: number, fanOffsets: readonly number[], laneOffsetX: number, info: { title: string; note: string },
@@ -240,7 +240,7 @@ export function buildTraces(): Traces {
     ...ribbon(ramMat, [ramExit, ZYGOTE.clone().setY(ZYGOTE.y + RAM_LAYER_LIFT)]),
     ...ribbon(ramMat, [ramExit, WARD_TRUNK.clone().setY(WARD_TRUNK.y + RAM_LAYER_LIFT)]),
     // ramExit is an endpoint of all three ribbons (never interior), so no
-    // ribbon() pad lands on the fork elbow — add it explicitly.
+    // ribbon() pad lands on the fork elbow, add it explicitly.
     jointPad(ramMat, ramExit),
   ]
   for (const m of ramRibbons) {

@@ -28,7 +28,7 @@ export function usedMb(s: SystemState): number {
 }
 
 // An app allocating more: its RSS grows. Deliberately does NOT kill anyone here
-// — pressure rising is the input to the reclaim/LMK ladder, not a kill itself.
+//, pressure rising is the input to the reclaim/LMK ladder, not a kill itself.
 // Capped at capacity so a runaway allocation can't produce nonsense totals.
 export function growProcess(s: SystemState, name: string, addMb: number): SystemState {
   const proc = s.procs.find(p => p.name === name)

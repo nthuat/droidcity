@@ -3,20 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="How Android really runs, as an explorable 3D city: boot, Zygote fork, Binder, frames, memory pressure and the LMK kill order — all live, all clickable." />
+    <meta name="description" content="How Android really runs, as an explorable 3D city: boot, Zygote fork, Binder, frames, memory pressure and the LMK kill order, all live, all clickable." />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://thuat.dev/droidcity/" />
-    <meta property="og:title" content="DroidCity — how Android runs, as a city you can explore" />
-    <meta property="og:description" content="How Android really runs, as an explorable 3D city: boot, Zygote fork, Binder, frames, memory pressure and the LMK kill order — all live, all clickable." />
+    <meta property="og:title" content="DroidCity: how Android runs, as a city you can explore" />
+    <meta property="og:description" content="How Android really runs, as an explorable 3D city: boot, Zygote fork, Binder, frames, memory pressure and the LMK kill order, all live, all clickable." />
     <meta property="og:image" content="https://thuat.dev/droidcity/og.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="DroidCity — how Android runs, as a city you can explore" />
-    <meta name="twitter:description" content="How Android really runs, as an explorable 3D city: boot, Zygote fork, Binder, frames, memory pressure and the LMK kill order — all live, all clickable." />
+    <meta name="twitter:title" content="DroidCity: how Android runs, as a city you can explore" />
+    <meta name="twitter:description" content="How Android really runs, as an explorable 3D city: boot, Zygote fork, Binder, frames, memory pressure and the LMK kill order, all live, all clickable." />
     <meta name="twitter:image" content="https://thuat.dev/droidcity/og.jpg" />
-    <title>DroidCity — how Android runs, as a city you can explore</title>
+    <title>DroidCity: how Android runs, as a city you can explore</title>
     <style>
       body { margin: 0; overflow: hidden; font-family: system-ui, sans-serif; }
       #switcher { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; z-index: 10; }
@@ -31,7 +31,7 @@
       #intro { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: rgba(233,231,226,.7); color: #24292f; z-index: 20; padding: 24px; }
       .intro-panel { background: rgba(255,255,255,.95); border: 1px solid #d0d7de; border-radius: 12px; padding: 16px 32px 24px; }
       .intro-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-      /* The guided tour is the best path through the city — give it the accent. */
+      /* The guided tour is the best path through the city, give it the accent. */
       button.primary { background: #3ddc84; border-color: #2bb96c; color: #10281b; font-weight: 700; }
       button.primary:hover { background: #34c877; }
       #intro p { max-width: 480px; color: #57606a; }
@@ -87,7 +87,7 @@
     <div id="intro">
       <div class="intro-panel">
       <h1>DroidCity</h1>
-      <p>A working model of how an Android app runs — as a city. Pick a district up top; press the buttons; watch what the OS does. Early prototype: expect inaccuracies, corrections welcome.</p>
+      <p>A working model of how an Android app runs: as a city. Pick a district up top; press the buttons; watch what the OS does. Early prototype: expect inaccuracies, corrections welcome.</p>
       <p class="intro-links">
         <a href="https://github.com/nthuat/droidcity" target="_blank" rel="noopener">GitHub</a> ·
         <a href="https://github.com/nthuat/droidcity/blob/main/docs/android-flow-reference.md" target="_blank" rel="noopener">Android flow reference</a> ·

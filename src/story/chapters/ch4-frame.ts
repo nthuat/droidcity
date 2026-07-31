@@ -12,7 +12,7 @@ export function makeCh4(ctx: StoryCtx): Chapter {
     },
     steps: [
       {
-        narration: 'Every visible change is a race: 16.67 milliseconds of work per frame, sixty times a second. The tap itself arrived from the touchscreen through system_server\'s InputDispatcher — apps never read hardware directly. Every frame starts on a vsync tick — Choreographer lines the work up against a 16.67ms train timetable.',
+        narration: 'Every visible change is a race: 16.67 milliseconds of work per frame, sixty times a second. The tap itself arrived from the touchscreen through system_server\'s InputDispatcher. Apps never read hardware directly. Every frame starts on a vsync tick, Choreographer lines the work up against a 16.67ms train timetable.',
         focus: 'ward:chat',
         fire: () => ctx.injectTap('chat'),
         waitFor: { event: 'frame:submitted', app: 'chat' },
@@ -23,7 +23,7 @@ export function makeCh4(ctx: StoryCtx): Chapter {
         waitFor: { event: 'frame:composited', app: 'chat' },
       },
       {
-        narration: 'Now a heavy frame — overdraw, deep layouts, a bitmap decode on the UI thread. It misses the train. That\'s jank.',
+        narration: 'Now a heavy frame: overdraw, deep layouts, a bitmap decode on the UI thread. It misses the train. That\'s jank.',
         focus: 'surfaceflinger',
         fire: () => ctx.wards.runHeavyFrame('chat'),
         waitFor: { event: 'frame:composited', app: 'chat' },
@@ -35,7 +35,7 @@ export function makeCh4(ctx: StoryCtx): Chapter {
         waitFor: { ms: 5000 },
       },
       {
-        narration: 'Some of that work may not be Java at all. A JNI call crosses into the app\'s .so — same process, outside ART: no GC, no exceptions. Every crossing marshals arguments, and whatever it mallocs lands on the native heap, which Force GC can never reclaim. Only process death frees it.',
+        narration: 'Some of that work may not be Java at all. A JNI call crosses into the app\'s .so, same process, outside ART: no GC, no exceptions. Every crossing marshals arguments, and whatever it mallocs lands on the native heap, which Force GC can never reclaim. Only process death frees it.',
         focus: 'ward:chat',
         fire: () => ctx.wards.callNative('chat'),
         waitFor: { event: 'jni:called', app: 'chat' },
@@ -50,13 +50,13 @@ export function makeCh4(ctx: StoryCtx): Chapter {
         timeoutMs: 60000,
       },
       {
-        narration: 'That\'s the whole machine: boot, fork, ward, data, frames — and when memory runs out, a ward is demolished and the foundry stands ready to stamp a new one. The city breathes.',
+        narration: 'That\'s the whole machine: boot, fork, ward, data, frames, and when memory runs out, a ward is demolished and the foundry stands ready to stamp a new one. The city breathes.',
         focus: 'overview',
         fire: () => ctx.killApp('chat'),
         waitFor: { ms: 4000 },
       },
       {
-        narration: 'And when you come back — fork again, saved state restores, as if nothing died. The city breathes.',
+        narration: 'And when you come back: fork again, saved state restores, as if nothing died. The city breathes.',
         focus: 'ward:chat',
         fire: () => ctx.launcher.clickKiosk('chat'),
         waitFor: { event: 'activity:resumed', app: 'chat' },

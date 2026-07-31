@@ -8,7 +8,7 @@ export interface StoryCtx {
   wards: WardManager
   setCityDim(dim: boolean): void
   killApp(app: string): void
-  // SIGKILL every ward — ch1 opens with "the power is off"; leftover wards (and
+  // SIGKILL every ward, ch1 opens with "the power is off"; leftover wards (and
   // any launch already mid-fork from auto mode) contradict the boot narration.
   resetCity(): void
   injectTap(app: string): void

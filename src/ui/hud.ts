@@ -37,7 +37,7 @@ export function createHud(scene: THREE.Scene): Hud {
     if (entry) entry.lineEl.textContent = text
   }
 
-  // Hides every label except 'boot' — mirrors setCityDim's district hiding during
+  // Hides every label except 'boot', mirrors setCityDim's district hiding during
   // a boot replay. Toggling .visible (not style.display) plays nice with
   // CSS2DRenderer, which overwrites display every frame based on that flag.
   function setDimmed(dim: boolean): void {
@@ -58,7 +58,7 @@ export interface WardLabel {
 
 // Small floating tag for one live ward, attached as a child of its group so it
 // rises/falls/disposes with the building. Caller must remove `obj` from its
-// parent on demolition — CSS2DObject only cleans up its DOM node when explicitly
+// parent on demolition, CSS2DObject only cleans up its DOM node when explicitly
 // removed from its parent, not when an ancestor further up is removed.
 // Three rows: a static title (app · pid), a live second line (oom_adj score),
 // and a third line main.ts flashes with the last start type (cold/warm/hot)

@@ -7,7 +7,7 @@ export function makeCh5(ctx: StoryCtx): Chapter {
     title: 'Coming Back',
     setup: () => {
       ctx.setCityDim(false)
-      // wards() has no phase — a finish-rooted ward (alive, phase 'destroyed', e.g.
+      // wards() has no phase, a finish-rooted ward (alive, phase 'destroyed', e.g.
       // left over from a prior back-stack demo) would read as "running" and skip
       // relaunch, playing the cold-start narration over a dark ward. wardStats()
       // is already phase-aware; clickKiosk('chat') covers both cases the same way:
@@ -19,42 +19,42 @@ export function makeCh5(ctx: StoryCtx): Chapter {
     },
     steps: [
       {
-        narration: "Chat is running — this ward cost a full cold start: fork, Application, Activity, first frame. Let's see the cheaper ways back.",
+        narration: "Chat is running: this ward cost a full cold start: fork, Application, Activity, first frame. Let's see the cheaper ways back.",
         focus: 'ward:chat',
         waitFor: { ms: 4000 },
       },
       {
-        narration: 'Home. The Activity stops — floors dim — and the process drops to cached, oom_adj 900. Nothing is destroyed.',
+        narration: 'Home. The Activity stops: floors dim, and the process drops to cached, oom_adj 900. Nothing is destroyed.',
         focus: 'ward:chat',
         fire: () => ctx.wards.goHome('chat'),
         waitFor: { ms: 4000 },
       },
       {
-        narration: 'Tap again: a WARM start. No fork, no Application — the floors just relight. Milliseconds, not seconds.',
+        narration: 'Tap again: a WARM start. No fork, no Application, the floors just relight. Milliseconds, not seconds.',
         focus: 'ward:chat',
         fire: () => ctx.launcher.clickKiosk('chat'),
         waitFor: { event: 'app:broughtToFront', app: 'chat' },
       },
       {
-        narration: "Again, while it's already resumed: a HOT start — nothing to rebuild at all, just bring the window forward.",
+        narration: "Again, while it's already resumed: a HOT start, nothing to rebuild at all, just bring the window forward.",
         focus: 'ward:chat',
         fire: () => ctx.launcher.clickKiosk('chat'),
         waitFor: { event: 'app:broughtToFront', app: 'chat' },
       },
       {
-        narration: 'Now a Service: the annex lights. Backgrounded WITH a service, the process holds oom_adj 500 — the crane takes cached wards first.',
+        narration: 'Now a Service: the annex lights. Backgrounded WITH a service, the process holds oom_adj 500, the crane takes cached wards first.',
         focus: 'ward:chat',
         fire: () => { ctx.wards.toggleService('chat'); ctx.wards.goHome('chat') },
         waitFor: { ms: 5000 },
       },
       {
-        narration: "But nothing is immortal. SIGKILL — and the next tap will be a cold start again… except saved state makes even that cheap.",
+        narration: "But nothing is immortal. SIGKILL: and the next tap will be a cold start again… except saved state makes even that cheap.",
         focus: 'ward:chat',
         fire: () => ctx.killApp('chat'),
         waitFor: { ms: 4000 },
       },
       {
-        narration: 'Fork, restore, resume. Cold, warm, hot — now you know the whole ladder.',
+        narration: 'Fork, restore, resume. Cold, warm, hot: now you know the whole ladder.',
         focus: 'ward:chat',
         fire: () => ctx.launcher.clickKiosk('chat'),
         waitFor: { event: 'activity:resumed', app: 'chat' },

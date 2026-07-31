@@ -4,11 +4,11 @@ import type { InspectorInfo } from '../ui/inspector'
 
 // Physical roads + conveyors tying the board's zones together, plus the waypoint
 // polylines packets fly along. Mirrors main.ts's ANCHORS / PLOT_ANCHORS values
-// (duplicated, not imported, to avoid a main.ts <-> routes.ts import cycle — the
+// (duplicated, not imported, to avoid a main.ts <-> routes.ts import cycle, the
 // board layout is fixed by the machine-board plan, low risk of drift).
 
 // board.ts's foundry/wards/surfaceflinger/network plates all share topY 0.3 (only
-// the pit floor -2, boot strip -0.2, and launcher platform 3 differ) — anchors and
+// the pit floor -2, boot strip -0.2, and launcher platform 3 differ), anchors and
 // waypoints that rest on one of those four plates use PLATE_Y, not board-base 0.
 const PLATE_Y = 0.3
 
@@ -42,21 +42,21 @@ const EDGE_W = 0.15
 const EDGE_H = 0.05
 // 0.15: high enough that legs descending the pit rim / plate-crest steps never
 // intersect the slope surfaces beneath them (0.05 left descending decks nearly
-// coplanar with the rim wedges — feathered z-fight combs at every crossing).
+// coplanar with the rim wedges, feathered z-fight combs at every crossing).
 const ROAD_RAISE = 0.15
-// 0.5: the DISK-layer trace family tops out at 0.58? no — plate 0.3 + lift 0.12
+// 0.5: the DISK-layer trace family tops out at 0.58? no, plate 0.3 + lift 0.12
 // + raise 0.08 + H/2… conveyor deck bottom must clear the tallest trace top
 // (0.3 + 0.12 + 0.08 = 0.5). Bottom at raise - ROAD_H = 0.5 - 0.15 → 0.35? Decks
 // hang below the raise line; 0.5 keeps 0.05+ clearance over every trace layer
 // where fans pass under the spine.
 const CONVEYOR_RAISE = 0.5
 // Two DARK asphalt tones: after the light-theme lift the old light tile color
-// matched the pale plates and every other tile vanished — belts read as dashes.
+// matched the pale plates and every other tile vanished, belts read as dashes.
 const CONVEYOR_COLORS = [0x46545e, 0x38444d]
 const CONVEYOR_SEGMENT_LEN = 3
 const WAYPOINT_LIFT = 0.5
 
-// Default hover tooltips by segment kind — routes with an explicit `info`
+// Default hover tooltips by segment kind, routes with an explicit `info`
 // (First casting) overwrite these in buildRoutes; TRUNKS get the defaults too.
 const ROAD_INFO: InspectorInfo = {
   title: 'Binder road',
@@ -71,7 +71,7 @@ function v(x: number, y: number, z: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z)
 }
 
-// Shared static materials — every segment of a kind renders from the same
+// Shared static materials, every segment of a kind renders from the same
 // instance so mergeStaticGroup can collapse them into one mesh per kind.
 const roadMat = new THREE.MeshStandardMaterial({ color: ROAD_COLOR, roughness: 0.7 })
 const conveyorMats = CONVEYOR_COLORS.map(
@@ -87,7 +87,7 @@ interface RouteDef {
   readonly waypoints: readonly THREE.Vector3[]
   readonly conveyor?: boolean
   // Polyline actually meshed for this route (defaults to `waypoints`). Per-plot
-  // routes that share a long trunk leg draw only their unique branch — the trunk
+  // routes that share a long trunk leg draw only their unique branch, the trunk
   // is meshed exactly once in TRUNKS below. Rebuilding it per plot stacked 4
   // coplanar boxes (conveyors with mismatched stripe phases) that z-fought.
   readonly draw?: readonly THREE.Vector3[]
@@ -96,14 +96,14 @@ interface RouteDef {
 
 const ROUTES: RouteDef[] = [
   // foundry -> each ward plot (conveyor south from the core band into the app
-  // band, corridor along z -22 — between the band seam (-25) and the ward
+  // band, corridor along z -22, between the band seam (-25) and the ward
   // walls (-19)). Packets fly the full path; the visible spine is TRUNKS'.
   ...PLOT_X.map((x, n): RouteDef => ({
     from: 'zygote', to: `plot${n}`, conveyor: true,
     waypoints: [ANCHORS.zygote, v(ANCHORS.zygote.x, PLATE_Y, -22), v(x, PLATE_Y, -22), v(x, PLATE_Y, PLOT_Z)],
     draw: [v(x, PLATE_Y, -22), v(x, PLATE_Y, PLOT_Z)],
   })),
-  // each ward plot -> cityhall: apps sit directly on the framework band — every
+  // each ward plot -> cityhall: apps sit directly on the framework band, every
   // Binder call is a short straight hop north. Outer plots jog inward at z -28
   // to land on the hall's plate (x -30..30).
   ...PLOT_X.map((x, n): RouteDef => ({
@@ -112,7 +112,7 @@ const ROUTES: RouteDef[] = [
       ? [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -35)]
       : [v(x, PLATE_Y, PLOT_Z), v(x, PLATE_Y, -28), v(Math.sign(x) * 20, PLATE_Y, -28), v(Math.sign(x) * 20, PLATE_Y, -35)],
   })),
-  // cityhall -> launcher: the Intent's return leg — south off the app band at
+  // cityhall -> launcher: the Intent's return leg, south off the app band at
   // the z 5 seam (slope tops at the seam, over bare board), then to the shed.
   {
     from: 'cityhall', to: 'launcher',
@@ -131,7 +131,7 @@ const ROUTES: RouteDef[] = [
   // bare board), then southwest to the screen.
   {
     from: 'surfaceflinger', to: 'displaywall',
-    // Ends at the panel's EAST edge — the reclined slab covers z ~50..59, and a
+    // Ends at the panel's EAST edge, the reclined slab covers z ~50..59, and a
     // road driven to its center pierced the bezel.
     waypoints: [
       ANCHORS.surfaceflinger, v(78, PLATE_Y, -30), v(78, PLATE_Y, 35),
@@ -158,10 +158,10 @@ const ROUTES: RouteDef[] = [
     ],
     info: {
       title: 'Package database road',
-      note: 'PackageManager scans every installed manifest at boot and keeps the result. Your tap is matched against those intent-filters here — then the fork mmaps the winning package\'s dex and native libs into the new process.',
+      note: 'PackageManager scans every installed manifest at boot and keeps the result. Your tap is matched against those intent-filters here, then the fork mmaps the winning package\'s dex and native libs into the new process.',
     },
   },
-  // The input path — the leg every tap actually takes, and the reason apps can
+  // The input path, the leg every tap actually takes, and the reason apps can
   // never read the touchscreen themselves. Runs up the x=0 gap between the two
   // middle ward plots (which span x -20.25..-2.25 and 2.25..20.25).
   {
@@ -177,14 +177,14 @@ const ROUTES: RouteDef[] = [
   // network -> off-board east (the INTERNET road): stays on the network plate
   // (0.3) to the board rim at x 85, then steps down off-board.
   { from: 'network', to: 'offboard-east', waypoints: [ANCHORS.network, v(85, PLATE_Y, 17), OFFBOARD_EAST] },
-  // zygote -> cityhall (genealogy: first casting) — straight along the core
+  // zygote -> cityhall (genealogy: first casting), straight along the core
   // band: system_server is cast next door and resides next door.
   {
     from: 'zygote', to: 'cityhall', conveyor: true,
     waypoints: [ANCHORS.zygote, v(-30, PLATE_Y, -35), ANCHORS.cityhall],
     info: {
       title: 'First casting',
-      note: 'system_server is itself a process — the very first fork out of Zygote at boot. Cast next door, resides next door: every Binder road ends here.',
+      note: 'system_server is itself a process, the very first fork out of Zygote at boot. Cast next door, resides next door: every Binder road ends here.',
     },
   },
 ]
@@ -209,14 +209,14 @@ function lift(points: readonly THREE.Vector3[]): THREE.Vector3[] {
   return points.map(p => p.clone().setY(p.y + WAYPOINT_LIFT))
 }
 
-// One straight road tile between two points — flat box + two thin emissive edge
+// One straight road tile between two points, flat box + two thin emissive edge
 // stripes as children (local space, so they stay put regardless of the box's
 // lookAt-derived rotation). Horizontal legs extend deck and stripes ROAD_W/2
 // past both endpoints so polyline corners overlap instead of leaving notches
-// (overlaps merge into one same-material mesh — invisible). Sloped legs stay
+// (overlaps merge into one same-material mesh, invisible). Sloped legs stay
 // exact: their top faces already meet flat neighbors at the waypoint, and an
 // along-slope extension would poke a ridge up through the adjoining flat leg.
-// Decks are exact-length — conveyor tiles alternate colors,
+// Decks are exact-length, conveyor tiles alternate colors,
 // so an overlapping deck would z-fight against its differently-colored
 // neighbor (stripes still extend: they share one material everywhere).
 function roadSegment(
@@ -227,7 +227,7 @@ function roadSegment(
   const len = a.distanceTo(b) || 0.001
   // NO endpoint extension: extended decks overlapped coplanar on straight runs
   // and z-fought as a shimmering comb (read as both broken lines AND "lag").
-  // Corners are covered by jointPad (raised 0.02 — never coplanar with decks).
+  // Corners are covered by jointPad (raised 0.02, never coplanar with decks).
   const road = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W, ROAD_H, len), mat)
   road.position.copy(a).lerp(b, 0.5)
   road.position.y -= ROAD_H / 2
@@ -249,7 +249,7 @@ function roadSegment(
 // (including slope-to-slope corners the horizontal extension can't reach).
 function jointPad(mat: THREE.Material, p: THREE.Vector3, raise: number): THREE.Mesh {
   // Cylinder, not box: legs meet at arbitrary angles (rim corners, ramp exits) and
-  // an axis-aligned box left bowtie notches there — a disc covers any approach angle.
+  // an axis-aligned box left bowtie notches there, a disc covers any approach angle.
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(ROAD_W * 0.72, ROAD_W * 0.72, ROAD_H, 12), mat)
   pad.position.set(p.x, p.y + raise + 0.02 - ROAD_H / 2, p.z)
   return pad
@@ -262,7 +262,7 @@ function conveyorLeg(from: THREE.Vector3, to: THREE.Vector3): THREE.Object3D[] {
   const segments: THREE.Object3D[] = []
   for (let i = 0; i < n; i++) {
     // Endpoints from cumulative lerp fractions of the one from->to pair, so
-    // tile i ends exactly where tile i+1 starts — contiguous, no rounding gaps.
+    // tile i ends exactly where tile i+1 starts, contiguous, no rounding gaps.
     const p0 = from.clone().lerp(to, i / n)
     const p1 = from.clone().lerp(to, (i + 1) / n)
     segments.push(roadSegment(conveyorMats[i % 2], p0, p1, CONVEYOR_RAISE))
@@ -278,7 +278,7 @@ function buildPolyline(points: readonly THREE.Vector3[], conveyor: boolean | und
     else meshes.push(roadSegment(roadMat, points[i], points[i + 1], raise))
   }
   // Joint pads at interior waypoints keep the polyline visually continuous
-  // around every corner. Conveyor pads use color A — every leg's first tile is
+  // around every corner. Conveyor pads use color A, every leg's first tile is
   // color A too, so the pad reads as part of the belt.
   for (let i = 1; i < points.length - 1; i++) {
     meshes.push(jointPad(conveyor ? conveyorMats[0] : roadMat, points[i], raise))
@@ -296,7 +296,7 @@ export function buildRoutes(): Routes {
   const group = new THREE.Group()
   group.name = 'routes'
   // Build every segment into a staging group, then merge into one mesh per
-  // (material, info) pair: plain roads, each conveyor color, edge stripes —
+  // (material, info) pair: plain roads, each conveyor color, edge stripes -
   // ~300 draw calls down to ~8. First casting carries its own `info`, so its
   // segments land in their own buckets and keep their distinct tooltip.
   const staging = new THREE.Group()

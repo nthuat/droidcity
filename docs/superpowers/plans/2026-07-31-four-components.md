@@ -15,7 +15,7 @@
 Concepts: manifest-declared vs context-registered receivers · a manifest receiver can **start a dead process** · `onReceive` runs on the main thread with its own ANR timer (10s foreground / 60s background) · implicit broadcasts restricted since O.
 
 - Ward gains a **mailbox** mesh (registered receiver) that lights on delivery.
-- City Hall panel: `Send broadcast` (existing, rewired) → fans out to every LIVE ward (context-registered) AND cold-starts one dead app via its manifest receiver — the teaching beat.
+- City Hall panel: `Send broadcast` (existing, rewired) → fans out to every LIVE ward (context-registered) AND cold-starts one dead app via its manifest receiver, the teaching beat.
 - `onReceive` posts a real main-thread message (so blocking it can ANR).
 - Tooltips carry the manifest/registered split and the timers.
 
@@ -31,7 +31,7 @@ Concepts: Compose replaces measure/layout/draw with **composition → layout →
 
 - Ward panel toggle: `UI: Views` ⇄ `UI: Compose`.
 - In Compose mode the bench stations relabel (`composition`, `layout`, `draw`, `renderThread`) and narration explains skipping.
-- The frame sim is unchanged — that IS the point: the lower half is identical.
+- The frame sim is unchanged, that IS the point: the lower half is identical.
 
 ### 4 · Multi-window
 Concepts: split screen shows two apps; since Android 10 **both are RESUMED** (multi-resume); both hold oom_adj 0; SF composites two bright tiles; the display splits.

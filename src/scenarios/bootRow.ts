@@ -11,14 +11,14 @@ const DIM = 0x21262d
 const STATION_GAP = 14
 // Default city state: already booted (matches the rest of the unified city being "on").
 // advanceBoot's 10000ms exceeds the 4400ms total, so this is a one-shot pure computation
-// with no events fired — replayBoot() is what drives real-time stage events.
+// with no events fired, replayBoot() is what drives real-time stage events.
 const PRE_BOOTED = advanceBoot(createBoot(), 10000)
 const DEFAULT_NARRATION = 'Boot sequence: bootloader → kernel → init → system_server. Each station lights when its stage completes.'
 const STAGE_NOTES: Record<string, string> = {
-  bootloader: 'First code to run — finds and starts the kernel.',
-  kernel: 'Linux kernel init — drivers, memory, process scheduling come up.',
-  init: 'PID 1 — starts core services and mounts the filesystem.',
-  system_server: 'Boots AMS, WMS, PMS — the OS services every app talks to.',
+  bootloader: 'First code to run: finds and starts the kernel.',
+  kernel: 'Linux kernel init: drivers, memory, process scheduling come up.',
+  init: 'PID 1: starts core services and mounts the filesystem.',
+  system_server: 'Boots AMS, WMS, PMS: the OS services every app talks to.',
 }
 
 export function makeBootRowScenario(bus: Bus, onReplayStart: () => void): Scenario & { replayBoot(): void } {
@@ -57,7 +57,7 @@ export function makeBootRowScenario(bus: Bus, onReplayStart: () => void): Scenar
   }
   paint()
 
-  const panel = makePanel('Boot Row — bootloader → kernel → init → system_server')
+  const panel = makePanel('Boot Row: bootloader → kernel → init → system_server')
 
   function replayBoot(): void {
     onReplayStart() // dims the rest of the city while boot runs
@@ -87,11 +87,11 @@ export function makeBootRowScenario(bus: Bus, onReplayStart: () => void): Scenar
       if (state.done) {
         replaying = false
         bus.emit('boot:complete', {})
-        panel.setNarration('Boot complete — system_server is up, city hall lights on.')
+        panel.setNarration('Boot complete: system_server is up, city hall lights on.')
       }
     },
     setIdle() {
-      // no ambient behavior — boot only runs on demand via replayBoot()
+      // no ambient behavior, boot only runs on demand via replayBoot()
     },
     replayBoot,
   }

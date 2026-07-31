@@ -7,13 +7,13 @@ import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
 
 // Installed packages: the APK archive under /data/app plus the compiler that
-// turns dex into machine code. Every launch starts here — PMS resolves the
+// turns dex into machine code. Every launch starts here, PMS resolves the
 // Intent against these manifests, and the process mmaps its code out of them.
 
 const SCAN_PULSE_MS = 700
 const RESOLVE = 0xd29922 // matches the PMS wing's pulse tint
 
-const DEFAULT_NARRATION = 'Installed packages live here. An APK is a zip: dex bytecode, resources, native libs, and the manifest. PackageManager scans every manifest at boot and keeps the package database — that database is what resolves your tap into "launch THIS component".'
+const DEFAULT_NARRATION = 'Installed packages live here. An APK is a zip: dex bytecode, resources, native libs, and the manifest. PackageManager scans every manifest at boot and keeps the package database, that database is what resolves your tap into "launch THIS component".'
 
 export function makePackageStoreScenario(bus: Bus): Scenario & {
   pulseResolve(app: string): void
@@ -21,7 +21,7 @@ export function makePackageStoreScenario(bus: Bus): Scenario & {
   const group = new THREE.Group()
   group.userData.info = {
     title: 'Installed packages',
-    note: 'The /data/app archive. Code and resources are read from these files; each app\'s private data lives elsewhere, in /data/data/<pkg> — the Room shed inside its ward.',
+    note: 'The /data/app archive. Code and resources are read from these files; each app\'s private data lives elsewhere, in /data/data/<pkg>, the Room shed inside its ward.',
   }
 
   // One shelf per installed app, in brand colors so they read as the same apps
@@ -34,7 +34,7 @@ export function makePackageStoreScenario(bus: Bus): Scenario & {
     shelf.position.set((i % 2) * 4.6 - 2.3, 0.8, Math.floor(i / 2) * 3.4 - 1.7)
     shelf.userData.info = {
       title: `${app}.apk`,
-      note: 'A zip: classes.dex, resources, lib/<abi>/*.so, and AndroidManifest.xml. The manifest is the app\'s public contract — components, permissions requested, and the intent-filters PMS matches your tap against.',
+      note: 'A zip: classes.dex, resources, lib/<abi>/*.so, and AndroidManifest.xml. The manifest is the app\'s public contract, components, permissions requested, and the intent-filters PMS matches your tap against.',
     }
     group.add(shelf)
     const lbl = makeLabel(`${app}.apk`, 0.42)
@@ -48,8 +48,8 @@ export function makePackageStoreScenario(bus: Bus): Scenario & {
   compiler.position.set(8.5, 0, 0)
   const compilerBody = compiler.getObjectByName('body') as THREE.Mesh
   compilerBody.userData.info = {
-    title: 'dex2oat — the compiler',
-    note: 'At install it partially ahead-of-time compiles dex to native code (.odex/.vdex). At runtime ART interprets, then JITs the hot paths, and recompiles them AOT while the device is idle and charging — profile-guided. Baseline profiles shipped with the app give a fast FIRST launch, before any profile exists.',
+    title: 'dex2oat, the compiler',
+    note: 'At install it partially ahead-of-time compiles dex to native code (.odex/.vdex). At runtime ART interprets, then JITs the hot paths, and recompiles them AOT while the device is idle and charging, profile-guided. Baseline profiles shipped with the app give a fast FIRST launch, before any profile exists.',
   }
   group.add(compiler)
 
@@ -66,7 +66,7 @@ export function makePackageStoreScenario(bus: Bus): Scenario & {
   // A fork mmaps that package's code into the new process.
   bus.on('process:forked', ({ app }) => pulseResolve(app))
 
-  const panel = makePanel('Installed packages — /data/app')
+  const panel = makePanel('Installed packages: /data/app')
   panel.setNarration(DEFAULT_NARRATION)
 
   function paint(): void {
@@ -92,7 +92,7 @@ export function makePackageStoreScenario(bus: Bus): Scenario & {
       if (dirty) paint()
     },
     setIdle() {
-      // no ambient behavior — purely bus-driven
+      // no ambient behavior, purely bus-driven
     },
     pulseResolve,
   }

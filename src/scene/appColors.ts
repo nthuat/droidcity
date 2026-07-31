@@ -1,4 +1,4 @@
-// Per-app brand hues — Material 300s, all clear of Android green (0x3ddc84,
+// Per-app brand hues, Material 300s, all clear of Android green (0x3ddc84,
 // reserved for 'alive/running'). Single source for launcher icons, display
 // screen tiles, and anything else that colors by app.
 export const APP_COLORS: Record<string, number> = {

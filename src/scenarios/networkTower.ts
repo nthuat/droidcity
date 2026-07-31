@@ -10,18 +10,18 @@ const MAX_QUEUE = 3
 const DEFAULT_NARRATION = 'Every network call walks dns → connect → tls → ttfb → download. A failure triggers a retry with backoff.'
 
 // lastPhaseIndex seeds at -2 ("not started") so the very first tick's currentIndex (0, dns)
-// reads as a change — NetRequest itself starts at currentIndex 0, so diffing against the raw
+// reads as a change, NetRequest itself starts at currentIndex 0, so diffing against the raw
 // req would miss dns's own emission. -1 is already taken (retrying's "no phase" index).
 const NOT_STARTED = -2
 interface QueueEntry { readonly req: NetRequest; readonly app: string; readonly lastPhaseIndex: number; readonly pooled: boolean }
 
 // A completed request keeps its app's connection "warm" for 30s of scenario
-// clock — the next request skips dns/connect/tls straight to ttfb, mirroring
+// clock, the next request skips dns/connect/tls straight to ttfb, mirroring
 // HTTP connection pooling/keep-alive.
 const POOL_MS = 30_000
-const POOL_SKIP_MS = 500 // dns(100) + connect(150) + tls(250) — lands exactly at ttfb
+const POOL_SKIP_MS = 500 // dns(100) + connect(150) + tls(250), lands exactly at ttfb
 
-// Small dynamic-text sprite — the shared makeLabel() bakes text once, but the tower-top
+// Small dynamic-text sprite, the shared makeLabel() bakes text once, but the tower-top
 // readout needs to change every phase transition, so this keeps its own canvas/texture.
 function makePhaseLabel(initial: string): { sprite: THREE.Sprite; setText(t: string): void } {
   const canvas = document.createElement('canvas')
@@ -31,7 +31,7 @@ function makePhaseLabel(initial: string): { sprite: THREE.Sprite; setText(t: str
   const texture = new THREE.CanvasTexture(canvas)
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }))
   sprite.scale.set(6, 1.5, 1)
-  // Memoized: the idle branch calls setText('idle') every frame — repainting
+  // Memoized: the idle branch calls setText('idle') every frame, repainting
   // (and re-uploading a 512×128 texture to the GPU) only on actual change.
   let last = ''
   function setText(t: string): void {
@@ -41,7 +41,7 @@ function makePhaseLabel(initial: string): { sprite: THREE.Sprite; setText(t: str
     ctx.font = 'bold 40px system-ui, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    // Chip pill like makeLabel — readable on sky, plates and dark structures.
+    // Chip pill like makeLabel, readable on sky, plates and dark structures.
     const w = ctx.measureText(t).width + 40
     ctx.fillStyle = 'rgba(255,255,255,.92)'
     ctx.beginPath()
@@ -67,12 +67,12 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   let queue: QueueEntry[] = []
   let counter = 0
   let forceFailNext = false
-  let clock = 0 // scenario-accumulated sim clock (ms) — never Date.now, so story-speed stays in control
+  let clock = 0 // scenario-accumulated sim clock (ms), never Date.now, so story-speed stays in control
   let pooledUntil: Record<string, number> = {}
 
   const tower = makeBuilding(3, 10, 3, 0x388bfd, 'Network')
   tower.position.y = 0.3
-  tower.userData.info = { title: 'Radio/ISP edge', note: 'dns → connect → tls → ttfb → download. Warm connections skip DNS/connect/TLS — pooling.' }
+  tower.userData.info = { title: 'Radio/ISP edge', note: 'dns → connect → tls → ttfb → download. Warm connections skip DNS/connect/TLS, pooling.' }
   group.add(tower)
 
   const arch = new THREE.Mesh(
@@ -80,7 +80,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
     new THREE.MeshStandardMaterial({ color: 0x484f58 }),
   )
   // Upright half-torus spanning the eastward road (base on the plate top; the
-  // arc opens upward — no z-flip, which would bury it in the plate).
+  // arc opens upward, no z-flip, which would bury it in the plate).
   arch.position.set(6, 0.3, 0)
   arch.rotation.y = Math.PI / 2
   group.add(arch)
@@ -125,7 +125,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
 
   function enqueue(app: string): void {
     if (queue.length >= MAX_QUEUE) {
-      bus.emit('data:dropped', { app }) // drop beyond capacity — tell listeners so they don't wait forever
+      bus.emit('data:dropped', { app }) // drop beyond capacity, tell listeners so they don't wait forever
       return
     }
     counter += 1
@@ -142,15 +142,15 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
   bus.on('data:requested', ({ app, source }) => {
     if (source === 'network') enqueue(app)
   })
-  // A killed process loses its warm sockets — more realistic, and it's also
+  // A killed process loses its warm sockets, more realistic, and it's also
   // what keeps a *stale* pool from a previous instance of `app` (e.g. an ambient
   // launch before Story mode, or a previous Play-All pass) from silently
   // warming a brand-new process's first request.
   // Residual case traced, not "fixed": ch2 → ch3 in Play All still legitimately
-  // pools — ch2's own natural fetch (~600ms post-resume) completes and pools
+  // pools, ch2's own natural fetch (~600ms post-resume) completes and pools
   // 'chat' *while it's still alive*; ch3 runs moments later on that same live
   // process with no kill in between, so its fetch can still land inside the
-  // 30s window. That's correct warm-connection behavior, not a bug — ch3's
+  // 30s window. That's correct warm-connection behavior, not a bug, ch3's
   // narration was worded to stay true either way (see ch3-data.ts).
   bus.on('process:killed', ({ app }) => {
     if (!(app in pooledUntil)) return
@@ -158,7 +158,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
     pooledUntil = rest
   })
 
-  const panel = makePanel('Network Tower — every fetch is a trip through 5 phases')
+  const panel = makePanel('Network Tower: every fetch is a trip through 5 phases')
   panel.addButton('Send test request', () => bus.emit('data:requested', { app: 'chat', source: 'network' }))
   panel.addButton('Send failing request', () => {
     forceFailNext = true
@@ -179,10 +179,10 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
       if (queue.length > 0) {
         const head = queue[0]
         const next = advanceRequest(head.req, dtMs)
-        // next.currentIndex is -1 both while retrying and once done — comparing against the
+        // next.currentIndex is -1 both while retrying and once done, comparing against the
         // sentinel-seeded lastPhaseIndex (not the raw previous req) is what catches dns's entry.
         // For a pooled (pre-advanced) entry this sentinel still does the right thing: its
-        // first observed index is ttfb (3), not dns — no spurious dns/connect/tls emission.
+        // first observed index is ttfb (3), not dns, no spurious dns/connect/tls emission.
         const phaseChanged = next.currentIndex !== head.lastPhaseIndex
         queue = [{ req: next, app: head.app, lastPhaseIndex: next.currentIndex, pooled: head.pooled }, ...queue.slice(1)]
         if (phaseChanged) {
@@ -209,7 +209,7 @@ export function makeNetworkTowerScenario(bus: Bus): Scenario & { stats(): { queu
       ;(retryLight.material as THREE.MeshStandardMaterial).emissiveIntensity = retrying ? 0.4 + 0.4 * Math.sin(blinkT / 100) : 0
     },
     setIdle() {
-      // no ambient behavior — network activity is bus/button driven only
+      // no ambient behavior, network activity is bus/button driven only
     },
     stats() {
       if (queue.length === 0) return { queue: 0, phase: 'idle' }

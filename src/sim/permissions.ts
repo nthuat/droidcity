@@ -1,6 +1,6 @@
 // Runtime permissions: dangerous permissions are granted by the USER at
 // runtime through a system dialog, and PMS records the grant. Only the camera
-// app models one here (CAMERA). Denied re-asks on the next foreground —
+// app models one here (CAMERA). Denied re-asks on the next foreground -
 // roughly Android's behavior before "don't ask again". Pure and immutable.
 
 export type PermissionGrant = 'unasked' | 'granted' | 'denied'

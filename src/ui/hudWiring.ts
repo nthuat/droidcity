@@ -7,7 +7,7 @@ import type { Hud } from './hud'
 // Chip text is the REAL Android name, not the city metaphor: these labels are
 // the vocabulary a visitor should leave with. 'CITY HALL' and 'WARDS' were the
 // only two metaphor chips on a board that otherwise reads system_server /
-// zygote / SurfaceFlinger — inconsistent, and the weaker of the two names. The
+// zygote / SurfaceFlinger, inconsistent, and the weaker of the two names. The
 // metaphor lives on in tooltips, panel narration, and the story chapters.
 export function attachZoneLabels(hud: Hud, anchors: Record<string, THREE.Vector3>, wardsAnchor: THREE.Vector3): void {
   hud.attach('boot', anchors.boot, 'BOOT ROW')
@@ -15,7 +15,7 @@ export function attachZoneLabels(hud: Hud, anchors: Record<string, THREE.Vector3
   hud.attach('zygote', anchors.zygote, 'ZYGOTE')
   hud.attach('wards', wardsAnchor, 'APP PROCESSES')
   hud.attach('cityhall', anchors.cityhall, 'SYSTEM_SERVER')
-  hud.setLine('cityhall', 'AMS · WMS · PMS — all Binder ends here')
+  hud.setLine('cityhall', 'AMS · WMS · PMS: all Binder ends here')
   hud.attach('surfaceflinger', anchors.surfaceflinger, 'SURFACEFLINGER')
   hud.attach('network', anchors.network, 'NETWORK')
   hud.attach('launcher', anchors.launcher.clone().add(new THREE.Vector3(-9, 0, 0)), 'LAUNCHER')

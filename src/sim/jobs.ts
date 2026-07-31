@@ -1,6 +1,6 @@
 // Deferred work: WorkManager enqueues, JobScheduler (system_server) decides WHEN.
 // A job waits for its constraints, and under Doze it waits for a maintenance
-// window on top of that — the app never picks the moment. Pure and immutable.
+// window on top of that, the app never picks the moment. Pure and immutable.
 
 export type JobConstraint = 'network' | 'charging' | 'idle'
 
@@ -23,7 +23,7 @@ export interface JobEnv {
   readonly network: boolean
   readonly charging: boolean
   readonly idle: boolean
-  // A maintenance window is open — the only time anything runs under Doze.
+  // A maintenance window is open: the only time anything runs under Doze.
   readonly window: boolean
 }
 

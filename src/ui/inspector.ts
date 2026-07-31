@@ -12,10 +12,10 @@ export interface Inspector {
 const CURSOR_OFFSET = 14
 const VIEWPORT_MARGIN = 8
 
-// Walks the hit object's parent chain to the first tagged ancestor — same
+// Walks the hit object's parent chain to the first tagged ancestor, same
 // pattern as WardManager.wardAppFromObject, generalized to any userData.info.
 // Three.js raycasting ignores `.visible` entirely, so a toggled-hidden mesh
-// (viewModelOrb, a stackCard) still reports hits — walk the full chain and
+// (viewModelOrb, a stackCard) still reports hits, walk the full chain and
 // bail if the object or ANY ancestor is invisible (don't stop at the first
 // info found, keep checking the rest of the chain too).
 function infoFromObject(obj: THREE.Object3D): InspectorInfo | null {
@@ -56,7 +56,7 @@ export function createInspector(dom: HTMLElement, camera: THREE.Camera, scene: T
     raycaster.setFromCamera(ndc, camera)
     const hits = raycaster.intersectObjects(scene.children, true)
     // The translucent sandbox wall encloses each ward, so it's often the nearest
-    // hit — prefer any interior tooltip behind it, fall back to the wall only
+    // hit, prefer any interior tooltip behind it, fall back to the wall only
     // when the ray reaches nothing else tagged.
     let info: InspectorInfo | null = null
     let wallInfo: InspectorInfo | null = null

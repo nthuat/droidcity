@@ -4,7 +4,7 @@ import { createBus } from '../../src/core/bus'
 import { createWardManager } from '../../src/wards/manager'
 import type { WardMeshes } from '../../src/scene/ward'
 
-// Loose duck-typed fake — no real three objects needed, manager only touches
+// Loose duck-typed fake, no real three objects needed, manager only touches
 // these specific properties on the spawn/update/demolish path.
 function fakeMeshes(): WardMeshes {
   return {
@@ -86,7 +86,7 @@ describe('WardManager', () => {
     const anrs: string[] = []
     deps.bus.on('anr', ({ app }) => anrs.push(app))
     manager.blockMainThread('chat', 8000)
-    // 6s of sim time in 100ms ticks — past ANR_MS (5000), short of the 8s message.
+    // 6s of sim time in 100ms ticks, past ANR_MS (5000), short of the 8s message.
     for (let i = 0; i < 60; i++) manager.update(100)
     expect(anrs).toEqual(['chat'])
   })
@@ -235,11 +235,11 @@ describe('WardManager', () => {
     deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
     deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
 
-    // chat: known heap state — 3 objects of 80KB each via the fetched-response path.
+    // chat: known heap state, 3 objects of 80KB each via the fetched-response path.
     deps.bus.emit('data:fetched', { app: 'chat', ms: 10 })
     manager.update(1)
 
-    // maps: killed but still mid-demolition (600ms) — dying, must be skipped by trim.
+    // maps: killed but still mid-demolition (600ms), dying, must be skipped by trim.
     deps.bus.emit('process:killed', { app: 'maps', pid: 2 })
 
     const swept: { app: string; freedKb: number }[] = []
@@ -261,7 +261,7 @@ describe('WardManager', () => {
     expect(manager.wardStats()).toContainEqual(expect.objectContaining({ app: 'chat', busy: true }))
 
     deps.bus.emit('process:killed', { app: 'chat', pid: 1 })
-    // Still mid-demolition (600ms), but wardStats must drop it right away —
+    // Still mid-demolition (600ms), but wardStats must drop it right away -
     // otherwise its CPU core stays lit/stuck for the whole animation.
     expect(manager.wardStats().some(s => s.app === 'chat')).toBe(false)
   })
@@ -313,7 +313,7 @@ describe('WardManager', () => {
     deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
     manager.update(800) // resumed via cold start; already foreground
 
-    // A hot start must still (re)set foreground priority — otherwise a stale
+    // A hot start must still (re)set foreground priority, otherwise a stale
     // foundry entry (e.g. from a previous idle demote) is never corrected.
     deps.bus.emit('app:broughtToFront', { app: 'chat' })
     expect(setAppPriority).toHaveBeenCalledWith('chat', 'foreground')
@@ -381,7 +381,7 @@ describe('WardManager', () => {
     manager.popActivity('chat') // backStack already 0 -> finish root
     expect(manager.wardStats().find(s => s.app === 'chat')?.phase).toBe('destroyed')
     expect(setAppPriority).toHaveBeenLastCalledWith('chat', 'cached')
-    // Finishing the root is a distinct action from popping — no extra activity:popped.
+    // Finishing the root is a distinct action from popping, no extra activity:popped.
     expect(popped).toHaveLength(2)
 
     // Relaunch: ward alive, phase destroyed -> broughtToFront recreates the Activity
@@ -434,7 +434,7 @@ describe('WardManager', () => {
     deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
     manager.update(800) // resumed
 
-    manager.goHome('chat') // backgrounded — looper still runs, but no frames
+    manager.goHome('chat') // backgrounded, looper still runs, but no frames
 
     const submitted: { app: string; dropped: boolean }[] = []
     deps.bus.on('frame:submitted', p => submitted.push(p))
@@ -493,7 +493,7 @@ describe('WardManager', () => {
     const manager = createWardManager({ ...deps, onSpawnDropped })
     deps.bus.emit('process:forked', { app: 'chat', pid: 1 })
     deps.bus.emit('process:killed', { app: 'chat', pid: 1 })
-    // Retap lands mid-demolition (600ms): plot still held by the dying entry —
+    // Retap lands mid-demolition (600ms): plot still held by the dying entry -
     // spawn dropped, dep must fire so main.ts can kill the orphan proc.
     deps.bus.emit('process:forked', { app: 'chat', pid: 2 })
     expect(onSpawnDropped).toHaveBeenCalledWith('chat', 2)
@@ -574,7 +574,7 @@ describe('WardManager', () => {
     expect(pushed).toEqual([{ app: 'chat', depth: 1 }])
     expect(manager.wardStats().find(s => s.app === 'chat')?.backStack).toBe(1)
     expect(manager.wardStats().find(s => s.app === 'chat')?.panelMessage)
-      .toBe('singleTop: no instance on top — pushed new one')
+      .toBe('singleTop: no instance on top, pushed new one')
   })
 
   it('Bind to <target> resolves the next living ward at click time, not once at panel build', () => {
@@ -591,8 +591,8 @@ describe('WardManager', () => {
     expect(manager.wardStats().find(s => s.app === 'chat')?.panelMessage)
       .toBe('Bind: no other ward to bind to')
 
-    // A second ward launches later — the same button, clicked again, must
-    // resolve to it live rather than staying stuck on the stale '—' target.
+    // A second ward launches later, the same button, clicked again, must
+    // resolve to it live rather than staying stuck on the stale '-' target.
     deps.bus.emit('process:forked', { app: 'maps', pid: 2 })
     manager.toggleBind('chat')
     expect(bound).toEqual([{ client: 'chat', service: 'maps' }])

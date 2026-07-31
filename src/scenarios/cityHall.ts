@@ -13,18 +13,18 @@ const LIT = 0x8a99a5
 const DIM = 0x21262d
 const PULSE_MS = 300
 const DEFAULT_NARRATION =
-  'system_server hosts AMS (Activity Manager), WMS (Window Manager) and PMS (Package Manager). Every app talks to them over Binder IPC — like citizens filing paperwork at city hall.\n'
-  + 'AMS writes every process\'s oom_adj score — lmkd kills from the bottom up:\n'
+  'system_server hosts AMS (Activity Manager), WMS (Window Manager) and PMS (Package Manager). Every app talks to them over Binder IPC, like citizens filing paperwork at city hall.\n'
+  + 'AMS writes every process\'s oom_adj score: lmkd kills from the bottom up:\n'
   + '  -900 system_server (untouchable)\n'
-  + '     0 foreground — the app on screen\n'
-  + '   100 visible — e.g. bound to a foreground client\n'
+  + '     0 foreground, the app on screen\n'
+  + '   100 visible, e.g. bound to a foreground client\n'
   + '   500 running a service\n'
   + '   600 the launcher (going home must be instant)\n'
   + '   700 the previous app (back-switch is common)\n'
-  + '   900+ cached — kill fodder, oldest first'
+  + '   900+ cached, kill fodder, oldest first'
 
 export interface CityHallHooks {
-  // Doze gates the ambient city (auto-launches, idle fetches) — main.ts owns
+  // Doze gates the ambient city (auto-launches, idle fetches), main.ts owns
   // those, so the toggle is reported out rather than reached across.
   onDozeChanged?: (doze: boolean) => void
   // A dispatched job runs IN its app's process: main.ts flies the packet.
@@ -43,18 +43,18 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
   const group = new THREE.Group()
   group.userData.info = {
     title: 'system_server',
-    note: 'One process, ~100 services — the operating system\'s civil service.',
+    note: 'One process, ~100 services: the operating system\'s civil service.',
   }
 
   const hall = makeBuilding(14, 6, 8, LIT, 'system_server')
   hall.userData.info = {
     title: 'system_server',
     note: 'ActivityManager, WindowManager, PackageManager. All Binder calls route here. '
-      + 'Intents resolve here — PMS matches them against every app\'s declared filters. '
+      + 'Intents resolve here: PMS matches them against every app\'s declared filters. '
       + 'servicemanager is the phone book: every Binder client asks it for handles.'
-      + ' Itself the first process forked from Zygote — function put it at the center, not birthplace.'
+      + ' Itself the first process forked from Zygote: function put it at the center, not birthplace.'
       + ' Binder itself: one-copy IPC via mmap; each process runs a ~16-thread binder pool; transactions '
-      + 'share a ~1MB buffer — blow it and you get TransactionTooLargeException.',
+      + 'share a ~1MB buffer, blow it and you get TransactionTooLargeException.',
   }
   group.add(hall)
 
@@ -65,11 +65,11 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
   const WING_INFO = [
     { title: 'ActivityManager (AMS)', note: 'Decides who runs: approves launches, schedules lifecycles, writes every oom_adj score. The foundry and wards execute ITS decisions.' },
     { title: 'WindowManager (WMS)', note: 'Owns every window: shows the starting splash the instant you tap, registers app windows, routes input focus.' },
-    { title: 'PackageManager (PMS)', note: 'Knows every installed app — resolves your tap\'s Intent against manifests to pick what launches.' },
+    { title: 'PackageManager (PMS)', note: 'Knows every installed app: resolves your tap\'s Intent against manifests to pick what launches.' },
   ]
   // Pulse tints echo the packet colors already used for each wing's triggering
   // events elsewhere (launch=green, tap/splash=amber, broadcast/resolve=orange)
-  // — same PULSE_MS decay curve as the hall's own pulse, just tinted per wing.
+  //, same PULSE_MS decay curve as the hall's own pulse, just tinted per wing.
   const WING_TINTS = [0x3fb950, 0xf2cc60, 0xd29922]
   const wings = wingNames.map((name, i) => {
     const w = makeBuilding(3, 3, 3, LIT, name)
@@ -104,7 +104,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
   depot.position.set(-14, 0, 7)
   depot.userData.info = {
     title: 'JobScheduler',
-    note: 'WorkManager enqueues work here; the system decides WHEN. A job waits for its constraints (network, charging, idle) — and in Doze, for the next maintenance window. Batching everyone\'s jobs into shared wakeups is the whole point: your app does not get to pick the moment.',
+    note: 'WorkManager enqueues work here; the system decides WHEN. A job waits for its constraints (network, charging, idle), and in Doze, for the next maintenance window. Batching everyone\'s jobs into shared wakeups is the whole point: your app does not get to pick the moment.',
   }
   group.add(depot)
 
@@ -118,7 +118,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
     crate.visible = false
     crate.userData.info = {
       title: 'Queued job',
-      note: 'Amber = waiting for its constraints or a maintenance window. Green = dispatched to its app. A job whose process dies goes with it — real WorkManager persists and reschedules it.',
+      note: 'Amber = waiting for its constraints or a maintenance window. Green = dispatched to its app. A job whose process dies goes with it, real WorkManager persists and reschedules it.',
     }
     group.add(crate)
     return crate
@@ -128,7 +128,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
   const dozeDome = new THREE.Mesh(
     new THREE.SphereGeometry(62, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
     // Light touch on purpose: enough to read "the device is asleep" without
-    // washing the city out — at 0.16 the whole board went grey and unreadable.
+    // washing the city out, at 0.16 the whole board went grey and unreadable.
     new THREE.MeshStandardMaterial({
       color: 0x6a86ad, transparent: true, opacity: 0.09, depthWrite: false, side: THREE.DoubleSide,
     }),
@@ -141,7 +141,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
   // job depot's tooltip and the panel narration; the dome is pure atmosphere.
   dozeDome.raycast = () => {}
   dozeDome.userData.info = {
-    title: 'Doze — deep idle',
+    title: 'Doze: deep idle',
     note: 'Screen off and still for a while: network is cut, alarms and jobs are deferred to periodic maintenance windows that get further apart the longer the device stays put. This is why background work must be constraint-based, not clock-based.',
   }
   group.add(dozeDome)
@@ -187,7 +187,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
 
   // Dark until boot:complete while a replay is in progress; relights one stage at a time.
   let stagesSeen = 0
-  let litFrac = 1 // starts fully lit — default city state is already "booted"
+  let litFrac = 1 // starts fully lit, default city state is already "booted"
   let pulseT = 0
 
   function paintBuilding(b: THREE.Group, pulseMs: number, tint: number): void {
@@ -222,7 +222,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
   })
   bus.on('process:killed', () => {
     pulseT = PULSE_MS
-    panel.setNarration('Death recipient fired — system_server noticed the process die (linkToDeath).')
+    panel.setNarration('Death recipient fired: system_server noticed the process die (linkToDeath).')
   })
   // AMS: approves the launch request (intent-to-run decision) and reacts when
   // an already-running app is brought back to front (no fork, still its call).
@@ -237,7 +237,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
   bus.on('app:launchRequested', () => { wingPulse[2] = PULSE_MS })
   bus.on('broadcast:sent', () => { wingPulse[2] = PULSE_MS })
 
-  const panel = makePanel('system_server — the city hall of Android')
+  const panel = makePanel('system_server, the city hall of Android')
   panel.addButton('Send broadcast', () => bus.emit('broadcast:sent', { action: 'NEWS' }))
   panel.addButton('Broadcast → wake a dead app', () => {
     bus.emit('broadcast:sent', { action: 'NEWS_MANIFEST' })
@@ -247,8 +247,8 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
     jobs = enqueueJob(jobs, 'chat', constraint)
     paintJobs()
     panel.setNarration(jobs.doze
-      ? `Job queued (${constraint}) — Doze is on, so it waits for the next maintenance window.`
-      : `Job queued (${constraint}) — runs as soon as the constraint is met.`)
+      ? `Job queued (${constraint}): Doze is on, so it waits for the next maintenance window.`
+      : `Job queued (${constraint}): runs as soon as the constraint is met.`)
   }
   panel.addButton('Enqueue job (network)', () => enqueue('network'))
   panel.addButton('Enqueue job (charging)', () => enqueue('charging'))
@@ -258,12 +258,12 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
     paintJobs()
     onDozeChanged?.(jobs.doze)
     panel.setNarration(jobs.doze
-      ? 'Doze on — radio off, jobs and alarms deferred. Nothing runs until a maintenance window opens.'
-      : 'Doze off — the device is awake; constraints alone decide when jobs run.')
+      ? 'Doze on: radio off, jobs and alarms deferred. Nothing runs until a maintenance window opens.'
+      : 'Doze off: the device is awake; constraints alone decide when jobs run.')
   })
   panel.addButton('Maintenance window', () => {
     windowMs = WINDOW_MS
-    panel.setNarration('Maintenance window open — deferred work runs now, batched with everyone else\'s.')
+    panel.setNarration('Maintenance window open: deferred work runs now, batched with everyone else\'s.')
   })
   panel.setNarration(DEFAULT_NARRATION)
 
@@ -281,7 +281,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
       onDozeChanged?.(on)
     },
     openWindow() { windowMs = WINDOW_MS },
-    // A story is a scripted tour of an awake device — leaving Doze on would
+    // A story is a scripted tour of an awake device, leaving Doze on would
     // contradict chapters that fetch data and launch apps. ch7 turns it on
     // deliberately mid-chapter, which is fine: this only clears it at start.
     clearDoze() {
@@ -328,7 +328,7 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
       }
     },
     setIdle() {
-      // visual only — no ambient behavior beyond the bus-driven boot/pulse reactions
+      // visual only, no ambient behavior beyond the bus-driven boot/pulse reactions
     },
   }
 }

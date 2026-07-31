@@ -3,7 +3,7 @@
 // stacks them; one is enough to teach the pipeline). Pure and immutable.
 //
 // Deliberately NOT cleared on process death: a notification outlives its
-// process — that's the whole point of the PendingIntent it carries.
+// process. That's the whole point of the PendingIntent it carries.
 
 export interface NotificationState {
   readonly pending: readonly string[]

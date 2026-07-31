@@ -5,11 +5,11 @@ import { makePanel } from '../ui/panel'
 import type { Bus } from '../core/bus'
 import type { Scenario } from './types'
 
-// The launcher's UI lives ON the glass (surfaceFlinger.ts's icon grid) — this
+// The launcher's UI lives ON the glass (surfaceFlinger.ts's icon grid), this
 // scenario keeps only the launcher PROCESS: sim state, launch requests, panel.
 
 const IDLE_LAUNCH_MS = 8000
-const DEFAULT_NARRATION = 'The launcher is just an app — its icon grid is drawn on the glass. Tap an icon on the display (or the buttons here) to launch.'
+const DEFAULT_NARRATION = 'The launcher is just an app: its icon grid is drawn on the glass. Tap an icon on the display (or the buttons here) to launch.'
 
 export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   clickKiosk(app: string): void
@@ -30,7 +30,7 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   // No building of its own: the launcher's only visible body IS its UI on the
   // glass (icon grid). A separate shed was a redundant third representation.
 
-  // SystemUI, however, IS a separate process — and everything it draws (status
+  // SystemUI, however, IS a separate process, and everything it draws (status
   // bar, nav bar, shade, recents) is already on the glass, so its house belongs
   // here on the apron rather than up in the framework band.
   const systemUi = makeBuilding(5, 3, 4, 0xb9c4cf, 'SystemUI')
@@ -38,18 +38,18 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
   const sysUiBody = systemUi.getObjectByName('body') as THREE.Mesh
   sysUiBody.userData.info = {
     title: 'SystemUI',
-    note: 'Its own process, not part of system_server: it draws the status bar, the nav bar, the notification shade and Recents. When a notification appears on the glass, NotificationManagerService decides — SystemUI paints.',
+    note: 'Its own process, not part of system_server: it draws the status bar, the nav bar, the notification shade and Recents. When a notification appears on the glass, NotificationManagerService decides, SystemUI paints.',
   }
   group.add(systemUi)
 
   function clickKiosk(app: string): void {
     const result = requestLaunch(state, app)
     if (!result.accepted) {
-      // Rejected because it's already running: don't drop the tap — this is a
+      // Rejected because it's already running: don't drop the tap, this is a
       // brought-to-front request. Sim stays untouched (launcher only tracks
       // running/launching); WardManager owns activity phase and is the only
       // party that can tell warm from hot, so the event carries no start type
-      // — manager decides and reports the real type via onStartType.
+      //, manager decides and reports the real type via onStartType.
       if (state.running.includes(app)) {
         bus.emit('app:broughtToFront', { app })
       }
@@ -68,7 +68,7 @@ export function makeLauncherPlazaScenario(bus: Bus): Scenario & {
     panel.setNarration(DEFAULT_NARRATION)
   }
 
-  const panel = makePanel('Launcher — the home screen app')
+  const panel = makePanel('Launcher: the home screen app')
   for (const app of APPS) {
     panel.addButton(`Open ${app}`, () => clickKiosk(app))
   }

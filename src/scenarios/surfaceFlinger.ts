@@ -38,7 +38,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   shadeRowMeshes(): THREE.Mesh[]
   permissionButtons(): { allow: THREE.Mesh; deny: THREE.Mesh }
   setNotifications(apps: readonly string[]): void
-  // The one app (if any) holding an ongoing foreground-service notification —
+  // The one app (if any) holding an ongoing foreground-service notification -
   // its shade row is not dismissable.
   setOngoing(app: string | null): void
   isOngoing(app: string): boolean
@@ -58,11 +58,11 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   compositor.position.y = 0.3
   compositor.userData.info = {
     title: 'SurfaceFlinger',
-    note: 'One compositor for every app process; tiles = apps on screen. Frames arrive through BufferQueues — triple buffering absorbs hiccups. Real SF latches at every vsync (60/s while anything animates); here frames are event-driven, so the counter only ticks when an app actually draws.',
+    note: 'One compositor for every app process; tiles = apps on screen. Frames arrive through BufferQueues, triple buffering absorbs hiccups. Real SF latches at every vsync (60/s while anything animates); here frames are event-driven, so the counter only ticks when an app actually draws.',
   }
   group.add(compositor)
 
-  // Display wall: the phone's screen — front and center at the board's south rim
+  // Display wall: the phone's screen, front and center at the board's south rim
   // (world (0, 0, 58), local offset from this group's anchor (60, 0, -35)),
   // facing the default camera: you look at the city, the screen looks back.
   // Built inside this scenario because SF's state machine drives the tiles;
@@ -71,36 +71,36 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   const WALL_H = 5
   const wallGroup = new THREE.Group()
   // Tagged so main.ts's click handler flies to the SCREEN, not to this group's
-  // owning district (the wall is SF's child — a bare parent-walk lands on SF).
+  // owning district (the wall is SF's child, a bare parent-walk lands on SF).
   wallGroup.userData.displayWall = true
   // World (0, -0.35, 58): group anchor is (60, 0, -35) after the core-band move.
-  // Sunk 0.35 into the Glass shelf — the recline lifts the slab's back edge off
+  // Sunk 0.35 into the Glass shelf, the recline lifts the slab's back edge off
   // the ground, and the visible gap read as a floating plank from behind.
   wallGroup.position.set(-60, -0.35, 93)
   wallGroup.rotation.y = Math.PI / 2 // screen normal (local -x) -> world +z, toward the viewer
   // Reclined like a phone on a dock: the default overview camera looks down at
-  // ~38°, so a ~52° recline puts the glass perpendicular to the view ray —
+  // ~38°, so a ~52° recline puts the glass perpendicular to the view ray -
   // it lies on the Glass shelf and reads at full size, not foreshortened.
   wallGroup.rotation.z = -0.9
-  // 2x: at 5x10 the phone screen read as a distant sliver from overview — it is
+  // 2x: at 5x10 the phone screen read as a distant sliver from overview, it is
   // the one thing the whole board exists to light, so it gets billboard scale.
   wallGroup.scale.setScalar(2)
   group.add(wallGroup)
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(0.4, WALL_H, 10),
-    new THREE.MeshStandardMaterial({ color: 0x2b3440 }), // stays dark — it's a screen
+    new THREE.MeshStandardMaterial({ color: 0x2b3440 }), // stays dark: it's a screen
   )
   wall.position.set(0, WALL_BASE_Y + WALL_H / 2, 0)
   wall.userData.info = {
     title: 'Display',
-    note: 'One app is on screen at a time — the bright tile. Faint tiles are alive behind it, rendering nothing. Multi-window would light two; not modeled yet. HWC composites overlays in hardware when possible.',
+    note: 'One app is on screen at a time: the bright tile. Faint tiles are alive behind it, rendering nothing. Multi-window would light two; not modeled yet. HWC composites overlays in hardware when possible.',
   }
   wallGroup.add(wall)
   const wallLabel = makeLabel('Display', 0.7)
   wallLabel.position.set(0, WALL_BASE_Y + WALL_H + 0.7, 0)
   wallGroup.add(wallLabel)
 
-  // Compositor's view: one BufferQueue tile per app on the panel's REAR face —
+  // Compositor's view: one BufferQueue tile per app on the panel's REAR face -
   // where frames physically arrive (the SF road ends behind the screen). On the
   // front they read as stray UI blocks; the front is the phone's face only.
   const tileMeshes: THREE.Mesh[] = APPS.map((app, i) => {
@@ -116,7 +116,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   })
 
   // Screen backdrop: the lit LCD area inside the bezel, with a status bar strip
-  // on top and a nav strip at the bottom — the phone's face.
+  // on top and a nav strip at the bottom, the phone's face.
   const screenPanel = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, 4.0, 8.8),
     new THREE.MeshStandardMaterial({ color: 0x10161d, roughness: 0.4 }),
@@ -128,7 +128,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     new THREE.MeshStandardMaterial({ color: 0x2a3542, roughness: 0.4 }),
   )
   statusBar.position.set(-0.3, 4.5, 0)
-  statusBar.userData.info = { title: 'Status bar', note: 'SystemUI — also just a process. Not modeled beyond this strip.' }
+  statusBar.userData.info = { title: 'Status bar', note: 'SystemUI: also just a process. Not modeled beyond this strip.' }
   wallGroup.add(statusBar)
   const navStrip = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, 0.55, 8.8),
@@ -156,7 +156,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     const row = Math.floor(i / 2) // 0 top, 1 bottom
     const col = i % 2
     // Rows leave room for a small name label UNDER each icon (real launcher
-    // layout) — labels above overlapped the row on top of them.
+    // layout), labels above overlapped the row on top of them.
     icon.position.set(-0.38, 3.5 - row * 1.7, col === 0 ? -1.6 : 1.6)
     icon.userData.app = app
     icon.userData.info = ICON_INFO
@@ -180,7 +180,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   appPanel.position.set(-0.38, 2.5, 0)
   appPanel.userData.info = {
     title: 'App content',
-    note: 'The foreground app\'s UI — rendered by its ward, composited by SurfaceFlinger, lit on this glass.',
+    note: 'The foreground app\'s UI: rendered by its ward, composited by SurfaceFlinger, lit on this glass.',
   }
   appPanel.visible = false
   wallGroup.add(appPanel)
@@ -191,7 +191,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   splitPanel.position.set(-0.38, 1.5, 0)
   splitPanel.userData.info = {
     title: 'Split screen',
-    note: 'Two apps share the glass. Since Android 10 BOTH are RESUMED (multi-resume) — before that only the focused one was. Both hold oom_adj 0, both submit frames, and SurfaceFlinger composites two bright layers instead of one.',
+    note: 'Two apps share the glass. Since Android 10 BOTH are RESUMED (multi-resume), before that only the focused one was. Both hold oom_adj 0, both submit frames, and SurfaceFlinger composites two bright layers instead of one.',
   }
   splitPanel.visible = false
   wallGroup.add(splitPanel)
@@ -208,10 +208,10 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   const navMat = new THREE.MeshStandardMaterial({ color: 0x9aa5b1, roughness: 0.4 })
   const backBtn = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.36, 3), navMat)
   backBtn.position.set(-0.4, 0.35, -1.5)
-  backBtn.rotation.x = -Math.PI / 2 // apex toward the viewer's LEFT — Android's Back glyph
+  backBtn.rotation.x = -Math.PI / 2 // apex toward the viewer's LEFT, Android's Back glyph
   backBtn.userData.info = {
     title: 'Back',
-    note: 'Pops the top of the foreground app\'s back stack; at the root it finishes the Activity — process stays cached.',
+    note: 'Pops the top of the foreground app\'s back stack; at the root it finishes the Activity, process stays cached.',
   }
   wallGroup.add(backBtn)
   const homePill = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.2, 16), navMat)
@@ -219,14 +219,14 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   homePill.position.set(-0.4, 0.35, 0)
   homePill.userData.info = {
     title: 'Home',
-    note: 'Backgrounds the foreground app — the launcher\'s icon grid returns to the glass.',
+    note: 'Backgrounds the foreground app: the launcher\'s icon grid returns to the glass.',
   }
   wallGroup.add(homePill)
   const recentsBtn = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.36, 0.36), navMat)
   recentsBtn.position.set(-0.4, 0.35, 1.5)
   recentsBtn.userData.info = {
     title: 'Recents',
-    note: 'Overview of every live app process. Tap a card to bring it to the front — a hot start.',
+    note: 'Overview of every live app process. Tap a card to bring it to the front, a hot start.',
   }
   wallGroup.add(recentsBtn)
 
@@ -243,7 +243,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     card.userData.app = app
     card.userData.info = {
       title: `Recents: ${app}`,
-      note: 'A live process\'s task card. Tap to bring it to the foreground — hot start, no fork.',
+      note: 'A live process\'s task card. Tap to bring it to the foreground, hot start, no fork.',
     }
     recentsGroup.add(card)
     const lbl = makeLabel(app, 0.3)
@@ -256,10 +256,10 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   // ---- Notifications on the glass ----
   // Status-bar dots (one per app, brand color) while a notification is pending;
   // tap the bar to pull the shade. NotificationManagerService lives in
-  // system_server — the post travels ward -> City Hall -> here.
+  // system_server, the post travels ward -> City Hall -> here.
   statusBar.userData.info = {
     title: 'Status bar',
-    note: 'SystemUI (its own process). Dots = pending notifications, owned by NotificationManagerService in system_server — not by the posting app. Tap to open the shade.',
+    note: 'SystemUI (its own process). Dots = pending notifications, owned by NotificationManagerService in system_server, not by the posting app. Tap to open the shade.',
   }
   let pendingNotifs: readonly string[] = []
   let ongoingApp: string | null = null
@@ -288,7 +288,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   shadeSheet.position.set(-0.32, 2.45, 0)
   shadeSheet.userData.info = {
     title: 'Notification shade',
-    note: 'Rendered by SystemUI. Each row carries a PendingIntent — a capability token that lets SystemUI fire the app\'s own intent with the app\'s identity when you tap.',
+    note: 'Rendered by SystemUI. Each row carries a PendingIntent, a capability token that lets SystemUI fire the app\'s own intent with the app\'s identity when you tap.',
   }
   shadeGroup.add(shadeSheet)
   const shadeRows: THREE.Mesh[] = APPS.map((app, i) => {
@@ -300,7 +300,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     row.userData.app = app
     row.userData.info = {
       title: `Notification: ${app}`,
-      note: 'Posted while the app was in the background. Tap = SystemUI fires the PendingIntent — the app comes to the foreground (or cold-starts if it was killed: the notification outlived the process).',
+      note: 'Posted while the app was in the background. Tap = SystemUI fires the PendingIntent, the app comes to the foreground (or cold-starts if it was killed: the notification outlived the process).',
     }
     row.visible = false
     shadeGroup.add(row)
@@ -313,7 +313,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   })
 
   // ---- Runtime permission dialog ----
-  // Drawn by the SYSTEM over the requesting app — apps cannot draw or fake it.
+  // Drawn by the SYSTEM over the requesting app, apps cannot draw or fake it.
   const permGroup = new THREE.Group()
   permGroup.visible = false
   wallGroup.add(permGroup)
@@ -324,7 +324,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   permSheet.position.set(-0.32, 2.45, 0)
   permSheet.userData.info = {
     title: 'Permission dialog',
-    note: 'A SYSTEM surface, not the app\'s — apps can\'t draw or auto-accept it. Dangerous permissions (camera, location, mic…) are granted by you at runtime; PMS records the grant per-app.',
+    note: 'A SYSTEM surface, not the app\'s: apps can\'t draw or auto-accept it. Dangerous permissions (camera, location, mic…) are granted by you at runtime; PMS records the grant per-app.',
   }
   permGroup.add(permSheet)
   const permLabel = makeLabel('allow camera to use the CAMERA?', 0.34)
@@ -335,7 +335,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     new THREE.MeshStandardMaterial({ color: 0x3fb950, roughness: 0.4 }),
   )
   allowBtn.position.set(-0.4, 1.9, 1.5)
-  allowBtn.userData.info = { title: 'Allow', note: 'PMS records the grant — the app never sees this dialog again.' }
+  allowBtn.userData.info = { title: 'Allow', note: 'PMS records the grant: the app never sees this dialog again.' }
   permGroup.add(allowBtn)
   const allowLbl = makeLabel('allow', 0.3)
   allowLbl.position.set(-0.5, 1.9, 1.5)
@@ -345,7 +345,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     new THREE.MeshStandardMaterial({ color: 0x8b98a5, roughness: 0.4 }),
   )
   denyBtn.position.set(-0.4, 1.9, -1.5)
-  denyBtn.userData.info = { title: 'Deny', note: 'The app must handle rejection — and may ask again next time it comes forward.' }
+  denyBtn.userData.info = { title: 'Deny', note: 'The app must handle rejection: and may ask again next time it comes forward.' }
   permGroup.add(denyBtn)
   const denyLbl = makeLabel('deny', 0.3)
   denyLbl.position.set(-0.5, 1.9, -1.5)
@@ -378,9 +378,9 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       appPanel.position.y = 2.5
     }
     // Alive lamps mirror the compositor's tile knowledge: any non-dark tile is a
-    // live process — the launcher shows which apps are already running.
+    // live process, the launcher shows which apps are already running.
     iconLamps.forEach((lamp, i) => { lamp.visible = tiles[i].state !== 'dark' })
-    // Recents shows only live processes — a dead app has no task card here
+    // Recents shows only live processes, a dead app has no task card here
     // (simplification: real recents also lists saved tasks of dead processes).
     recentsCards.forEach((card, i) => {
       const alive = tiles[i].state !== 'dark'
@@ -396,7 +396,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       row.visible = on
       const lbl = row.userData.rowLabel as THREE.Sprite
       lbl.visible = shadeGroup.visible && on
-      // Ongoing (foreground-service) rows glow — and refuse to be dismissed.
+      // Ongoing (foreground-service) rows glow, and refuse to be dismissed.
       const mat = row.material as THREE.MeshStandardMaterial
       const ongoing = ongoingApp === APPS[i]
       mat.emissive.setHex(ongoing ? GREEN : 0x000000)
@@ -404,11 +404,11 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       row.userData.info = ongoing
         ? {
             title: `Ongoing: ${APPS[i]}`,
-            note: 'A foreground service\'s notification. Not dismissable while the service runs — the deal for oom_adj 200 is that the user can always see it. Tapping still opens the app.',
+            note: 'A foreground service\'s notification. Not dismissable while the service runs, the deal for oom_adj 200 is that the user can always see it. Tapping still opens the app.',
           }
         : {
             title: `Notification: ${APPS[i]}`,
-            note: 'Posted while the app was in the background. Tap = SystemUI fires the PendingIntent — the app comes to the foreground (or cold-starts if it was killed: the notification outlived the process).',
+            note: 'Posted while the app was in the background. Tap = SystemUI fires the PendingIntent, the app comes to the foreground (or cold-starts if it was killed: the notification outlived the process).',
           }
     })
   }
@@ -440,7 +440,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
   let busyMs = 0
 
   bus.on('frame:submitted', ({ app, dropped }) => {
-    if (queue.length >= 8) return // generous backlog cap — SF still drains one at a time
+    if (queue.length >= 8) return // generous backlog cap, SF still drains one at a time
     queue = [...queue, { app, dropped }]
   })
   bus.on('activity:resumed', ({ app }) => {
@@ -461,7 +461,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     if (brightApp === app) brightApp = null
   })
 
-  const panel = makePanel('SurfaceFlinger — the compositor that hands frames to the display')
+  const panel = makePanel('SurfaceFlinger: the compositor that hands frames to the display')
   panel.setNarration(DEFAULT_NARRATION)
 
   function paint(): void {
@@ -486,7 +486,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
         mat.emissiveIntensity = 0
         return
       }
-      // Bright vs faint must differ in BASE color too — under scene lighting the
+      // Bright vs faint must differ in BASE color too, under scene lighting the
       // diffuse green dominates, so an emissive-only delta made every running
       // app's tile look identically lit ("3 apps on screen at once").
       const bright = t.state === 'bright'
@@ -521,7 +521,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
             tiles[i].flashT = FLASH_MS
             tiles[i].flashRed = head.dropped
           }
-          panel.setNarration(`${head.app} composited${head.dropped ? ' — frame had been dropped upstream' : ''}.`)
+          panel.setNarration(`${head.app} composited${head.dropped ? ', frame had been dropped upstream' : ''}.`)
         }
       } else if (queue.length > 0) {
         busyMs = SF_VISUAL_MS
@@ -529,7 +529,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
       paint()
     },
     setIdle() {
-      // no ambient behavior — composited frames come only from frame:submitted events
+      // no ambient behavior, composited frames come only from frame:submitted events
     },
     stats() {
       return { composited: totalComposited, dropped: totalDropped }
@@ -546,7 +546,7 @@ export function makeSurfaceFlingerScenario(bus: Bus): Scenario & {
     },
     setSplit(apps) {
       splitApps = apps
-      // Both split apps are on screen, so both tiles are bright — the
+      // Both split apps are on screen, so both tiles are bright, the
       // single-bright-tile rule only holds outside multi-window.
       for (const a of apps) {
         const i = APPS.indexOf(a)

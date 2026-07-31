@@ -17,7 +17,7 @@ export function createCity(container: HTMLElement): City {
   scene.fog = new THREE.Fog(0xe9e7e2, 140, 380)
 
   // near 1.5 (not 0.1): nothing sits closer than ~8 units, and the tighter range
-// buys ~25x depth precision — glancing-angle sub-0.1 separations (traces over
+// buys ~25x depth precision, glancing-angle sub-0.1 separations (traces over
 // plates) were quantizing into flickering dashes at distance.
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 1.5, 500)
   camera.position.set(18, 16, 18)
@@ -27,7 +27,7 @@ const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 1.5, 50
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
   container.appendChild(renderer.domElement)
 
-  // Second, HTML-based renderer for persistent HUD labels — overlaid on the same
+  // Second, HTML-based renderer for persistent HUD labels, overlaid on the same
   // container, sized with the WebGL canvas, ignored by pointer events so orbit
   // controls / raycasting under it keep working.
   container.style.position = container.style.position || 'relative'

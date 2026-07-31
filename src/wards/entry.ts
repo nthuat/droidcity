@@ -17,12 +17,12 @@ export interface WardEntry {
   meshes: WardMeshes
   looper: LooperState
   activity: ActivityState
-  // Stacked activities above the root (0 = just the root). Capped at 3 —
+  // Stacked activities above the root (0 = just the root). Capped at 3 -
   // matches the 3 pre-built stackCards in WardMeshes.
   backStack: number
   heap: HeapState
   // Native (NDK) side: bytes malloc'd across the JNI bridge. Grows on native
-  // calls and is NEVER reclaimed by forceGc — ART's GC cannot see it. Only
+  // calls and is NEVER reclaimed by forceGc, ART's GC cannot see it. Only
   // process death frees it, which is the teaching point.
   nativeKb: number
   // JNI-crossing afterglow (ms) so the bridge visibly lights per call.
@@ -80,11 +80,11 @@ export interface WardEntry {
   boundTo: string | null
   tether: THREE.Line | null
   // Binder pool posts flash for a beat whenever an IPC crosses to/from this
-  // ward's process (foreground/background transitions) — set to
+  // ward's process (foreground/background transitions), set to
   // BINDER_PULSE_MS, decays like the other *Ms flash fields.
   binderPulseMs: number
   // Transient panel feedback line (a no-op explanation or a notable-but-quiet
-  // result, e.g. "GC — nothing unreachable"). Rendered as the top narration
+  // result, e.g. "GC: nothing unreachable"). Rendered as the top narration
   // line while panelMessageMs > 0, decays like the other *Ms flash fields.
   panelMessage: string
   panelMessageMs: number
@@ -101,22 +101,22 @@ export function trimLog(s: ActivityState): ActivityState {
 }
 
 export function narrationFor(entry: WardEntry): string {
-  // Native heap shown only once it exists — otherwise it's noise on the 90% of
+  // Native heap shown only once it exists, otherwise it's noise on the 90% of
   // wards that never cross the JNI bridge.
   const nativeSuffix = entry.nativeKb > 0 ? ` · native ${entry.nativeKb}KB (no GC)` : ''
   const base = `${entry.activity.phase} · main queue ${entry.looper.queue.length} waiting · heap ${usedKb(entry.heap)}/${entry.heap.capacityKb}KB${nativeSuffix}`
   const line = entry.looper.anr ? `${base} · ANR! main thread blocked 5s+` : base
-  const withRestored = entry.restored ? `Restored — saved state + ViewModel made this cheap.\n${line}` : line
+  const withRestored = entry.restored ? `Restored: saved state + ViewModel made this cheap.\n${line}` : line
   const withService = entry.serviceRunning
-    ? `${withRestored}\nService running — LMK will take cached wards first.`
+    ? `${withRestored}\nService running, LMK will take cached wards first.`
     : withRestored
-  // Rotation (and any other config change — locale, dark mode, fold state)
-  // drives the same tear-down/rebuild — rebuildMs > 0 covers all of them.
+  // Rotation (and any other config change, locale, dark mode, fold state)
+  // drives the same tear-down/rebuild, rebuildMs > 0 covers all of them.
   const withRotate = entry.rebuildMs > 0
-    ? `${withService}\nRotation is just one config change — locale, dark mode, fold state recreate the Activity the same way.`
+    ? `${withService}\nRotation is just one config change, locale, dark mode, fold state recreate the Activity the same way.`
     : withService
   const withSingleTop = entry.singleTopFlashMs > 0
-    ? `${withRotate}\nsingleTop: already on top — reused, no new instance.`
+    ? `${withRotate}\nsingleTop: already on top, reused, no new instance.`
     : withRotate
   return entry.panelMessageMs > 0 ? `${entry.panelMessage}\n${withSingleTop}` : withSingleTop
 }

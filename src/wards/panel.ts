@@ -37,7 +37,7 @@ export function buildWardPanel(
   narration: string,
   serviceRunning: boolean,
 ): WardPanel {
-  const panel = makePanel(`${app} — app process`)
+  const panel = makePanel(`${app}, app process`)
   panel.addButton('Block main thread (8s)', () => actions.blockMainThread(app, BLOCK_MAIN_THREAD_MS))
   panel.addButton('Rotate', () => actions.rotate(app))
   panel.addButton('Open screen', () => actions.pushActivity(app))
@@ -54,7 +54,7 @@ export function buildWardPanel(
   panel.addButton('Refresh data', () => actions.refreshData(app))
   const serviceBtn = panel.addButton(serviceRunning ? 'Stop service' : 'Start service', () => actions.toggleService(app))
   panel.addButton('Promote to FGS', () => actions.toggleForegroundService(app))
-  const bindBtn = panel.addButton('Bind to —', () => actions.toggleBind(app))
+  const bindBtn = panel.addButton('Bind to -', () => actions.toggleBind(app))
   panel.addButton('Home', () => actions.goHome(app))
   panel.setNarration(narration)
   return {
@@ -64,7 +64,7 @@ export function buildWardPanel(
       if (serviceBtn.textContent !== label) serviceBtn.textContent = label
     },
     syncBind(boundTo, nextTarget) {
-      const label = boundTo ? 'Unbind' : `Bind to ${nextTarget ?? '—'}`
+      const label = boundTo ? 'Unbind' : `Bind to ${nextTarget ?? '-'}`
       if (bindBtn.textContent !== label) bindBtn.textContent = label
     },
   }

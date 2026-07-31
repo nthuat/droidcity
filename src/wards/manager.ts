@@ -71,11 +71,11 @@ export interface WardManagerDeps {
   // OOM ladder. Optional so unit tests can omit it.
   setAppPriority?: (app: string, priority: Priority) => void
   // Fired once per spawn ('cold') and once per app:broughtToFront resolution
-  // ('warm' | 'hot') — main.ts flashes the ward label's third line with it.
+  // ('warm' | 'hot'), main.ts flashes the ward label's third line with it.
   onStartType?: (app: string, type: 'cold' | 'warm' | 'hot') => void
   // Fired when a process:forked lands but no ward can spawn (plot still held by
   // a demolishing predecessor, or no free plot). Without a listener the forked
-  // proc lives on with no ward and the launcher stays 'launching' forever —
+  // proc lives on with no ward and the launcher stays 'launching' forever -
   // main.ts wires this to foundry.killApp so the whole flow unwinds.
   onSpawnDropped?: (app: string, pid: number) => void
   // A native SIGSEGV takes the process down; main.ts wires this to
@@ -111,7 +111,7 @@ const WORKER_CAR_SCALE = 0.3
 const HOT_PULSE_MS = 200
 const BINDER_PULSE_MS = 300
 // How long a transient panel feedback line (no-op explanation, GC result,
-// etc.) stays up — long enough to actually read, unlike the sim-scale flash
+// etc.) stays up, long enough to actually read, unlike the sim-scale flash
 // constants above.
 const PANEL_MESSAGE_MS = 2500
 const MAX_BACK_STACK = 3
@@ -132,12 +132,12 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   const wards = new Map<string, WardEntry>()
   let plots = createPlots(plotAnchors.length)
   let idleEnabled = true
-  // Running sim clock (no Date.now — accumulates from update(dtMs) so it scales
+  // Running sim clock (no Date.now, accumulates from update(dtMs) so it scales
   // with story-mode's slowed sim time same as everything else). Used only to
   // decide whether a fresh fork of a just-killed app counts as a "restore".
   let nowMs = 0
   const recentlyKilled = new Map<string, number>()
-  // Android allows exactly one resumed Activity system-wide — UNLESS the device
+  // Android allows exactly one resumed Activity system-wide, UNLESS the device
   // is in multi-window. Since Android 10 ("multi-resume") every visible window
   // in split screen is RESUMED, so the invariant becomes "at most `foregroundCap`
   // resumed apps" and the oldest is evicted when a third arrives.
@@ -164,7 +164,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const previous = foregroundApp
     foregroundApp = app
     // Split screen: the previous app KEEPS running and stays resumed alongside
-    // this one — that is exactly what multi-resume means. Only a third app
+    // this one, that is exactly what multi-resume means. Only a third app
     // evicts the older of the two.
     if (foregroundCap > 1 && previous !== null) {
       const prev = wards.get(previous)
@@ -191,7 +191,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   }
 
   // The priority a backgrounded ward should hold: normally 'service' while its
-  // own Service runs, else 'cached' — but a bound client keeps this ward's
+  // own Service runs, else 'cached', but a bound client keeps this ward's
   // importance at 'visible' as long as that client is foreground, mirroring
   // Android's Binder-connection priority inheritance (oom_adj 100 vs 500/900).
   function backgroundPriority(entry: WardEntry): Priority {
@@ -207,7 +207,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   // current states. Only meaningful while the target isn't itself foreground
   // (that priority is owned by the resume/foreground path, not this one).
   // Called after bind/unbind AND whenever a bound client stops being foreground
-  // (backgrounded, finished, killed) — else the service ward keeps a stale
+  // (backgrounded, finished, killed), else the service ward keeps a stale
   // 'visible' inherited from a client that's no longer on screen.
   function recomputeServicePriority(serviceApp: string): void {
     const entry = wards.get(serviceApp)
@@ -215,7 +215,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     setAppPriority?.(entry.app, backgroundPriority(entry))
   }
 
-  // Next living ward alphabetically after `app`, wrapping around — the target
+  // Next living ward alphabetically after `app`, wrapping around, the target
   // the panel's 'Bind to <next app>' button offers.
   function nextLivingWard(app: string): string | null {
     const names = [...wards.values()].filter(w => !w.dying).map(w => w.app).sort()
@@ -224,7 +224,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     return names[(idx + 1) % names.length]
   }
 
-  // Sets the transient panel feedback line (see WardEntry.panelMessage) —
+  // Sets the transient panel feedback line (see WardEntry.panelMessage) -
   // used on button no-ops and otherwise-invisible notable results so every
   // click gives the user something to read.
   function setPanelMessage(entry: WardEntry, msg: string): void {
@@ -241,7 +241,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const line = new THREE.Line(geometry, material)
     line.userData.info = {
       title: 'Bound service',
-      note: 'Client holds a Binder connection; while the client is foreground the service process inherits visibility — oom_adj 100 instead of 500/900.',
+      note: 'Client holds a Binder connection; while the client is foreground the service process inherits visibility, oom_adj 100 instead of 500/900.',
     }
     scene.add(line)
     return line
@@ -291,7 +291,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
           entry.sweepMs = SWEEP_MS
         }
       } catch {
-        // OutOfMemoryError — spec says swallow silently, no leak UI in this task.
+        // OutOfMemoryError, spec says swallow silently, no leak UI in this task.
       }
     }
   }
@@ -299,8 +299,8 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   function onForked({ app, pid }: { app: string; pid: number }): void {
     const result = allocatePlot(plots, app)
     // duplicate app (incl. a re-fork landing while the old instance is still
-    // demolishing — its plot isn't released until demolition completes), or no
-    // free plot (LMK race) — dropped by design, no queueing/retry. The forked
+    // demolishing, its plot isn't released until demolition completes), or no
+    // free plot (LMK race), dropped by design, no queueing/retry. The forked
     // proc still exists though, so tell main.ts to kill it (else: launcher
     // stuck 'launching', unkillable foreground proc, dead kiosk).
     if (result.plot === -1) {
@@ -368,7 +368,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     wards.set(app, entry)
     onWardSpawned?.(app, pid, meshes.group)
     // activity:resumed (+ Binder packet) fires later, when the rise animation
-    // completes (see updateWard) — not synchronously here. Firing it immediately
+    // completes (see updateWard), not synchronously here. Firing it immediately
     // let a whole story chapter's event chain (launchRequested→forked→resumed→…)
     // resolve inside one call stack, outrunning the story player's wait-arming.
   }
@@ -389,7 +389,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       const serviceApp = entry.boundTo
       disposeTether(entry)
       entry.boundTo = null
-      // Dead client no longer lends 'visible' — service drops to service/cached.
+      // Dead client no longer lends 'visible', service drops to service/cached.
       recomputeServicePriority(serviceApp)
     }
     for (const other of wards.values()) {
@@ -398,7 +398,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   }
 
   // onTrimMemory, modeled coarsely: every live ward voluntarily sheds its two
-  // oldest heap objects (they turn grey/garbage, same as a real GC sweep) —
+  // oldest heap objects (they turn grey/garbage, same as a real GC sweep) -
   // silent (no narration change) because this is cooperative shrink, not a
   // kill. Reuses the same releaseOldest + sweep-visual + gc:swept path as
   // forceGc/idle release.
@@ -413,7 +413,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     }
   }
 
-  // A ward requesting data (auto DATA_REQUEST_MS expiry or a manual refresh —
+  // A ward requesting data (auto DATA_REQUEST_MS expiry or a manual refresh -
   // both emit this event) spawns a worker car per outstanding source, so the
   // ward visibly hops main → worker instead of implying main-thread IO.
   function onDataRequested({ app, source }: { app: string; source: 'db' | 'network' }): void {
@@ -436,7 +436,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   }
 
   // networkTower's queue caps at 3 in-flight requests and silently drops
-  // anything beyond that (no data:fetched ever follows) — without this, that
+  // anything beyond that (no data:fetched ever follows), without this, that
   // app's network worker car would orbit the lane forever.
   function onDataDropped({ app }: { app: string }): void {
     const entry = wards.get(app)
@@ -461,7 +461,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   function onMessagePosted({ app }: { app: string; label: string }): void {
     const entry = wards.get(app)
     // Backgrounded/destroyed wards still run their looper (background work is
-    // real) but never render — matches real Android: only the foreground
+    // real) but never render, matches real Android: only the foreground
     // Activity produces frames.
     if (!entry || entry.dying || entry.activity.phase !== 'resumed') return
     if (!entry.frame) entry.frame = startFrame(APP_STAGES)
@@ -474,7 +474,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   }
 
   // Reached only via launcherPlaza tapping an already-running app's kiosk. The
-  // event carries no start type — this manager owns activity.phase, so it's the
+  // event carries no start type, this manager owns activity.phase, so it's the
   // only party that can tell warm ('stopped' → foreground()) from hot (already
   // 'resumed') apart, and it reports the real type back via onStartType.
   function onBroughtToFront({ app }: { app: string }): void {
@@ -496,9 +496,9 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       onStartType?.(app, 'hot')
     } else if (entry.activity.phase === 'destroyed') {
       // Finished-root relaunch: pop-at-0 finished the Activity but the process
-      // (and this ward) survived — launcher still lists the app running (it only
+      // (and this ward) survived, launcher still lists the app running (it only
       // markStopped()s on process:killed), so a kiosk tap reaches here instead of
-      // process:forked. launch() recreates the Activity — a real warm start, not
+      // process:forked. launch() recreates the Activity, a real warm start, not
       // just foreground()'s resume-in-place.
       bringToForeground(app)
       entry.activity = launch(entry.activity)
@@ -506,7 +506,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       bus.emit('activity:resumed', { app })
       onStartType?.(app, 'warm')
     }
-    // Any other phase (created/started/paused): no-op — launcherPlaza only emits
+    // Any other phase (created/started/paused): no-op, launcherPlaza only emits
     // this for an app the launcher sim already considers running.
   }
 
@@ -534,8 +534,8 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.sweepMs = SWEEP_MS
     bus.emit('gc:swept', { app, freedKb: entry.heap.lastFreedKb })
     setPanelMessage(entry, entry.heap.lastFreedKb > 0
-      ? `GC — freed ${entry.heap.lastFreedKb}KB (native heap ${entry.nativeKb}KB untouched)`
-      : `GC — nothing unreachable (native heap ${entry.nativeKb}KB untouched)`)
+      ? `GC: freed ${entry.heap.lastFreedKb}KB (native heap ${entry.nativeKb}KB untouched)`
+      : `GC: nothing unreachable (native heap ${entry.nativeKb}KB untouched)`)
   }
 
   // JNI call: a managed thread crosses into the .so. Costs a main-thread
@@ -544,16 +544,16 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   const JNI_WORK_MS = 40
   const JNI_MALLOC_KB = 160
   // "Allocate a big chunk": a bitmap, a cache, a decode buffer. Grows the heap
-  // AND the process's RSS — hold enough and the whole device goes into reclaim.
+  // AND the process's RSS, hold enough and the whole device goes into reclaim.
   const BIG_CHUNK_MB = 150
   function allocateBigChunk(app: string): void {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
-    // Six chunks on the managed heap so the heap yard visibly fills too — the
+    // Six chunks on the managed heap so the heap yard visibly fills too, the
     // RSS growth below is what the hardware strip and PSI actually react to.
     allocateN(entry, app, 6, 120)
     onAllocate?.(app, BIG_CHUNK_MB)
-    setPanelMessage(entry, `Allocated ${BIG_CHUNK_MB}MB — watch PSI climb on the hardware strip`)
+    setPanelMessage(entry, `Allocated ${BIG_CHUNK_MB}MB: watch PSI climb on the hardware strip`)
   }
 
   // Views <-> Compose. Only the top of the pipeline changes; the frame sim is
@@ -580,13 +580,13 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     setPanelMessage(entry, `JNI → native: +${JNI_MALLOC_KB}KB native heap (${entry.nativeKb}KB total, GC can't free it)`)
   }
 
-  // Native crash: SIGSEGV in the .so takes the whole process down — no Java
+  // Native crash: SIGSEGV in the .so takes the whole process down, no Java
   // exception to catch, no onDestroy, just a tombstone. Same demolition path as
   // an LMK kill because from the city's view it IS the same: process gone.
   function nativeCrash(app: string): void {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
-    setPanelMessage(entry, 'SIGSEGV in native code — process gone, tombstone written, no onDestroy')
+    setPanelMessage(entry, 'SIGSEGV in native code: process gone, tombstone written, no onDestroy')
     bus.emit('native:crashed', { app })
     onNativeCrash?.(app)
   }
@@ -604,7 +604,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   // Panel 'Home' button: backgrounds the Activity (floors dim to 1) and drops
   // foundry priority to service (if the ward's service is on) or cached.
-  // No-op unless actually resumed — a second Home press must not re-emit
+  // No-op unless actually resumed, a second Home press must not re-emit
   // activity:backgrounded or re-touch priority (background() itself would
   // already be a phase no-op).
   function goHome(app: string): void {
@@ -623,10 +623,10 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
   }
 
   // Panel 'Open screen' / 'Open (singleTop)' buttons: pushes a stacked Activity
-  // onto the task. Only meaningful from the foreground (resumed) — capped at 3
+  // onto the task. Only meaningful from the foreground (resumed), capped at 3
   // (matches the 3 pre-built stackCards in WardMeshes), beyond that a no-op.
   // singleTop + something already stacked above the root: reuse the top
-  // instance instead — no new card, no activity:pushed, just a brief flash.
+  // instance instead, no new card, no activity:pushed, just a brief flash.
   function pushActivity(app: string, mode: 'standard' | 'singleTop' = 'standard'): void {
     const entry = wards.get(app)
     if (!entry || entry.dying) return
@@ -640,24 +640,24 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       return
     }
     if (entry.backStack >= MAX_BACK_STACK) {
-      setPanelMessage(entry, 'back stack full — max 3 stacked screens')
+      setPanelMessage(entry, 'back stack full, max 3 stacked screens')
       return
     }
     entry.backStack += 1
     bus.emit('activity:pushed', { app, depth: entry.backStack })
     // Real Android singleTop semantics: no existing instance on top of the
-    // task to reuse, so it falls back to a standard push — same as above,
+    // task to reuse, so it falls back to a standard push, same as above,
     // just flagged so the click doesn't look identical to a plain 'Open screen'.
     if (mode === 'singleTop') {
-      setPanelMessage(entry, 'singleTop: no instance on top — pushed new one')
+      setPanelMessage(entry, 'singleTop: no instance on top, pushed new one')
     }
   }
 
-  // Panel 'Back' button: pops the top stacked Activity, or — once the stack is
-  // already empty — finishes the root Activity itself. finish() is the sim's
+  // Panel 'Back' button: pops the top stacked Activity, or, once the stack is
+  // already empty, finishes the root Activity itself. finish() is the sim's
   // own no-op guard for an already-destroyed phase, so popping past that point
   // is simply ignored (nothing left to pop). Finishing the root leaves the
-  // process (and this ward) alive — warm-start material — so foundry priority
+  // process (and this ward) alive, warm-start material, so foundry priority
   // drops the same way goHome does (service if running, else cached).
   function popActivity(app: string): void {
     const entry = wards.get(app)
@@ -680,7 +680,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   // Panel 'Start service'/'Stop service' button: flips entry.serviceRunning,
   // lights the annex amber, emits service:changed. Only touches foundry priority
-  // when the ward is currently backgrounded (phase 'stopped') — a foreground
+  // when the ward is currently backgrounded (phase 'stopped'), a foreground
   // ward stays 'foreground' regardless of service state (spec: "foreground apps
   // stay 'foreground'"). Returns the new running state for the panel to reflect.
   // Promote/demote a running Service to a FOREGROUND service. Android requires
@@ -690,15 +690,15 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     const entry = wards.get(app)
     if (!entry || entry.dying) return false
     if (!entry.serviceRunning && !entry.fgs) {
-      setPanelMessage(entry, 'Start the service first — only a running Service can go foreground')
+      setPanelMessage(entry, 'Start the service first: only a running Service can go foreground')
       return false
     }
     entry.fgs = !entry.fgs
     bus.emit('service:foreground', { app, fgs: entry.fgs })
     if (entry.activity.phase !== 'resumed') setAppPriority?.(app, backgroundPriority(entry))
     setPanelMessage(entry, entry.fgs
-      ? 'Foreground service — ongoing notification posted (not dismissable), oom_adj 200, ANR timer now 20s'
-      : 'Demoted to a background service — notification can go, oom_adj back to 500')
+      ? 'Foreground service: ongoing notification posted (not dismissable), oom_adj 200, ANR timer now 20s'
+      : 'Demoted to a background service: notification can go, oom_adj back to 500')
     return entry.fgs
   }
 
@@ -730,7 +730,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (entry.dying) continue
       entry.looper = post(entry.looper, 'onReceive', 6)
       entry.mailFlashMs = MAIL_FLASH_MS
-      setPanelMessage(entry, `onReceive on the main thread — ${BROADCAST_ANR_MS / 1000}s to return or it's an ANR`)
+      setPanelMessage(entry, `onReceive on the main thread, ${BROADCAST_ANR_MS / 1000}s to return or it's an ANR`)
       bus.emit('ui:messagePosted', { app: entry.app, label: 'onReceive' })
     }
   }
@@ -753,7 +753,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
 
   function updateGroupScale(entry: WardEntry, dtMs: number): void {
     // A restored ward (re-forked <60s after an LMK kill) rises in half the
-    // time — saved state + ViewModel skip most of the cold-start cost.
+    // time, saved state + ViewModel skip most of the cold-start cost.
     const riseDuration = entry.restored ? RISE_MS / 2 : RISE_MS
     if (entry.riseMs < riseDuration) {
       entry.riseMs = Math.min(riseDuration, entry.riseMs + dtMs)
@@ -775,7 +775,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       entry.demolishMs += dtMs
       entry.meshes.group.scale.y = entry.demolishStartScale * Math.max(0, 1 - entry.demolishMs / DEMOLISH_MS)
       if (entry.demolishMs >= DEMOLISH_MS) {
-        // buildWardMeshes' dispose() only frees its own static disposables —
+        // buildWardMeshes' dispose() only frees its own static disposables -
         // cars/crates/sweep-plane are created dynamically by this manager and
         // are almost always still alive at kill time (this branch returns
         // above before syncCars/syncCrates can drain them), so dispose them here.
@@ -797,7 +797,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       return
     }
 
-    // ContentProviders instantiate before Application.onCreate — light the
+    // ContentProviders instantiate before Application.onCreate, light the
     // slab a beat ahead of the appFloor (which lights at rise-complete, below).
     const riseDuration = entry.restored ? RISE_MS / 2 : RISE_MS
     setProviderSlabLit(entry.meshes, entry.riseMs >= riseDuration * 0.75)
@@ -823,7 +823,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     }
 
     const wasAnr = entry.looper.anr
-    // Compare last processed id (not length — trimProcessed caps the array at a
+    // Compare last processed id (not length, trimProcessed caps the array at a
     // fixed size, so length stops changing once full).
     const lastProcessedBefore = entry.looper.processedIds[entry.looper.processedIds.length - 1]
     entry.looper = trimProcessed(advance(entry.looper, dtMs))
@@ -854,7 +854,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
         entry.idleReleaseMs -= IDLE_RELEASE_MS
         entry.heap = releaseOldest(entry.heap, 2)
       }
-      // Heap pressure to counterbalance releaseOldest above — without it, free-mode
+      // Heap pressure to counterbalance releaseOldest above, without it, free-mode
       // wards never approach capacity and gc:swept never fires on its own.
       entry.idleAllocMs += dtMs
       if (entry.idleAllocMs >= IDLE_ALLOC_MS) {
@@ -895,7 +895,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     }
 
     // Activity resumes (onCreate/onStart/onResume + Binder packet) once the rise
-    // animation finishes — not synchronously on fork — so floors light while the
+    // animation finishes, not synchronously on fork, so floors light while the
     // narration reads, and the data-request timer above only starts from here.
     if (!entry.resumed && entry.riseMs >= (entry.restored ? RISE_MS / 2 : RISE_MS)) {
       entry.resumed = true
@@ -925,7 +925,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots, entry.sweepMs > 0, sweepBarX(entry.sweepMs))
     syncNative(entry.meshes, entry.nativeKb, entry.jniFlashMs)
     syncMailbox(entry.meshes, entry.mailFlashMs)
-    // A window exists while the Activity does — resumed or merely started.
+    // A window exists while the Activity does, resumed or merely started.
     syncWindowToken(entry.meshes, entry.activity.phase === 'resumed' || entry.activity.phase === 'started')
     syncFlashes(entry, entry.looper.anr, entry.anrFlashT, entry.app === foregroundApp && entry.activity.phase === 'resumed')
     syncThreadPosts(entry.meshes, {

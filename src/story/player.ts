@@ -5,7 +5,7 @@ export interface Step {
   readonly focus: string
   readonly fire?: () => void
   // `app` narrows the wait to firings whose payload carries a matching `app`
-  // field — needed because the chapter-scoped buffer is otherwise name-only,
+  // field, needed because the chapter-scoped buffer is otherwise name-only,
   // so e.g. another ward's `activity:resumed` would satisfy a wait meant for
   // 'chat'. Omit `app` for events with no per-app payload (boot:*) or where
   // only one app can be in flight.
@@ -25,7 +25,7 @@ export interface Chapter {
 
 export interface PlayerCallbacks {
   onStep(step: Step, index: number, total: number, title: string): void
-  // Fired when the watchdog force-advances a step whose event never arrived —
+  // Fired when the watchdog force-advances a step whose event never arrived -
   // a wiring bug, surfaced instead of hanging the tour.
   onStuckStep?(chapterId: string, index: number, event: CityEventName): void
   onChapterDone(): void
@@ -57,7 +57,7 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
     // firings each waiting step has consumed. Key is the bare event name, or
     // `event:app` for app-filtered waits (see Step.waitFor). Events that fire
     // early (during an earlier step's dwell) stay counted and satisfy later
-    // steps in order — no per-step arm/unarm race to get wrong.
+    // steps in order, no per-step arm/unarm race to get wrong.
     buffer: new Map<string, number>(),
     consumed: new Map<string, number>(),
     unsubs: [] as (() => void)[],
@@ -71,7 +71,7 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
     return app ? `${event}:${app}` : event
   }
 
-  // An event that never arrives used to hang the chapter forever — the only way
+  // An event that never arrives used to hang the chapter forever, the only way
   // out was Escape. Any wait longer than this force-advances so the tour always
   // finishes; the warning is the signal that a step's event wiring broke.
   //
@@ -82,7 +82,7 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
   const EVENT_WAIT_TIMEOUT_MS = 25000
 
   // Peek-only: is the current step's wait satisfiable right now? Never mutates
-  // consumed counts — safe to call repeatedly across ticks.
+  // consumed counts, safe to call repeatedly across ticks.
   function isSatisfied(step: Step): boolean {
     if (isEventWait(step.waitFor)) {
       const key = bufferKey(step.waitFor.event, step.waitFor.app)
@@ -127,7 +127,7 @@ export function createPlayer(bus: Bus, cbs: PlayerCallbacks, opts?: { minStepMs?
       state.unsubs.push(bus.on(name, (payload) => {
         // Bare-name count, for waits with no app filter.
         state.buffer.set(name, (state.buffer.get(name) ?? 0) + 1)
-        // Plus a per-app count, for app-filtered waits — only when the
+        // Plus a per-app count, for app-filtered waits, only when the
         // payload actually carries a string `app` field.
         const app = (payload as { app?: unknown } | undefined)?.app
         if (typeof app === 'string') {

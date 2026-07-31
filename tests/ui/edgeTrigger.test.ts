@@ -16,8 +16,8 @@ describe('createEdgeTrigger', () => {
   it('re-arms once value drops to or below lo, then can fire again', () => {
     const trigger = createEdgeTrigger(0.85, 0.7)
     expect(trigger(0.9)).toBe(true)
-    expect(trigger(0.8)).toBe(false) // between lo and hi — still armed=false, no refire
-    expect(trigger(0.65)).toBe(false) // crosses lo — re-arms, but this call itself doesn't fire
+    expect(trigger(0.8)).toBe(false) // between lo and hi, still armed=false, no refire
+    expect(trigger(0.65)).toBe(false) // crosses lo, re-arms, but this call itself doesn't fire
     expect(trigger(0.9)).toBe(true) // fires again now that it's re-armed
   })
 })

@@ -11,7 +11,7 @@ const TRACE_PULSE_MS = 500
 const RAM_FILL_MISSING_WARD = 0.05
 // Pressure = a smoothed usedMb/capacityMb reading (EMA, since raw fullness
 // jitters every fork/kill) plus a spike that bumps on every fork and decays
-// over 2s — modeling PSI's "stall" pain rather than exact fullness.
+// over 2s, modeling PSI's "stall" pain rather than exact fullness.
 const PRESSURE_SMOOTH_ALPHA = 0.3
 const PRESSURE_SPIKE_FRAC = 0.25
 const PRESSURE_SPIKE_DECAY_MS = 2000
@@ -32,7 +32,7 @@ interface ProcListSource {
   stats(): { usedMb: number; capacityMb: number; procList: { name: string; memoryMb: number }[] }
 }
 
-// Mirrors hardwareRow.ts's private CORE_STUCK — the trace glow should read the same
+// Mirrors hardwareRow.ts's private CORE_STUCK, the trace glow should read the same
 // red as the core slot it feeds when that ward's main thread is ANR'd.
 const CORE_STUCK_GLOW = 0xf85149
 
@@ -54,7 +54,7 @@ export function createEdgeTrigger(hi: number, lo: number): (v: number) => boolea
 
 // Live wiring for the hardware row: colors CPU core slots (and their motherboard
 // traces) per-frame from ward looper state, fills RAM segments from foundry's proc
-// list, and blinks the disk LED on Room read/write bus events. Read-only — never
+// list, and blinks the disk LED on Room read/write bus events. Read-only, never
 // touches sim state.
 export function attachHardwareWiring(
   bus: Bus,
@@ -74,7 +74,7 @@ export function attachHardwareWiring(
   let pressureFrac = 0
   // Per-plot pulse timers for the RAM/DISK bus traces, decayed every syncCores
   // call (the existing per-frame path core-glow already runs on) rather than a
-  // separate tick — one frame hook, not two.
+  // separate tick, one frame hook, not two.
   const ramPulse: number[] = new Array(CORE_COUNT).fill(0)
   const diskPulse: number[] = new Array(CORE_COUNT).fill(0)
   // RAM↔DISK storage bus pulse: single timer + color, latest event wins on overlap.
@@ -118,7 +118,7 @@ export function attachHardwareWiring(
     const plot = plotForApp(app)
     if (plot !== null) ramPulse[plot] = TRACE_PULSE_MS
   })
-  // Trim has no app payload — every living ward is reclaiming pages, so pulse them all.
+  // Trim has no app payload, every living ward is reclaiming pages, so pulse them all.
   bus.on('memory:trim', () => {
     for (const w of wardManager.wardStats()) ramPulse[w.plot] = TRACE_PULSE_MS
   })
@@ -176,8 +176,8 @@ export function attachHardwareWiring(
       const heap = heapByApp.get(proc.name)
       const fill = heap && heap.heapCapacityKb > 0 ? heap.heapUsedKb / heap.heapCapacityKb : RAM_FILL_MISSING_WARD
       const note = heap
-        ? `heap ${heap.heapUsedKb}/${heap.heapCapacityKb}KB live — GC sweeps drain this; the 150MB reservation stays until the process dies.`
-        : 'heap data unavailable — GC sweeps drain this; the 150MB reservation stays until the process dies.'
+        ? `heap ${heap.heapUsedKb}/${heap.heapCapacityKb}KB live, GC sweeps drain this; the 150MB reservation stays until the process dies.`
+        : 'heap data unavailable, GC sweeps drain this; the 150MB reservation stays until the process dies.'
       const count = Math.ceil(proc.memoryMb / MB_PER_SEGMENT)
       for (let n = 0; n < count && i < RAM_SEGMENTS; n++, i++) segments[i] = { color, app: proc.name, fill, note }
     }

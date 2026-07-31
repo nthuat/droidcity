@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-// Static zone-dressing primitives — tiny clusters of boxes/cylinders that give each
+// Static zone-dressing primitives, tiny clusters of boxes/cylinders that give each
 // board plate visual density. Page-lifetime, no disposal (see plan's disposal-
 // discipline note): geometries and materials are module-scope singletons shared by
 // every instance, since the look never varies per call site.
@@ -12,10 +12,10 @@ const ACCENT = 0x76e3ea
 
 // Hover tooltips, tagged on each builder's root group so every caller (board
 // corners, boot strip, network masts, …) is covered without per-site tagging.
-const VENT_INFO = { title: 'Cooling vent', note: 'Thermal headroom is a real scheduler input — hot silicon throttles.' }
-const TANK_INFO = { title: 'Power cell', note: 'The battery — the budget every wakelock spends.' }
-const PIPE_INFO = { title: 'Power/clock lines', note: 'Board plumbing — clocks and rails the SoC lives on.' }
-const ANTENNA_INFO = { title: 'Antenna', note: 'Radio hardware — cellular/Wi-Fi PHY.' }
+const VENT_INFO = { title: 'Cooling vent', note: 'Thermal headroom is a real scheduler input: hot silicon throttles.' }
+const TANK_INFO = { title: 'Power cell', note: 'The battery: the budget every wakelock spends.' }
+const PIPE_INFO = { title: 'Power/clock lines', note: 'Board plumbing: clocks and rails the SoC lives on.' }
+const ANTENNA_INFO = { title: 'Antenna', note: 'Radio hardware: cellular/Wi-Fi PHY.' }
 
 const matA = new THREE.MeshStandardMaterial({ color: GREY_A, roughness: 0.7 })
 const matB = new THREE.MeshStandardMaterial({ color: GREY_B, roughness: 0.7 })
@@ -24,7 +24,7 @@ const matAccent = new THREE.MeshStandardMaterial({
   color: GREY_B, emissive: ACCENT, emissiveIntensity: 0.2, roughness: 0.5,
 })
 
-// makeVent: a low grate-on-plinth — reads as a floor vent/exhaust grille. Base sits
+// makeVent: a low grate-on-plinth, reads as a floor vent/exhaust grille. Base sits
 // at local y 0 so callers can drop it straight onto a plate top.
 const ventPlinthGeo = new THREE.BoxGeometry(0.9, 0.15, 0.9)
 const ventGrateGeo = new THREE.BoxGeometry(0.7, 0.08, 0.7)
@@ -59,7 +59,7 @@ export function makePipeRun(length: number): THREE.Group {
   return g
 }
 
-// makeTank: a squat cylindrical reservoir with a domed cap and an accent band —
+// makeTank: a squat cylindrical reservoir with a domed cap and an accent band -
 // power/coolant tank feel. Base at local y 0.
 const tankBodyGeo = new THREE.CylinderGeometry(0.9, 0.9, 2.2, 16)
 const tankCapGeo = new THREE.CylinderGeometry(0.95, 0.95, 0.2, 16)

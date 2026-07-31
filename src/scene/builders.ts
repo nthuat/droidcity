@@ -8,7 +8,7 @@ export function makeLabel(text: string, scale = 1): THREE.Sprite {
   ctx.font = 'bold 48px system-ui, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  // PGSimCity-style label chip: white pill + dark ink — readable on vivid plates,
+  // PGSimCity-style label chip: white pill + dark ink, readable on vivid plates,
   // pale board, and dark structures alike (a bare halo failed on dark kiosks).
   const w = ctx.measureText(text).width + 44
   const x0 = 256 - w / 2

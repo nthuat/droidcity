@@ -5,7 +5,7 @@ import type { Scenario } from './types'
 // Static hardware strip: CPU (west) · RAM bank (center) · DISK (east), recessed on
 // the hardware plate (board.ts top y -0.5). All geometry is static; only materials
 // change in response to setCoreStates/setRamSegments/diskBlink (wired live in a
-// later task — this file just exposes the paint API).
+// later task, this file just exposes the paint API).
 
 const PLATE_TOP = -0.5
 // Light-theme metal: silver idle dies on a mid-gray substrate (dark-on-dark made
@@ -77,7 +77,7 @@ function buildCpu(group: THREE.Group): Slot[] {
     new THREE.MeshStandardMaterial({ color: HOUSING_COLOR, roughness: 0.6 }),
   )
   housing.position.set(CPU_X, PLATE_TOP + 1, 0)
-  housing.userData.info = { title: 'CPU', note: 'Cores that run every app process’s main thread — red means stuck. Framework never touches this directly — calls go through HALs and kernel drivers.' }
+  housing.userData.info = { title: 'CPU', note: 'Cores that run every app process’s main thread. Red means stuck. Framework never touches this directly: calls go through HALs and kernel drivers.' }
   group.add(housing)
 
   const slotTop = PLATE_TOP + 2 + 0.2
@@ -93,9 +93,9 @@ function buildCpu(group: THREE.Group): Slot[] {
   })
 }
 
-// 2 static slabs for the Zygote's shared framework pages — permanently occupied,
+// 2 static slabs for the Zygote's shared framework pages, permanently occupied,
 // not part of setRamSegments (which only ever addresses the 8 dynamic app slabs).
-// Sit left of the app slabs, so the latter's offsets shift +2.4 to make room —
+// Sit left of the app slabs, so the latter's offsets shift +2.4 to make room -
 // combined footprint stays centered on RAM_X, so the "RAM BANK" silk label needs
 // no change.
 function buildRamShared(group: THREE.Group): void {
@@ -107,7 +107,7 @@ function buildRamShared(group: THREE.Group): void {
     const slab = new THREE.Mesh(new THREE.BoxGeometry(2, 3.4, 0.8), mat)
     slab.position.set(RAM_X + dx, PLATE_TOP + 1.7, 0)
     slab.userData.info = {
-      title: 'Shared framework pages — Zygote',
+      title: 'Shared framework pages: Zygote',
       note: 'One physical copy of the preloaded framework, mapped copy-on-write into EVERY app process. Why fork is cheap and why per-app memory is counted as PSS.',
     }
     group.add(slab)
@@ -116,7 +116,7 @@ function buildRamShared(group: THREE.Group): void {
 
 // Each app slab is a tank: a dark static shell (the physical page reservation,
 // always the same dim color whether occupied or not) plus an inset fill box
-// whose height tracks live heap usage — scale.y = fill fraction, min 0.05 so
+// whose height tracks live heap usage, scale.y = fill fraction, min 0.05 so
 // an occupied-but-near-empty heap still reads as "there". Fill grows from the
 // shell's base like the Zygote/PSI meters (scale.y + position.y compensation),
 // not from its vertical center.
@@ -148,11 +148,11 @@ function buildRam(group: THREE.Group): RamSlot[] {
 
 function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   // Grouped so the inspector's parent-chain walk-up finds the tooltip from any
-  // platter, the arm, or the LED — not just whichever mesh happened to carry it.
+  // platter, the arm, or the LED, not just whichever mesh happened to carry it.
   const diskGroup = new THREE.Group()
   diskGroup.userData.info = {
     title: 'Disk',
-    note: 'Blinks on every Room read/write. APK and dex are mmap\'d from here — paged into RAM on demand, evicted without write-back.',
+    note: 'Blinks on every Room read/write. APK and dex are mmap\'d from here, paged into RAM on demand, evicted without write-back.',
   }
   group.add(diskGroup)
 
@@ -178,13 +178,13 @@ function buildDisk(group: THREE.Group): THREE.MeshStandardMaterial {
   return ledMat
 }
 
-// Radio / NIC: the network district's hardware. Sits on the strip like DISK —
+// Radio / NIC: the network district's hardware. Sits on the strip like DISK -
 // the tower's DNS/TLS/TTFB pipeline all ends as RF on this mast.
 function buildRadio(group: THREE.Group): THREE.MeshStandardMaterial {
   const radioGroup = new THREE.Group()
   radioGroup.userData.info = {
     title: 'Radio / NIC',
-    note: 'The network tower\'s silicon. Every fetch the tower pipelines — DNS, TLS, download — leaves the device as RF from this mast.',
+    note: 'The network tower\'s silicon. Every fetch the tower pipelines, DNS, TLS, download, leaves the device as RF from this mast.',
   }
   group.add(radioGroup)
 
@@ -212,14 +212,14 @@ function buildRadio(group: THREE.Group): THREE.MeshStandardMaterial {
 }
 
 // zram: a compressed swap area inside RAM. Under pressure kswapd compresses
-// cold pages here INSTEAD of killing — slower memory beats a dead process.
+// cold pages here INSTEAD of killing: slower memory beats a dead process.
 // x 20 sits between PSI (14) and DISK (30), clear of both.
 const ZRAM_X = 20
 const ZRAM_MAX_H = 3.2
 function buildZram(group: THREE.Group): { shell: THREE.Mesh; fill: THREE.Mesh; mat: THREE.MeshStandardMaterial } {
   const zramGroup = new THREE.Group()
   zramGroup.userData.info = {
-    title: 'zram — compressed swap in RAM',
+    title: 'zram, compressed swap in RAM',
     note: 'kswapd\'s first answer to memory pressure: compress cold anonymous pages into this area instead of killing anything. Costs CPU on every touch, but the process lives. lmkd only gets a turn once reclaim can no longer keep up.',
   }
   group.add(zramGroup)
@@ -244,14 +244,14 @@ function buildPsi(group: THREE.Group): { bar: THREE.Mesh; mat: THREE.MeshStandar
   const bar = new THREE.Mesh(new THREE.BoxGeometry(0.8, PSI_BASE_H, 0.8), mat)
   bar.position.set(PSI_X, PLATE_TOP + PSI_BASE_H / 2, 0)
   bar.userData.info = {
-    title: 'PSI — memory pressure',
+    title: 'PSI: memory pressure',
     note: 'Stall-based pain signal. lmkd kills on pressure, not on exact fullness.',
   }
   group.add(bar)
   return { bar, mat }
 }
 
-const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each app process’s main thread, RAM segments (center) fill as processes are spawned, the disk (east) blinks on every Room read/write, zram compresses cold pages before anything is killed, and the radio mast (far east) turns the network tower’s pipeline into RF — the silicon underneath everything else in the city.'
+const DEFAULT_NARRATION = 'The hardware layer: CPU cores (west) run each app process’s main thread, RAM segments (center) fill as processes are spawned, the disk (east) blinks on every Room read/write, zram compresses cold pages before anything is killed, and the radio mast (far east) turns the network tower’s pipeline into RF, the silicon underneath everything else in the city.'
 
 export function makeHardwareRowScenario(): Scenario & {
   setCoreStates(s: CoreState[]): void
@@ -274,7 +274,7 @@ export function makeHardwareRowScenario(): Scenario & {
   let zramPulseT = 0
 
   let coreStates: CoreState[] = coreSlots.map(() => ({ color: null, stuck: false, app: '' }))
-  // paintCore runs per-frame via syncCores — only rebuild the userData.info
+  // paintCore runs per-frame via syncCores, only rebuild the userData.info
   // object when the running/stuck/app combination actually changed.
   const lastCoreInfoKey: (string | null)[] = coreSlots.map(() => null)
   let ramApps: (string | null)[] = ramSlots.map(() => null)
@@ -291,10 +291,10 @@ export function makeHardwareRowScenario(): Scenario & {
       lastCoreInfoKey[i] = infoKey
       mesh.userData.info = s.color !== null
         ? {
-            title: `Core — running ${s.app}`,
-            note: s.stuck ? 'Main thread blocked >5s — ANR territory.' : 'Executing this ward\'s main-thread messages.',
+            title: `Core: running ${s.app}`,
+            note: s.stuck ? 'Main thread blocked >5s: ANR territory.' : 'Executing this ward\'s main-thread messages.',
           }
-        : { title: 'Core — idle', note: 'No app process is executing right now.' }
+        : { title: 'Core: idle', note: 'No app process is executing right now.' }
     }
     if (s.stuck) {
       mat.color.setHex(CORE_STUCK)
@@ -321,8 +321,8 @@ export function makeHardwareRowScenario(): Scenario & {
       slot.pulseT = 0
     }
     slot.group.userData.info = seg
-      ? { title: `RAM — ${seg.app}'s pages`, note: seg.note }
-      : { title: 'RAM — free', note: 'Unclaimed physical pages.' }
+      ? { title: `RAM: ${seg.app}'s pages`, note: seg.note }
+      : { title: 'RAM: free', note: 'Unclaimed physical pages.' }
   }
 
   function paintDisk(): void {
@@ -339,7 +339,7 @@ export function makeHardwareRowScenario(): Scenario & {
     radioTipMat.emissiveIntensity = radioT > 0 ? radioT / RADIO_DECAY_MS : DISK_IDLE_EMISSIVE
   }
 
-  const panel = makePanel('Hardware — CPU · RAM · Disk')
+  const panel = makePanel('Hardware: CPU · RAM · Disk')
   panel.setNarration(DEFAULT_NARRATION)
 
   return {
@@ -416,7 +416,7 @@ export function makeHardwareRowScenario(): Scenario & {
       })
     },
     setIdle() {
-      // visual only — no ambient behavior; state is driven entirely by the setters
+      // visual only, no ambient behavior; state is driven entirely by the setters
     },
   }
 }

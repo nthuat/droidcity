@@ -92,7 +92,7 @@ describe('storyPlayer', () => {
     p.play(chapter([
       { narration: 'a', focus: 'boot', waitFor: { event: 'anr' }, timeoutMs: 20000 },
     ]))
-    for (let i = 0; i < 15; i++) p.update(1000) // 15s — past the default, inside this step's budget
+    for (let i = 0; i < 15; i++) p.update(1000) // 15s, past the default, inside this step's budget
     expect(stuck).toEqual([])
     for (let i = 0; i < 6; i++) p.update(1000)
     expect(stuck).toEqual(['anr'])
@@ -161,12 +161,12 @@ describe('storyPlayer', () => {
       { narration: 'a', focus: 'overview', waitFor: { ms: 1000 } },
       { narration: 'b', focus: 'overview', waitFor: { event: 'boot:complete' } },
     ]))
-    // Fires while step 0 (an ms-wait) is still in progress — buffered, not lost.
+    // Fires while step 0 (an ms-wait) is still in progress, buffered, not lost.
     bus.emit('boot:complete', {})
     expect(onStep).toHaveBeenCalledTimes(1)
     p.update(1000) // step 0's ms-wait completes, advances into step 1
     expect(onStep).toHaveBeenCalledTimes(2)
-    p.update(0) // step 1's wait was already buffered — no re-emission needed
+    p.update(0) // step 1's wait was already buffered, no re-emission needed
     expect(done).toHaveBeenCalled()
   })
   it('minStepMs holds a satisfied step until dwell elapses', () => {
@@ -209,8 +209,8 @@ describe('storyPlayer', () => {
       { narration: 'b', focus: 'ward:chat', waitFor: { ms: 0 } },
     ]))
     bus.emit('activity:resumed', { app: 'mail' })
-    expect(onStep).toHaveBeenCalledTimes(1) // wrong app — does not satisfy
+    expect(onStep).toHaveBeenCalledTimes(1) // wrong app, does not satisfy
     bus.emit('activity:resumed', { app: 'chat' })
-    expect(onStep).toHaveBeenCalledTimes(2) // matching app — advances
+    expect(onStep).toHaveBeenCalledTimes(2) // matching app, advances
   })
 })

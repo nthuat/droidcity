@@ -72,7 +72,7 @@ export function syncCars(meshes: WardMeshes, looper: LooperState, carPool: Map<n
 const APP_FLOOR_LIT_INTENSITY = 0.35
 
 // Application floor lights once at rise-complete (bindApplication precedes any
-// Activity) and dims on demolition. No phase-driven flicker — just on/off.
+// Activity) and dims on demolition. No phase-driven flicker, just on/off.
 export function setAppFloorLit(meshes: WardMeshes, lit: boolean): void {
   const mat = meshes.appFloor.material as THREE.MeshStandardMaterial
   mat.emissiveIntensity = lit ? APP_FLOOR_LIT_INTENSITY : 0
@@ -80,7 +80,7 @@ export function setAppFloorLit(meshes: WardMeshes, lit: boolean): void {
 
 const PROVIDER_SLAB_LIT_INTENSITY = 0.35
 
-// ContentProviders instantiate before Application.onCreate — lit slightly ahead
+// ContentProviders instantiate before Application.onCreate, lit slightly ahead
 // of the appFloor during rise, dimmed on demolition (same on/off shape).
 export function setProviderSlabLit(meshes: WardMeshes, lit: boolean): void {
   const mat = meshes.providerSlab.material as THREE.MeshStandardMaterial
@@ -97,7 +97,7 @@ export function setServiceAnnexLit(meshes: WardMeshes, lit: boolean): void {
 }
 
 // Worker cars slide along the worker lane for as long as their IO request is
-// in flight — purely cosmetic motion, no request-progress tracking needed.
+// in flight, purely cosmetic motion, no request-progress tracking needed.
 export function syncWorkerCars(meshes: WardMeshes, cars: ReadonlyMap<string, THREE.Mesh>, tMs: number): void {
   let i = 0
   for (const car of cars.values()) {
@@ -160,7 +160,7 @@ export function syncCrates(
     }
     crate.position.copy(crateSlotPosition(slots.get(obj.id)!))
     const mat = crate.material as THREE.MeshStandardMaterial
-    // Neutral crate tan — distinct from every app color so heap objects never
+    // Neutral crate tan, distinct from every app color so heap objects never
     // read as part of the (app-colored) Activity tower.
     mat.color.setHex(obj.reachable ? CRATE_REACHABLE : CRATE_GARBAGE)
     mat.opacity = obj.reachable ? 1 : 0.4
@@ -168,7 +168,7 @@ export function syncCrates(
   for (const [id, crate] of cratePool) {
     if (ids.has(id)) continue
     // Swept out of the heap already, but the travelling bar hasn't reached this
-    // crate's slot yet — keep it visible as garbage until the bar passes, so GC
+    // crate's slot yet, keep it visible as garbage until the bar passes, so GC
     // reads as "crates fall as the plane sweeps by" instead of an instant vanish.
     // Slot stays claimed (not freed below) so claimSlot can't hand it to a new
     // crate mid-sweep.
@@ -193,7 +193,7 @@ export function syncStackCards(meshes: WardMeshes, backStack: number): void {
 export const SINGLE_TOP_FLASH_MS = 300
 
 // launchMode singleTop: pushing onto an already-on-top instance reuses it
-// instead of stacking a new card — flash the top visible card instead.
+// instead of stacking a new card, flash the top visible card instead.
 export function syncSingleTopFlash(meshes: WardMeshes, backStack: number, flashMs: number): void {
   const topIndex = backStack - 1
   meshes.stackCards.forEach((card, i) => {
@@ -224,7 +224,7 @@ export interface ThreadPostSync {
 }
 
 // Thread rack: 6 posts (main, renderThread, binder×2, worker×2). Worker posts
-// light left-to-right, one per in-flight worker car — matches syncWorkerCars'
+// light left-to-right, one per in-flight worker car, matches syncWorkerCars'
 // count instead of tracking per-thread identity (there's no per-thread sim
 // state to key off of).
 export function syncThreadPosts(meshes: WardMeshes, s: ThreadPostSync): void {
@@ -266,7 +266,7 @@ export function syncFlashes(state: FlashState, anrOn: boolean, anrFlashT: number
   linkMat.emissiveIntensity = linkGlow
 
   const screenMat = state.meshes.screenPanel.material as THREE.MeshStandardMaterial
-  // Foreground apps' surfaces show content continuously — steady glow while on
+  // Foreground apps' surfaces show content continuously, steady glow while on
   // screen; the composite flash brightens on top of it. Backgrounded = dark.
   const base = isForeground ? SCREEN_FOREGROUND_GLOW : 0
   const flash = state.screenFlashMs > 0 ? state.screenFlashMs / SCREEN_FLASH_MS : 0
@@ -295,7 +295,7 @@ export function syncFlashes(state: FlashState, anrOn: boolean, anrFlashT: number
 }
 
 // Native side: the JNI bridge lights while a crossing is in flight, and the
-// native-heap pile grows with malloc'd bytes. It never shrinks on GC — the
+// native-heap pile grows with malloc'd bytes. It never shrinks on GC, the
 // only thing that clears it is process death (which demolishes the ward).
 const JNI_LIT = 0x3ddc84
 const JNI_IDLE = 0x6e7681

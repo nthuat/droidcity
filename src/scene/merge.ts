@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 // Collapse a staging group of many small static meshes into one mesh per
-// (material, tooltip-info) pair — draw calls drop from mesh-count to
+// (material, tooltip-info) pair, draw calls drop from mesh-count to
 // bucket-count while shared material instances (glow APIs) stay intact.
 // Each mesh's transform is baked into a geometry clone before merging, so
 // the returned meshes live in the staging group's local space.

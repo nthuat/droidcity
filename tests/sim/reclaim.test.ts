@@ -8,7 +8,7 @@ describe('reclaim', () => {
     expect(r.state.zramKb).toBeGreaterThan(0)
     expect(r.state.reclaimedKb).toBe(r.freedKb)
   })
-  it('finds less on every pass — diminishing returns', () => {
+  it('finds less on every pass, diminishing returns', () => {
     const first = reclaimPass(createReclaim(), 0.5)
     const second = reclaimPass(first.state, 0.5)
     expect(second.freedKb).toBeLessThan(first.freedKb)
