@@ -27,6 +27,8 @@ export interface WardEntry {
   nativeKb: number
   // JNI-crossing afterglow (ms) so the bridge visibly lights per call.
   jniFlashMs: number
+  // Broadcast delivery afterglow on the mailbox.
+  mailFlashMs: number
   db: DbState
   frame: FrameRun | null
   dying: boolean

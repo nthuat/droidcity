@@ -239,6 +239,10 @@ export function makeCityHallScenario(bus: Bus, hooks: CityHallHooks = {}): Scena
 
   const panel = makePanel('system_server — the city hall of Android')
   panel.addButton('Send broadcast', () => bus.emit('broadcast:sent', { action: 'NEWS' }))
+  panel.addButton('Broadcast → wake a dead app', () => {
+    bus.emit('broadcast:sent', { action: 'NEWS_MANIFEST' })
+    panel.setNarration('A MANIFEST-declared receiver does not need the app to be running: the system starts the process just to deliver onReceive. That is why a dead app can suddenly appear in the process list.')
+  })
   function enqueue(constraint: JobConstraint): void {
     jobs = enqueueJob(jobs, 'chat', constraint)
     paintJobs()

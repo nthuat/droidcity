@@ -20,6 +20,7 @@ import { stepPressureLadder } from './sim/pressureLadder'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
 import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
+import { APPS } from './sim/launcher'
 import { createScreen, screenOnHome, screenOnKilled, screenOnPermissionRequest, screenOnPermissionResolved, screenOnRecents, screenOnRecentsDismissed, screenOnResumed, screenOnShade, screenOnShadeDismissed } from './sim/screen'
 import { createNotifications, dismissNotification, postNotification } from './sim/notifications'
 import { createPermissions, denyPermission, grantPermission, needsPrompt } from './sim/permissions'
@@ -510,6 +511,15 @@ bus.on('data:cacheHit', ({ app }) => {
   if (!g) return
   packets.fly([g.position, DISK_POS], { color: 0x76e3ea, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
   packets.fly([DISK_POS, g.position], { color: 0x76e3ea, durationMs: HW_PACKET_MS, arcHeight: HW_PACKET_ARC })
+})
+// A manifest-declared receiver can start a process that isn't running: the
+// system forks it purely to deliver onReceive. Picks the first dead app so the
+// beat is visible rather than a no-op when everything is already alive.
+bus.on('broadcast:sent', ({ action }) => {
+  if (action !== 'NEWS_MANIFEST') return
+  const live = new Set(wardManager.wardStats().map(w => w.app))
+  const dead = APPS.find(a => !live.has(a))
+  if (dead) launcherPlaza.clickKiosk(dead)
 })
 // Broadcast fan-out: cityhall -> every living ward's plot. wardManager reacts
 // to the same event itself (posts onReceive per ward); this just visualizes

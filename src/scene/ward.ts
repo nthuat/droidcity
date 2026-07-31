@@ -20,6 +20,7 @@ export interface WardMeshes {
   readonly workerRoad: THREE.Mesh
   readonly stackCards: readonly THREE.Mesh[]
   readonly threadPosts: readonly THREE.Mesh[]
+  readonly mailbox: THREE.Mesh
   readonly nativeShop: THREE.Mesh
   readonly jniBridge: THREE.Mesh
   readonly nativeHeap: THREE.Mesh
@@ -314,6 +315,20 @@ export function buildWardMeshes(app: string): WardMeshes {
   cratesParent.userData.info = heapInfo
   group.add(cratesParent)
 
+  // BroadcastReceiver: the ward's mailbox. Lights when a broadcast is delivered
+  // here. Sits by the main road, since onReceive runs on the main thread.
+  const mailboxGeo = new THREE.BoxGeometry(1, 1.2, 1.4)
+  const mailboxMat = new THREE.MeshStandardMaterial({ color: 0x9aa7b0, roughness: 0.6 })
+  disposables.push(mailboxGeo, mailboxMat)
+  const mailbox = new THREE.Mesh(mailboxGeo, mailboxMat)
+  mailbox.name = 'mailbox'
+  mailbox.position.set(-2.6, 0.6, 5.4)
+  mailbox.userData.info = {
+    title: 'BroadcastReceiver',
+    note: 'Two kinds: **context-registered** (alive only while this process is, registered in code) and **manifest-declared** (the system can START this process to deliver — which is why a broadcast can wake a dead app). onReceive runs on the MAIN thread and has its own ANR timer: 10s foreground, 60s background. Most implicit broadcasts have been restricted since Android 8.',
+  }
+  group.add(mailbox)
+
   // Native side (NDK): a workshop across a JNI bridge, with its own heap pile.
   // Separate structure on purpose — native code runs in the SAME process and
   // address space, but outside ART: not managed, not garbage-collected.
@@ -489,6 +504,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     workerRoad,
     stackCards,
     threadPosts,
+    mailbox,
     nativeShop,
     jniBridge,
     nativeHeap,

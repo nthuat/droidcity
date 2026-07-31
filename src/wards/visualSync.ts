@@ -314,3 +314,13 @@ export function syncNative(meshes: WardMeshes, nativeKb: number, jniFlashMs: num
   meshes.nativeHeap.scale.y = 0.1 + frac * 2.4
   meshes.nativeHeap.position.y = 0.05 + (0.1 + frac * 2.4) * 0.5
 }
+
+// A delivered broadcast lights the mailbox: the same amber the city uses for
+// "system handed you something".
+const MAIL_LIT = 0xd29922
+export function syncMailbox(meshes: WardMeshes, flashMs: number): void {
+  const mat = meshes.mailbox.material as THREE.MeshStandardMaterial
+  const lit = flashMs > 0
+  mat.emissive.setHex(lit ? MAIL_LIT : 0x000000)
+  mat.emissiveIntensity = lit ? 0.8 : 0
+}

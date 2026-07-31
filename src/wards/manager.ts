@@ -12,7 +12,7 @@ import { DEFAULT_STAGES, startFrame, advanceFrame, withHeavyDraw } from '../sim/
 import { buildWardPanel } from './panel'
 import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import {
-  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards, syncNative,
+  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards, syncNative, syncMailbox,
   setAppFloorLit, setServiceAnnexLit, setProviderSlabLit, disposeMesh, clearPool,
   syncSingleTopFlash, syncThreadPosts, sweepBarX, SHED_FLASH_MS, SCREEN_FLASH_MS, SINGLE_TOP_FLASH_MS, SWEEP_MS,
 } from './visualSync'
@@ -86,6 +86,7 @@ export interface WardManagerDeps {
 const RISE_MS = 800
 const BUSY_GLOW_MS = 400
 const JNI_FLASH_MS = 500
+const MAIL_FLASH_MS = 900
 const RESTORE_WINDOW_MS = 60000
 const FRAME_VISUAL_SCALE = 0.02
 const DEMOLISH_MS = 600
@@ -288,6 +289,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       heap: createHeap(HEAP_CAPACITY_KB),
       nativeKb: 0,
       jniFlashMs: 0,
+      mailFlashMs: 0,
       db: createDb(),
       frame: null,
       dying: false,
@@ -667,13 +669,18 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     return entry.serviceRunning
   }
 
-  // City Hall 'Send broadcast' + boot:complete (main.ts) both emit this. Every
-  // non-dying ward reacts identically regardless of `action` — no per-app intent
-  // filtering modeled here (teaching-scope simplification, see plan).
+  // City Hall 'Send broadcast' + boot:complete (main.ts) both emit this.
+  // Live wards receive it through their context-registered receivers; a
+  // MANIFEST-declared receiver is the interesting case, and main.ts handles it:
+  // the system starts a dead app just to deliver. No per-app intent filtering
+  // is modeled (teaching-scope simplification, see plan).
+  const BROADCAST_ANR_MS = 10000 // foreground receiver budget; 60s in background
   function onBroadcastSent(): void {
     for (const entry of wards.values()) {
       if (entry.dying) continue
       entry.looper = post(entry.looper, 'onReceive', 6)
+      entry.mailFlashMs = MAIL_FLASH_MS
+      setPanelMessage(entry, `onReceive on the main thread — ${BROADCAST_ANR_MS / 1000}s to return or it's an ANR`)
       bus.emit('ui:messagePosted', { app: entry.app, label: 'onReceive' })
     }
   }
@@ -825,6 +832,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.screenFlashMs = Math.max(0, entry.screenFlashMs - dtMs)
     entry.sweepMs = Math.max(0, entry.sweepMs - dtMs)
     entry.jniFlashMs = Math.max(0, entry.jniFlashMs - dtMs)
+    entry.mailFlashMs = Math.max(0, entry.mailFlashMs - dtMs)
     entry.singleTopFlashMs = Math.max(0, entry.singleTopFlashMs - dtMs)
     entry.binderPulseMs = Math.max(0, entry.binderPulseMs - dtMs)
     entry.panelMessageMs = Math.max(0, entry.panelMessageMs - dtMs)
@@ -866,6 +874,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     entry.meshes.viewModelOrb.visible = entry.activity.viewModelValue !== null
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots, entry.sweepMs > 0, sweepBarX(entry.sweepMs))
     syncNative(entry.meshes, entry.nativeKb, entry.jniFlashMs)
+    syncMailbox(entry.meshes, entry.mailFlashMs)
     syncFlashes(entry, entry.looper.anr, entry.anrFlashT, entry.app === foregroundApp && entry.activity.phase === 'resumed')
     syncThreadPosts(entry.meshes, {
       main: entry.busyGlowMs > 0,
