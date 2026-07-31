@@ -1072,6 +1072,9 @@ if (debugEl) {
     bus,
     wardStats: () => wardManager.wardStats(),
     jobStats: () => cityHall.jobStats(),
+    // Lets a verification run prove the ladder actually runs reclaim BEFORE any
+    // kill, rather than taking the code's word for it.
+    reclaimState: () => ({ ...reclaim, pressure: hwWiring.getPressure() }),
   }
 }
 
