@@ -12,7 +12,7 @@ import { DEFAULT_STAGES, startFrame, advanceFrame, withHeavyDraw } from '../sim/
 import { buildWardPanel } from './panel'
 import { type WardEntry, trimProcessed, trimLog, narrationFor } from './entry'
 import {
-  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards, syncNative, syncMailbox,
+  syncCars, syncFloors, syncCrates, syncFlashes, syncBench, syncWorkerCars, syncStackCards, syncNative, syncMailbox, syncWindowToken,
   setAppFloorLit, setServiceAnnexLit, setProviderSlabLit, disposeMesh, clearPool,
   syncSingleTopFlash, syncThreadPosts, sweepBarX, SHED_FLASH_MS, SCREEN_FLASH_MS, SINGLE_TOP_FLASH_MS, SWEEP_MS,
 } from './visualSync'
@@ -875,6 +875,8 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     syncCrates(entry.meshes, entry.heap, entry.cratePool, entry.crateSlots, entry.sweepMs > 0, sweepBarX(entry.sweepMs))
     syncNative(entry.meshes, entry.nativeKb, entry.jniFlashMs)
     syncMailbox(entry.meshes, entry.mailFlashMs)
+    // A window exists while the Activity does — resumed or merely started.
+    syncWindowToken(entry.meshes, entry.activity.phase === 'resumed' || entry.activity.phase === 'started')
     syncFlashes(entry, entry.looper.anr, entry.anrFlashT, entry.app === foregroundApp && entry.activity.phase === 'resumed')
     syncThreadPosts(entry.meshes, {
       main: entry.busyGlowMs > 0,

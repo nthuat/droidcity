@@ -324,3 +324,12 @@ export function syncMailbox(meshes: WardMeshes, flashMs: number): void {
   mat.emissive.setHex(lit ? MAIL_LIT : 0x000000)
   mat.emissiveIntensity = lit ? 0.8 : 0
 }
+
+// Window registered with WMS: the token stands lit. Removed on background/kill,
+// which is exactly when the Surface goes back.
+const TOKEN_LIT = 0x6ea8d8
+export function syncWindowToken(meshes: WardMeshes, registered: boolean): void {
+  const mat = meshes.windowToken.material as THREE.MeshStandardMaterial
+  mat.emissive.setHex(registered ? TOKEN_LIT : 0x000000)
+  mat.emissiveIntensity = registered ? 0.6 : 0
+}

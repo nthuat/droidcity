@@ -20,6 +20,7 @@ export interface WardMeshes {
   readonly workerRoad: THREE.Mesh
   readonly stackCards: readonly THREE.Mesh[]
   readonly threadPosts: readonly THREE.Mesh[]
+  readonly windowToken: THREE.Mesh
   readonly mailbox: THREE.Mesh
   readonly nativeShop: THREE.Mesh
   readonly jniBridge: THREE.Mesh
@@ -315,6 +316,21 @@ export function buildWardMeshes(app: string): WardMeshes {
   cratesParent.userData.info = heapInfo
   group.add(cratesParent)
 
+  // The window: on resume the app calls WindowManager.addView, ViewRootImpl is
+  // created, and it registers this window with WMS — which asks SurfaceFlinger
+  // for the Surface the app then draws into. Lit = registered.
+  const tokenGeo = new THREE.CylinderGeometry(0.12, 0.12, 2.6, 8)
+  const tokenMat = new THREE.MeshStandardMaterial({ color: 0x8b98a5, roughness: 0.5 })
+  disposables.push(tokenGeo, tokenMat)
+  const windowToken = new THREE.Mesh(tokenGeo, tokenMat)
+  windowToken.name = 'windowToken'
+  windowToken.position.set(TOWER_X + 2, 1.3, TOWER_Z + 2.2)
+  windowToken.userData.info = {
+    title: 'Window token (ViewRootImpl ↔ WMS)',
+    note: 'Registering a window is a separate step from starting the Activity: WindowManager.addView creates a ViewRootImpl, which registers the window with WMS and receives a Surface allocated by SurfaceFlinger. From then on ViewRootImpl drives every traversal — measure, layout, draw — into that Surface. The window is removed when the Activity goes away, which is why a backgrounded app stops costing a Surface.',
+  }
+  group.add(windowToken)
+
   // BroadcastReceiver: the ward's mailbox. Lights when a broadcast is delivered
   // here. Sits by the main road, since onReceive runs on the main thread.
   const mailboxGeo = new THREE.BoxGeometry(1, 1.2, 1.4)
@@ -504,6 +520,7 @@ export function buildWardMeshes(app: string): WardMeshes {
     workerRoad,
     stackCards,
     threadPosts,
+    windowToken,
     mailbox,
     nativeShop,
     jniBridge,

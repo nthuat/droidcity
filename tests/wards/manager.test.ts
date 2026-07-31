@@ -36,6 +36,7 @@ function fakeMeshes(): WardMeshes {
     threadPosts: Array.from({ length: 6 }, () => ({
       material: { color: { setHex() {} }, emissive: { setHex() {} }, emissiveIntensity: 0 },
     })),
+    windowToken: { material: { emissive: { setHex() {} }, emissiveIntensity: 0 } },
     mailbox: { material: { emissive: { setHex() {} }, emissiveIntensity: 0 } },
     nativeShop: { material: { emissive: { setHex() {} }, emissiveIntensity: 0 } },
     jniBridge: { material: { color: { setHex() {} }, emissive: { setHex() {} }, emissiveIntensity: 0 } },
