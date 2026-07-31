@@ -78,6 +78,13 @@ Play chapters individually from the Story menu, or **Play all** to chain all sev
 
 The companion reference: the full boot-to-pixel flow, a memory-management deep dive, and an audit of what the city models vs. simplifies, lives in [`docs/android-flow-reference.md`](docs/android-flow-reference.md).
 
+## Shareable links
+
+The URL can point at one thing, which is handy for sending someone straight to a concept:
+
+- `?view=hardware` (or `zygote`, `system_server`, `packages`, `surfaceflinger`, `network`, `display`, `boot`) focuses that layer
+- `?story=2` plays a single chapter, `?story=all` plays the whole tour
+
 ## Corrections and contributions
 
 Early prototype: the model simplifies aggressively and certainly contains inaccuracies. The most useful contribution is a correction, if a tooltip, a narration line, or a piece of the flow is wrong, [open an issue](https://github.com/nthuat/droidcity/issues/new) and say what the real behavior is.

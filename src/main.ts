@@ -637,6 +637,7 @@ overviewBtn.addEventListener('click', () => {
 })
 switcherEl.appendChild(overviewBtn)
 
+const districtButtons = new Map<string, HTMLButtonElement>()
 scenarios.forEach((s, i) => {
   const b = document.createElement('button')
   b.textContent = s.name
@@ -644,6 +645,8 @@ scenarios.forEach((s, i) => {
     setActiveButton(b)
     activate(s, i)
   })
+  // Lower-cased name is the deep-link key: ?view=hardware, ?view=system_server.
+  districtButtons.set(s.name.toLowerCase(), b)
   switcherEl.appendChild(b)
 })
 
@@ -1181,10 +1184,38 @@ city.start((dtMs) => {
   }
 })
 
+// Deep links so a specific view or chapter can be shared:
+//   ?view=hardware        focus a layer
+//   ?story=3              play one chapter
+//   ?story=all            play the whole tour
+// Applied after the intro closes, so the camera move is something you watch
+// rather than something that already happened.
+function applyDeepLink(): void {
+  const q = new URLSearchParams(location.search)
+  const view = q.get('view')?.toLowerCase()
+  if (view) {
+    const btn = districtButtons.get(view)
+    if (btn) btn.click()
+  }
+  const story = q.get('story')?.toLowerCase()
+  if (!story) return
+  if (story === 'all') {
+    playAllBtn.click()
+    return
+  }
+  const n = Number(story)
+  const item = Number.isFinite(n) ? storyMenuItems[n - 1] : undefined
+  if (item?.chapter) {
+    playAllMode = false
+    startStory(item.chapter)
+  }
+}
+
 document.querySelector('#intro-tour')!.addEventListener('click', () => {
   document.querySelector<HTMLDivElement>('#intro')!.style.display = 'none'
   playAllBtn.click()
 })
 document.querySelector('#intro-close')!.addEventListener('click', () => {
   document.querySelector<HTMLDivElement>('#intro')!.style.display = 'none'
+  applyDeepLink()
 })
