@@ -56,6 +56,12 @@ export function makeCh7(ctx: StoryCtx): Chapter {
         waitFor: { event: 'service:foreground', app: 'chat' },
       },
       {
+        narration: 'Not all wake-ups are jobs. A broadcast goes out and every live app with a registered receiver gets onReceive — on the MAIN thread, with 10 seconds to return. And a manifest-declared receiver does not need the app to be running at all: the system starts a dead process purely to deliver. That is how an app you never opened ends up in the process list.',
+        focus: 'cityhall',
+        fire: () => ctx.bus.emit('broadcast:sent', { action: 'NEWS_MANIFEST' }),
+        waitFor: { ms: 5500 },
+      },
+      {
         narration: 'Now squeeze memory. Nothing dies yet: kswapd walks the cold pages and compresses them into zram. Slower memory beats a dead process — watch the zram block fill on the hardware strip.',
         focus: 'hardware',
         fire: () => ctx.squeezeMemory(),

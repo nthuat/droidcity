@@ -29,6 +29,18 @@ export function makeCh4(ctx: StoryCtx): Chapter {
         waitFor: { event: 'frame:composited', app: 'chat' },
       },
       {
+        narration: 'Same pipeline, different toolkit: switch this ward to Compose and the bench relabels to composition → layout → draw. Composition re-runs only the @Composables whose state changed; below draw it is the identical RenderThread → SurfaceFlinger path. The lower half does not care which toolkit drew the frame.',
+        focus: 'ward:chat',
+        fire: () => ctx.wards.toggleCompose('chat'),
+        waitFor: { ms: 5000 },
+      },
+      {
+        narration: 'Some of that work may not be Java at all. A JNI call crosses into the app\'s .so — same process, outside ART: no GC, no exceptions. Every crossing marshals arguments, and whatever it mallocs lands on the native heap, which Force GC can never reclaim. Only process death frees it.',
+        focus: 'ward:chat',
+        fire: () => ctx.wards.callNative('chat'),
+        waitFor: { event: 'jni:called', app: 'chat' },
+      },
+      {
         narration: 'Now block the ward\'s main road with one heavy delivery. Messages pile up. After five seconds the system loses patience: ANR.',
         focus: 'ward:chat',
         fire: () => ctx.wards.blockMainThread('chat', 8000),
