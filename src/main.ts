@@ -15,7 +15,8 @@ import { makeHardwareRowScenario } from './scenarios/hardwareRow'
 import { makeFoundryScenario } from './scenarios/foundry'
 import { makeCityHallScenario } from './scenarios/cityHall'
 import { makePackageStoreScenario } from './scenarios/packageStore'
-import { createReclaim, reclaimPass, resetReclaim, type ReclaimState } from './sim/reclaim'
+import { createReclaim, type ReclaimState } from './sim/reclaim'
+import { stepPressureLadder } from './sim/pressureLadder'
 import { makeLauncherPlazaScenario } from './scenarios/launcherPlaza'
 import { makeNetworkTowerScenario } from './scenarios/networkTower'
 import { makeSurfaceFlingerScenario } from './scenarios/surfaceFlinger'
@@ -301,14 +302,12 @@ const pressureTrigger = createEdgeTrigger(0.85, 0.7)
 const ZRAM_FULL_KB = 4000
 let reclaim: ReclaimState = createReclaim()
 function onPressureEdge(): void {
-  const pass = reclaimPass(reclaim, hwWiring.getPressure())
-  reclaim = pass.state
+  const step = stepPressureLadder(reclaim, hwWiring.getPressure())
+  reclaim = step.state
   hardwareRow.setZram(reclaim.zramKb / ZRAM_FULL_KB)
   hardwareRow.pulseReclaim()
-  if (!pass.exhausted) return
-  // Reclaim exhausted: now the kill.
-  bus.emit('memory:pressure', {})
-  reclaim = resetReclaim(reclaim)
+  // Only once kswapd can no longer keep up does lmkd get its turn.
+  if (step.kill) bus.emit('memory:pressure', {})
 }
 function refreshHud(): void {
   updateHudLines(hud, wardManager.wards().length, foundry, cityHall, networkTower, surfaceFlinger, launcherPlaza)
