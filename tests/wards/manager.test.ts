@@ -41,6 +41,7 @@ function fakeMeshes(): WardMeshes {
     nativeShop: { material: { emissive: { setHex() {} }, emissiveIntensity: 0 } },
     jniBridge: { material: { color: { setHex() {} }, emissive: { setHex() {} }, emissiveIntensity: 0 } },
     nativeHeap: { scale: { y: 0 }, position: { y: 0 } },
+    setUiToolkit: vi.fn(),
     dispose: vi.fn(),
   } as unknown as WardMeshes
 }

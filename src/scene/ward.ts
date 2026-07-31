@@ -13,6 +13,9 @@ export interface WardMeshes {
   readonly shedGlow: THREE.Mesh
   readonly shedLink: THREE.Mesh
   readonly benchStations: readonly THREE.Mesh[]
+  // Relabels the render bench between the View pipeline and Compose. The meshes
+  // and the frame sim are untouched: that identity IS the teaching point.
+  setUiToolkit(toolkit: 'views' | 'compose'): void
   readonly anrOverlay: THREE.Mesh
   readonly serviceAnnex: THREE.Mesh
   readonly wallMesh: THREE.Mesh
@@ -43,6 +46,12 @@ const FLOOR_D = 2.5
 const APP_FLOOR_W = 2.8
 const APP_FLOOR_D = 2.8
 const BENCH_LABELS = ['input', 'animation', 'measure/layout', 'draw', 'renderThread']
+// Compose replaces the middle stages; everything below `draw` is the same code.
+const COMPOSE_NOTES: Record<string, string> = {
+  composition: 'Composition: run the @Composable functions whose snapshot state changed. Recomposition scopes let Compose SKIP subtrees whose inputs are unchanged — the reason stable types and lambdas matter for performance.',
+  layout: 'Layout: measure and place, single-pass per node (no double-measure like nested Views). Same job as measure/layout in the View world.',
+  draw: 'Draw: record drawing commands into the same display list the View pipeline produces. From here down — RenderThread, Skia/HWUI, SurfaceFlinger, vsync — Compose and Views are identical.',
+}
 const BENCH_GAP = 1.6
 const BENCH_NOTES: Record<string, string> = {
   input: 'Choreographer picks up the tap at the next vsync tick.',
@@ -438,6 +447,7 @@ export function buildWardMeshes(app: string): WardMeshes {
 
   // Render bench: 5 mini stations in a row, each with a tiny label.
   const benchStations: THREE.Mesh[] = []
+  const benchLabels: Array<{ sprite: THREE.Sprite; x: number; views: string }> = []
   const benchStartX = -((BENCH_LABELS.length - 1) * BENCH_GAP) / 2
   BENCH_LABELS.forEach((text, i) => {
     const geo = new THREE.BoxGeometry(1, 1.2, 1)
@@ -453,6 +463,10 @@ export function buildWardMeshes(app: string): WardMeshes {
 
     const label = makeLabel(text, 0.25)
     label.position.set(x, 1.6, -8)
+    // Compose renames the middle of the pipeline (composition -> layout ->
+    // draw) but joins the identical RenderThread -> SurfaceFlinger path below
+    // it, so the same stations are relabelled rather than rebuilt.
+    benchLabels.push({ sprite: label, x, views: text })
     trackLabel(label)
     group.add(label)
   })
@@ -513,6 +527,27 @@ export function buildWardMeshes(app: string): WardMeshes {
     shedGlow,
     shedLink,
     benchStations,
+    setUiToolkit(toolkit) {
+      const COMPOSE: Record<string, string> = {
+        'measure/layout': 'layout',
+        draw: 'draw',
+        input: 'input',
+        animation: 'composition',
+        renderThread: 'renderThread',
+      }
+      benchLabels.forEach((b, i) => {
+        const text = toolkit === 'compose' ? (COMPOSE[b.views] ?? b.views) : b.views
+        const next = makeLabel(text, 0.25)
+        next.position.set(b.x, 1.6, -8)
+        group.remove(b.sprite)
+        group.add(next)
+        b.sprite = next
+        const station = benchStations[i]
+        station.userData.info = toolkit === 'compose'
+          ? { title: `Compose phase: ${text}`, note: COMPOSE_NOTES[text] ?? BENCH_NOTES[b.views] }
+          : { title: `Frame stage: ${b.views}`, note: BENCH_NOTES[b.views] }
+      })
+    },
     anrOverlay,
     serviceAnnex,
     wallMesh,

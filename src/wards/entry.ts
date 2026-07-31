@@ -29,6 +29,9 @@ export interface WardEntry {
   jniFlashMs: number
   // Broadcast delivery afterglow on the mailbox.
   mailFlashMs: number
+  // Which UI toolkit this app is drawn with. Affects labels and narration only:
+  // the frame pipeline below `draw` is the same either way.
+  compose: boolean
   db: DbState
   frame: FrameRun | null
   dying: boolean

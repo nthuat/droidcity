@@ -39,6 +39,7 @@ export interface WardManager {
   forceGc(app: string): void
   callNative(app: string): void
   allocateBigChunk(app: string): void
+  toggleCompose(app: string): boolean
   nativeCrash(app: string): void
   rotate(app: string): void
   refreshData(app: string): void
@@ -290,6 +291,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       nativeKb: 0,
       jniFlashMs: 0,
       mailFlashMs: 0,
+      compose: false,
       db: createDb(),
       frame: null,
       dying: false,
@@ -517,6 +519,19 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     allocateN(entry, app, 6, 120)
     onAllocate?.(app, BIG_CHUNK_MB)
     setPanelMessage(entry, `Allocated ${BIG_CHUNK_MB}MB — watch PSI climb on the hardware strip`)
+  }
+
+  // Views <-> Compose. Only the top of the pipeline changes; the frame sim is
+  // identical, which is the point the tooltips make.
+  function toggleCompose(app: string): boolean {
+    const entry = wards.get(app)
+    if (!entry || entry.dying) return false
+    entry.compose = !entry.compose
+    entry.meshes.setUiToolkit(entry.compose ? 'compose' : 'views')
+    setPanelMessage(entry, entry.compose
+      ? 'Compose: composition → layout → draw. Below draw it is the same RenderThread → SurfaceFlinger path.'
+      : 'Views: measure → layout → draw, same lower half.')
+    return entry.compose
   }
 
   function callNative(app: string): void {
@@ -938,7 +953,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
       if (!entry.panel) {
         entry.panel = buildWardPanel(
           app,
-          { blockMainThread, rotate: rotateWard, forceGc, callNative, nativeCrash, allocateBigChunk, refreshData, goHome, toggleService, toggleForegroundService, pushActivity, popActivity, toggleBind },
+          { blockMainThread, rotate: rotateWard, forceGc, callNative, nativeCrash, allocateBigChunk, toggleCompose, refreshData, goHome, toggleService, toggleForegroundService, pushActivity, popActivity, toggleBind },
           narrationFor(entry),
           entry.serviceRunning,
         )
@@ -950,6 +965,7 @@ export function createWardManager(deps: WardManagerDeps): WardManager {
     callNative,
     nativeCrash,
     allocateBigChunk,
+    toggleCompose,
     rotate: rotateWard,
     refreshData,
     runHeavyFrame,

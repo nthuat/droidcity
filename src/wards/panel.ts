@@ -8,6 +8,7 @@ export interface WardPanelActions {
   forceGc(app: string): void
   callNative(app: string): void
   allocateBigChunk(app: string): void
+  toggleCompose(app: string): boolean
   nativeCrash(app: string): void
   refreshData(app: string): void
   goHome(app: string): void
@@ -43,6 +44,10 @@ export function buildWardPanel(
   panel.addButton('Open (singleTop)', () => actions.pushActivity(app, 'singleTop'))
   panel.addButton('Back', () => actions.popActivity(app))
   panel.addButton('Force GC', () => actions.forceGc(app))
+  const composeBtn = panel.addButton('UI: Views', () => {
+    const on = actions.toggleCompose(app)
+    composeBtn.textContent = on ? 'UI: Compose' : 'UI: Views'
+  })
   panel.addButton('Allocate 150MB', () => actions.allocateBigChunk(app))
   panel.addButton('JNI → native', () => actions.callNative(app))
   panel.addButton('Native crash (SIGSEGV)', () => actions.nativeCrash(app))
