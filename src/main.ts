@@ -841,7 +841,17 @@ let hasHoverPointer = false
 // result can't change, so the 80ms tick skips the raycast entirely.
 let lastCastX = -1
 let lastCastY = -1
-city.renderer.domElement.addEventListener('pointerdown', () => { pointerIsDown = true })
+city.renderer.domElement.addEventListener('pointerdown', (ev) => {
+  pointerIsDown = true
+  // Touch devices never fire hover, so the tooltip would never appear. Treat a
+  // tap as "hover here": the inspector explains what was touched, and the click
+  // handler below still flies the camera.
+  if (ev.pointerType === 'touch') {
+    lastPointerX = ev.clientX
+    lastPointerY = ev.clientY
+    inspector.update(ev.clientX, ev.clientY)
+  }
+})
 addEventListener('pointerup', () => { pointerIsDown = false })
 city.renderer.domElement.addEventListener('pointermove', (ev) => {
   lastPointerX = ev.clientX
